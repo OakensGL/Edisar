@@ -698,6 +698,7 @@ function walkPhase(e: Mover, now: number): number { const k = (now - e.moveStart
 interface QuestSt { e: boolean; k: number; b: boolean; d: boolean; }
 interface Warn { cells: Array<[number, number]>; at: number; born: number; min: number; max: number; elem: Elem; name: string; }
 interface Game { byRegion: Mon[][]; nextMonId: number; cleared: number; quests: QuestSt[]; bossKills: number[]; warns: Warn[]; returnAt: number; afkBoss: boolean; hudPad: number; lootToast: LootToast | null; exitPortal: [number, number, number] | null; carry: Inst[]; }
+interface Game { miniZoom?: number; }
 interface Player { hpPot2: number; manaPot2: number; slowUntil: number; poisonUntil: number; poisonNext: number; poisonDmg: number; }
 interface Mon { spec: number[]; enraged: boolean; temp: boolean; }
 function makeMon(id: number, def: MonDef, x: number, y: number): Mon {
@@ -1543,7 +1544,7 @@ interface SaveData {
   gold: number; hpPot: number; manaPot: number; magicLevel: number; sk: Record<SkillId, SkillVal>;
   eq: Record<Slot, SaveItem | null>; bag: SaveItem[]; binds: Binds; x: number; y: number; deaths: number; kills: number; nextUid: number; savedAt: number;
 }
-interface SaveData { hpPot2: number; manaPot2: number; cleared: number; quests: QuestSt[]; bossKills: number[]; }
+interface SaveData { hpPot2: number; manaPot2: number; cleared: number; quests: QuestSt[]; bossKills: number[]; mz?: number; }
 type DecodeResult = { ok: true; data: SaveData } | { ok: false; error: string };
 function saveItem(i: Inst): SaveItem { const st: Partial<Stats> = {}; for (const k of STAT_KEYS) { const v = istat(i, k); if (v) st[k] = v; } return { uid: i.uid, id: i.id, rar: i.rar, st }; }
 function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
@@ -1553,7 +1554,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills] };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1 };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -1598,11 +1599,11 @@ function validateSave(raw: unknown): DecodeResult {
   const quests: QuestSt[] = HOUSES.map((H: HouseDef, i: number): QuestSt => { const q = Array.isArray(qRaw) ? qRaw[i] : undefined; if (!isObj(q)) return { e: false, k: 0, b: false, d: false }; return { e: q["e"] === true, k: intIn(q["k"], 0, H.quest.n) ?? 0, b: q["b"] === true, d: q["d"] === true }; });
   const bossKills: number[] = HOUSES.map((_: HouseDef, i: number): number => (Array.isArray(bkRaw) ? intIn(bkRaw[i], 0, 1e9) : null) ?? 0);
   const deaths = intIn(raw["deaths"], 0, 1e9) ?? 0, kills = intIn(raw["kills"], 0, 1e12) ?? 0, nextUid = intIn(raw["nextUid"], 1, 1e9) ?? 1;
-  const savedAt = numIn(raw["savedAt"], 0, 1e15) ?? 0;
+  const savedAt = numIn(raw["savedAt"], 0, 1e15) ?? 0; const mz = miniZoomClamp(numIn(raw["mz"], 1, 4) ?? 1);
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -1622,7 +1623,7 @@ function gameFromSave(d: SaveData): Game {
   for (const k of SKILL_IDS) { const s = d.sk[k]; p.sk[k] = { lvl: s.lvl, tries: s.tries }; }
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   p.bag = d.bag.slice(0, BAG_MAX).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
-  g.deaths = d.deaths; g.kills = d.kills;
+  g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
   let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
@@ -2100,7 +2101,7 @@ function buildMini(tiles: Uint8Array): HTMLCanvasElement | null {
 function doorColor(g: Game, n: number): string { return g.cleared >= n ? "#5cff7a" : houseOpen(g, n) ? "#ffd34d" : "#8a8a8a"; }
 function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: number, s: number, now: number, labels: boolean): void {
   const dot = (x: number, y: number, c: string, r: number): void => { ctx.fillStyle = "#000"; ctx.fillRect(ox + x * s - r - 1, oy + y * s - r - 1, r * 2 + 2, r * 2 + 2); ctx.fillStyle = c; ctx.fillRect(ox + x * s - r, oy + y * s - r, r * 2, r * 2); };
-  const reg = regionOf(g.p.x, g.p.y); const R = Math.max(2, s);
+  const reg = regionOf(g.p.x, g.p.y); const R = Math.max(2, labels ? s : Math.min(s, 4));
   if (reg === 0) {
     dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
@@ -2114,22 +2115,32 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
     for (const m of g.byRegion[reg] ?? []) if (m.alive && m.def.boss) dot(m.x + 0.5, m.y + 0.5, "#ff3030", R);
   }
   const t = curTarget(g); if (t) dot(t.x + 0.5, t.y + 0.5, "#ff9a9a", Math.max(1, s * 0.6));
-  const px = ox + (g.p.x + 0.5) * s, py = oy + (g.p.y + 0.5) * s; const L = Math.max(3, s * 2);
+  const px = ox + (g.p.x + 0.5) * s, py = oy + (g.p.y + 0.5) * s; const L = Math.max(3, labels ? s * 2 : Math.min(s * 2, 9));
   ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - L, py); ctx.lineTo(px + L, py); ctx.moveTo(px, py - L); ctx.lineTo(px, py + L); ctx.stroke();
   ctx.strokeStyle = Math.floor(now / 400) % 2 === 0 ? "#ffffff" : "#e0e0e0"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.lineWidth = 1;
 }
-// Dibuja la región actual (mundo exterior o una Casa) dentro del rectángulo dado, centrada
-function drawRegionMap(ctx: CanvasRenderingContext2D, g: Game, bx: number, by: number, bw: number, bh: number, now: number, labels: boolean): [number, number, number, number] {
+// Zoom del minimapa (rueda del ratón o botones −/+): 1x = toda la región; más = acercado y centrado en el jugador
+const MINI_ZOOMS: number[] = [1, 1.5, 2, 3, 4];
+function miniZoomClamp(z: number): number { let best = 1; for (const v of MINI_ZOOMS) if (Math.abs(v - z) < Math.abs(best - z)) best = v; return best; }
+function miniZoomStep(g: Game, dir: number): number {
+  const i = MINI_ZOOMS.indexOf(miniZoomClamp(g.miniZoom ?? 1)); const j = Math.max(0, Math.min(MINI_ZOOMS.length - 1, i + (dir > 0 ? 1 : -1)));
+  g.miniZoom = MINI_ZOOMS[j] ?? 1; return g.miniZoom;
+}
+// Dibuja la región actual (mundo exterior o una Casa) dentro del rectángulo dado, centrada (o centrada en el jugador si hay zoom)
+function drawRegionMap(ctx: CanvasRenderingContext2D, g: Game, bx: number, by: number, bw: number, bh: number, now: number, labels: boolean, zoom?: number): [number, number, number, number] {
   const [rx, ry, rw, rh] = regionRect(regionOf(g.p.x, g.p.y));
-  const s = Math.min(bw / rw, bh / rh); const ox = bx + (bw - rw * s) / 2, oy = by + (bh - rh * s) / 2;
+  const z = Math.max(1, zoom ?? 1); const s = Math.min(bw / rw, bh / rh) * z;
+  const ox = z > 1 ? bx + bw / 2 - (g.p.x + 0.5 - rx) * s : bx + (bw - rw * s) / 2, oy = z > 1 ? by + bh / 2 - (g.p.y + 0.5 - ry) * s : by + (bh - rh * s) / 2;
+  if (z > 1) { ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip(); }
   if (g.mini) { ctx.imageSmoothingEnabled = false; ctx.drawImage(g.mini, rx * MINI_PX, ry * MINI_PX, rw * MINI_PX, rh * MINI_PX, ox, oy, rw * s, rh * s); ctx.imageSmoothingEnabled = true; }
   ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.strokeRect(ox + (g.camX / TS - rx) * s + 0.5, oy + (g.camY / TS - ry) * s + 0.5, (viewW(g) / TS) * s, (VH / TS) * s);
   miniMarkers(ctx, g, ox - rx * s, oy - ry * s, s, now, labels);
+  if (z > 1) ctx.restore();
   return [ox, oy, rw * s, rh * s];
 }
 function drawMiniPanel(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
   const w = ctx.canvas.width, h = ctx.canvas.height; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
-  drawRegionMap(ctx, g, 0, 0, w, h, now, false);
+  drawRegionMap(ctx, g, 0, 0, w, h, now, false, g.miniZoom ?? 1);
 }
 function drawBigMap(ctx: CanvasRenderingContext2D, g: Game, now: number, font: string): void {
   ctx.fillStyle = "rgba(0,0,0,0.88)"; ctx.fillRect(0, 0, VW, VH);
@@ -2418,6 +2429,17 @@ interface Dnd { start: (x: number, y: number, src: DragSrc, tap?: () => void) =>
 function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { current: HTMLCanvasElement | null }; hudRef: { current: HTMLDivElement | null }; open: boolean; setOpen: (o: boolean) => void; win: HudWin; setWin: (w: HudWin) => void; onSave: () => void; full: boolean; onFull: () => void; dnd?: Dnd }) {
   const { g, th } = props; const p = g.p; const now = performance.now();
   const [sel, setSel] = useState<number>(-1); const [showMini, setShowMini] = useState<boolean>(true); const [showBag, setShowBag] = useState<boolean>(true);
+  // Rueda del ratón sobre el minimapa: zoom (solo ahí; el resto de la página se desplaza normal). Listener nativo para poder usar preventDefault.
+  const miniWrapRef = useRef<HTMLDivElement | null>(null); const refreshRef = useRef<() => void>(props.refresh); refreshRef.current = props.refresh;
+  useEffect(() => {
+    const el = miniWrapRef.current; if (!el) return; let acc = 0;
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault(); e.stopPropagation();
+      acc += e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1); if (Math.abs(acc) < 30) return;
+      const dir = acc < 0 ? 1 : -1; acc = 0; miniZoomStep(g, dir); refreshRef.current();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel);
+  }, [showMini, props.open, g]);
   const act = (f: () => void): void => { f(); props.refresh(); };
   const pick = (uid: number): void => { if (props.dnd && props.dnd.used()) return; setSel(uid); };
   const selBag = p.bag.findIndex((i: Inst) => i.uid === sel); const selSlot = SLOTS.find((s: Slot) => p.eq[s]?.uid === sel) ?? null;
@@ -2443,7 +2465,14 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           <button style={btn(th, false, true)} onClick={() => setShowMini(!showMini)} title={showMini ? "Ocultar minimapa" : "Mostrar minimapa"}>{showMini ? "–" : "+"}</button>
           <button style={btn(th, false, true)} onClick={() => props.setOpen(false)} title="Ocultar HUD">▸</button>
         </div>
-        {showMini && <canvas ref={props.miniRef} width={MINI_SIZE} height={MINI_SIZE} onClick={() => act(() => { g.bigMap = !g.bigMap; })} style={{ width: "100%", maxWidth: 132, aspectRatio: "1 / 1", margin: "0 auto", imageRendering: "pixelated", borderRadius: 4, cursor: "pointer", display: "block" }} />}
+        {showMini && <div ref={miniWrapRef} data-minizoom={g.miniZoom ?? 1} style={{ position: "relative", width: "100%", maxWidth: 132, margin: "0 auto" }}>
+          <canvas ref={props.miniRef} width={MINI_SIZE} height={MINI_SIZE} onClick={() => act(() => { g.bigMap = !g.bigMap; })} title="Rueda del ratón: zoom · clic: mapa completo" style={{ width: "100%", aspectRatio: "1 / 1", imageRendering: "pixelated", borderRadius: 4, cursor: "pointer", display: "block" }} />
+          <div style={{ position: "absolute", right: 2, bottom: 2, display: "flex", gap: 2, alignItems: "center" }}>
+            <button style={{ ...btn(th, false, true), padding: "0 5px", lineHeight: "14px", background: th.bg.base, opacity: (g.miniZoom ?? 1) <= 1 ? 0.45 : 1 }} onClick={() => act(() => { miniZoomStep(g, -1); })} title="Alejar minimapa (rueda abajo)" aria-label="Alejar minimapa">−</button>
+            <span data-minizoom-label="1" style={{ fontSize: 9, fontWeight: 700, padding: "0 3px", borderRadius: 3, background: th.bg.base, color: th.text.primary, lineHeight: "14px" }}>{g.miniZoom ?? 1}x</span>
+            <button style={{ ...btn(th, false, true), padding: "0 5px", lineHeight: "14px", background: th.bg.base, opacity: (g.miniZoom ?? 1) >= 4 ? 0.45 : 1 }} onClick={() => act(() => { miniZoomStep(g, 1); })} title="Acercar minimapa (rueda arriba)" aria-label="Acercar minimapa">+</button>
+          </div>
+        </div>}
       </div>
       <div data-hudscroll="1" style={{ ...panel, overflowY: "auto", minHeight: 0, flex: "0 1 auto" }}>
         <div style={{ ...head, justifyContent: "space-between" }}><span>{p.name} · Nv {p.level}</span><span style={{ color: th.text.warning }}>💰 {p.gold}</span></div>

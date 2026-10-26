@@ -13,4 +13,5 @@ Turns the Grok Page canvas (canvas_id 83c982cd-8973-45aa-873c-9eabb359d886) into
 - `src/main.tsx` – mounts the app into #root; provides `__edisarHookSave` (save on beforeunload / pagehide / visibilitychange→hidden)
 - `scripts/build.mjs` – esbuild bundle + build-time patch that hooks the game's own `autosave()` into the above (warns if the anchor text disappears)
 - `scripts/test-ui.mjs` – tooltip hover/Shift compare + H→Atajos check (run by `--test`)
+- `scripts/test-minimap.mjs` – minimap wheel zoom (1x–4x, clamped, no page scroll, wheel elsewhere untouched, −/+ buttons, saved); writes `shots/minimap-zoom.png` (run by `--test`)
 - `scripts/test.mjs` – puppeteer-core + /usr/bin/google-chrome tests over file:// and http://; screenshots to `shots/`
