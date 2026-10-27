@@ -14,4 +14,6 @@ Turns the Grok Page canvas (canvas_id 83c982cd-8973-45aa-873c-9eabb359d886) into
 - `scripts/build.mjs` – esbuild bundle + build-time patch that hooks the game's own `autosave()` into the above (warns if the anchor text disappears)
 - `scripts/test-ui.mjs` – tooltip hover/Shift compare + H→Atajos check (run by `--test`)
 - `scripts/test-minimap.mjs` – minimap wheel zoom (1x–4x, clamped, no page scroll, wheel elsewhere untouched, −/+ buttons, saved); writes `shots/minimap-zoom.png` (run by `--test`)
+- `scripts/test-coins.mjs` – tienda de Edisar Coins (prueba): tecla K/botón, Modo prueba, compras, AFK filter, Cambista Darío (1 coin = 10,000 de oro); writes `shots/coin-store.png`, `shots/coin-exchange.png` (run by `--test`)
+- `scripts/test-depot.mjs` – depósito junto al templo: abrir, arrastrar mochila↔depósito, Sacar/Guardar/Guardar todo, tooltip, Esc, persistencia; writes `shots/depot.png` (run by `--test`)
 - `scripts/test.mjs` – puppeteer-core + /usr/bin/google-chrome tests over file:// and http://; screenshots to `shots/`

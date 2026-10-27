@@ -9,7 +9,7 @@ type HatStyle = "hood" | "pointy" | "horns" | "cap" | "mask" | "helm";
 type Look = "staff" | "bow" | "sword" | "axe" | "club" | "dagger" | "none";
 type MonId = string;
 type MoveAct = "up" | "down" | "left" | "right" | "ul" | "ur" | "dl" | "dr";
-type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys";
+type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins";
 type Binds = Record<Action, string[]>;
 type Slot = "head" | "body" | "legs" | "feet" | "weapon" | "off" | "amulet" | "ring";
 type WType = "sword" | "axe" | "club" | "dagger" | "rod" | "wand" | "staff" | "bow" | "shield" | "quiver" | "orb" | "armor" | "jewel";
@@ -99,14 +99,14 @@ const ACTIONS: Array<{ id: Action; label: string }> = [
   { id: "power1", label: "Poder 1" }, { id: "power2", label: "Poder 2" }, { id: "power3", label: "Poder 3" }, { id: "power4", label: "Poder 4" },
   { id: "hpPot", label: "Poción de vida" }, { id: "manaPot", label: "Poción de maná" },
   { id: "attack", label: "Atacar al más cercano" }, { id: "nextTarget", label: "Siguiente objetivo" }, { id: "clearTarget", label: "Quitar objetivo / cerrar" },
-  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" },
+  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" },
 ];
 const DEFAULT_BINDS: Binds = {
   up: ["KeyW", "ArrowUp", "Numpad8"], down: ["KeyS", "ArrowDown", "Numpad2"], left: ["KeyA", "ArrowLeft", "Numpad4"], right: ["KeyD", "ArrowRight", "Numpad6"],
   ul: ["KeyQ", "Numpad7"], ur: ["KeyE", "Numpad9"], dl: ["KeyZ", "Numpad1"], dr: ["KeyC", "Numpad3"],
   power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"],
   hpPot: ["F5", "Digit5"], manaPot: ["F6", "Digit6"], attack: ["Space"], nextTarget: ["Tab"], clearTarget: ["Escape"],
-  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"],
+  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"],
 };
 const MOVE_VEC: Record<MoveAct, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0], ul: [-1, -1], ur: [1, -1], dl: [-1, 1], dr: [1, 1] };
 const DIRS8: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]];
@@ -546,7 +546,7 @@ function zoneName(g: Game, x: number, y: number): string {
 }
 function monAt(g: Game, x: number, y: number): Mon | null { for (const m of regionMons(g, x, y)) if (m.alive && m.x === x && m.y === y) return m; return null; }
 function findMon(g: Game, id: number): Mon | null { if (id < 0) return null; for (const m of g.mons) if (m.id === id) return m; return null; }
-function canPlayerEnter(g: Game, x: number, y: number): boolean { if (!walkable(tileAt(g, x, y))) return false; if (x === NPC_X && y === NPC_Y) return false; return monAt(g, x, y) === null; }
+function canPlayerEnter(g: Game, x: number, y: number): boolean { if (!walkable(tileAt(g, x, y))) return false; if (isNpcAt(x, y)) return false; return monAt(g, x, y) === null; }
 function canMonEnter(g: Game, x: number, y: number): boolean {
   const t = tileAt(g, x, y);
   if (!walkable(t) || t === PORTAL || isSafe(x, y)) return false;
@@ -571,7 +571,7 @@ function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) =
   if (goal(sx, sy)) return null;
   BFS_PREV.fill(-1); OCC.fill(0);
   for (const m of regionMons(g, sx, sy)) if (m.alive) OCC[m.y * MW + m.x] = 1;
-  OCC[NPC_Y * MW + NPC_X] = 1;
+  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1;
   const start = sy * MW + sx; BFS_PREV[start] = start;
   let head = 0, tail = 0, found = -1; BFS_Q[tail++] = start;
   while (head < tail && head < maxNodes && found < 0) {
@@ -821,7 +821,7 @@ function rollItem(g: Game, def: MonDef): Inst | null {
 // Botín de jefes y premios: a la mochila; si está llena, a tus pies (no desaparece en 30 min ni lo borra el límite del suelo)
 const BOSS_LOOT_MS = 1800000;
 function giveItem(g: Game, inst: Inst, x: number, y: number, now: number): boolean {
-  if (g.p.bag.length < BAG_MAX) { g.p.bag.push(inst); return true; }
+  if (g.p.bag.length < bagMax(g)) { g.p.bag.push(inst); return true; }
   g.ground.push({ x, y, inst, until: now + BOSS_LOOT_MS, boss: true }); return false;
 }
 function pushToast(g: Game, title: string, lines: Array<[string, string]>, note: string, now: number): void {
@@ -847,7 +847,7 @@ function dropCarry(g: Game, x: number, y: number, now: number): void {
 }
 function killMon(g: Game, m: Mon, now: number): void {
   const p = g.p; m.alive = false; m.hp = 0; m.deadAt = now; m.respawnAt = m.temp ? Infinity : now + m.def.respawn; g.kills++;
-  const exp = m.def.exp * EXP_RATE; const gold = Math.floor(Math.random() * (m.def.gold + 1));
+  const exp = Math.round(m.def.exp * EXP_RATE * expMul(g)); const gold = Math.floor(Math.random() * (m.def.gold + 1));
   p.gold += gold; if (g.afk) { g.afkGold += gold; g.afkKills++; }
   if (exp > 0) addFloat(g, m.x * TS + 16, m.y * TS - 8, `+${exp} exp`, "#ffffff", now);
   if (gold > 0) addFloat(g, m.x * TS + 16, m.y * TS + 6, `+${gold} oro`, "#ffd34d", now);
@@ -865,6 +865,7 @@ function killMon(g: Game, m: Mon, now: number): void {
     }
   }
   if (got.length > 0) bossLoot(g, m, got, now);
+  if (bigBoss) coinDrop(g, m, now);
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
   if (m.def.house) houseKill(g, m, now);
@@ -892,7 +893,7 @@ function checkQuest(g: Game, n: number, now: number): void {
 }
 function clearHouse(g: Game, n: number, now: number): void {
   const H = HOUSES[n - 1], q = g.quests[n - 1]; if (!H || !q) return;
-  q.b = true; g.bossKills[n - 1] = (g.bossKills[n - 1] ?? 0) + 1; const first = g.cleared < n; if (first) g.cleared = n;
+  q.b = true; g.bossKills[n - 1] = (g.bossKills[n - 1] ?? 0) + 1; const first = g.cleared < n; if (first) g.cleared = n; if (first) coinGain(g, COIN_HOUSE, `Casa de ${H.name} superada`, now);
   const nx = HOUSES[n];
   setStatus(g, `🏆 ¡${H.boss} ha caído!${first ? (nx ? ` Se abrió la Casa de ${nx.name}.` : " ¡Superaste las 12 Casas!") : ""}`, now, "#ffe066");
   addLog(g, `🏆 Venciste a ${H.boss}.${first && nx ? ` Ahora puedes entrar a la Casa de ${nx.name} (nivel ${nx.rec}).` : ""}`);
@@ -1029,7 +1030,7 @@ function equipItem(g: Game, idx: number, now: number): void {
 }
 function unequip(g: Game, slot: Slot, now: number): void {
   const p = g.p; const i = p.eq[slot]; if (!i) return;
-  if (p.bag.length >= BAG_MAX) { setStatus(g, "Tu mochila está llena.", now); return; }
+  if (p.bag.length >= bagMax(g)) { setStatus(g, "Tu mochila está llena.", now); return; }
   p.bag.push(i); p.eq[slot] = null; refreshStats(g); setStatus(g, `Te quitaste ${itemName(i)}.`, now);
 }
 // Tirar objetos al suelo y arrastrar (mochila ↔ equipo ↔ suelo)
@@ -1038,7 +1039,7 @@ type DragSrc = { kind: "bag"; uid: number } | { kind: "eq"; slot: Slot; uid: num
 type DropDst = { kind: "bag"; k: number } | { kind: "eq"; slot: Slot } | { kind: "tile"; x: number; y: number } | { kind: "feet" };
 function dropTileOk(g: Game, x: number, y: number): boolean {
   const p = g.p; const t = tileAt(g, x, y);
-  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1));
+  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1)) && !(x === DARIO_X && (y === DARIO_Y || y === DARIO_Y - 1)) && !(x === DEPOT_X && y === DEPOT_Y);
 }
 // Tira un objeto de la mochila (número = índice) o del equipo (ranura). Si la casilla no sirve o está lejos, cae a tus pies.
 function dropItem(g: Game, from: number | Slot, x: number | null, y: number | null, now: number): boolean {
@@ -1063,7 +1064,7 @@ function pickUpHand(g: Game, gi: Ground, now: number): boolean {
   const p = g.p;
   if (!g.ground.includes(gi)) return false;
   if (cheb(gi.x, gi.y, p.x, p.y) > DROP_RANGE || regionOf(gi.x, gi.y) !== regionOf(p.x, p.y)) { setStatus(g, "Está demasiado lejos para recogerlo.", now); return false; }
-  if (p.bag.length >= BAG_MAX) { setStatus(g, "Tu mochila está llena.", now); return false; }
+  if (p.bag.length >= bagMax(g)) { setStatus(g, "Tu mochila está llena.", now); return false; }
   p.bag.push(gi.inst); g.ground = g.ground.filter((o: Ground) => o !== gi);
   setStatus(g, `Recogiste: ${itemName(gi.inst)}.`, now, RAR[gi.inst.rar].c); return true;
 }
@@ -1081,7 +1082,7 @@ function applyDrop(g: Game, src: DragSrc, dst: DropDst | null, now: number): boo
   }
   if (src.kind === "bag") {
     const idx = p.bag.findIndex((i: Inst) => i.uid === src.uid); if (idx < 0) return false;
-    if (dst.kind === "bag") return dst.k < BAG_MAX && reorderBag(g, idx, dst.k);
+    if (dst.kind === "bag") return dst.k < bagMax(g) && reorderBag(g, idx, dst.k);
     if (dst.kind === "eq") {
       const it = p.bag[idx]; const d = it ? ITEM[it.id] : undefined; if (!it || !d) return false;
       if (d.slot !== dst.slot) { setStatus(g, `${d.name} no va en esa ranura.`, now); return false; }
@@ -1095,11 +1096,11 @@ function applyDrop(g: Game, src: DragSrc, dst: DropDst | null, now: number): boo
   return dropItem(g, src.slot, dst.kind === "tile" ? dst.x : null, dst.kind === "tile" ? dst.y : null, now);
 }
 // Lo que tiraste no se recoge solo: ni el AFK (nunca), ni quedándote parado encima; al pisarlo de nuevo tú, sólo pasados 10 s
-function autoPick(g: Game, gi: Ground, now: number, stand: boolean): boolean { return gi.mine === undefined || (!stand && !g.afk && now >= gi.mine); }
+function autoPick(g: Game, gi: Ground, now: number, stand: boolean): boolean { return gi.mine === undefined ? afkWants(g, gi.inst) : (!stand && !g.afk && now >= gi.mine); }
 function buyItem(g: Game, id: string): void {
   const d = ITEM[id]; if (!d) return;
   if (g.p.gold < d.price) { g.shopMsg = "No tienes suficiente oro."; return; }
-  if (g.p.bag.length >= BAG_MAX) { g.shopMsg = "Tu mochila está llena."; return; }
+  if (g.p.bag.length >= bagMax(g)) { g.shopMsg = "Tu mochila está llena."; return; }
   g.p.gold -= d.price; g.p.bag.push({ uid: g.nextUid++, id, rar: "com" });
   g.shopMsg = `Compraste ${d.name} por ${d.price} oro.`; addLog(g, g.shopMsg);
 }
@@ -1116,13 +1117,13 @@ function sellItem(g: Game, idx: number): void {
 function requestShop(g: Game, now: number): void {
   const p = g.p; const d = cheb(p.x, p.y, NPC_X, NPC_Y);
   if (d <= 4) { g.shopOpen = true; g.shopMsg = ""; g.walkGoal = null; return; }
-  if (isSafe(p.x, p.y) || d <= 12) { g.walkGoal = { x: NPC_X, y: NPC_Y, open: true }; g.chase = false; setStatus(g, `Caminando hacia ${NPC_NAME}...`, now); return; }
+  if (isSafe(p.x, p.y) || d <= 12) { g.walkGoal = { x: NPC_X, y: NPC_Y, open: true }; cs(g).exWalk = false; g.chase = false; setStatus(g, `Caminando hacia ${NPC_NAME}...`, now); return; }
   setStatus(g, `La tienda está en Villa Esmeralda, con ${NPC_NAME}.`, now);
 }
 function pickUp(g: Game, x: number, y: number, now: number, stand?: boolean): void {
   const here = g.ground.filter((gi: Ground) => gi.x === x && gi.y === y && autoPick(g, gi, now, !!stand));
   for (const gi of here) {
-    if (g.p.bag.length >= BAG_MAX) { setStatus(g, "Tu mochila está llena.", now); break; }
+    if (g.p.bag.length >= bagMax(g)) { setStatus(g, "Tu mochila está llena.", now); break; }
     g.p.bag.push(gi.inst); g.ground = g.ground.filter((o: Ground) => o !== gi); if (g.afk) g.afkLoot++;
     setStatus(g, `Recogiste: ${itemName(gi.inst)}.`, now, RAR[gi.inst.rar].c);
   }
@@ -1278,13 +1279,15 @@ function tryStep(g: Game, dx: number, dy: number, now: number): boolean {
 }
 function walkStep(g: Game, now: number): void {
   const wg = g.walkGoal; if (!wg) return; const p = g.p;
-  const goal = (x: number, y: number): boolean => wg.open ? cheb(x, y, wg.x, wg.y) <= 2 : x === wg.x && y === wg.y;
-  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { g.shopOpen = true; g.shopMsg = ""; } return; }
+  const goal = (x: number, y: number): boolean => wg.open ? cheb(x, y, wg.x, wg.y) <= (wg.x === DEPOT_X && wg.y === DEPOT_Y ? 1 : 2) : x === wg.x && y === wg.y;
+  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
   const st = bfsStep(g, p.x, p.y, goal, 20000);
   if (!st || !tryStep(g, st[0], st[1], now)) { g.walkGoal = null; setStatus(g, "No hay camino hasta allí.", now); }
 }
 function clickTile(g: Game, x: number, y: number, now: number): void {
   if (Math.abs(x - NPC_X) <= 0 && Math.abs(y - NPC_Y) <= 0) { requestShop(g, now); return; }
+  if (x === DARIO_X && y === DARIO_Y) { requestExchange(g, now); return; }
+  if (x === DEPOT_X && y === DEPOT_Y) { requestDepot(g, now); return; }
   const m = monAt(g, x, y); if (m) { g.target = m.id; g.chase = true; return; }
   if (walkable(tileAt(g, x, y))) { g.walkGoal = { x, y, open: false }; g.pending = null; g.chase = false; }
 }
@@ -1422,7 +1425,7 @@ function stepMinion(g: Game, now: number): void {
     return;
   }
   if (now < mi.moveStart + mi.moveDur) return;
-  const ok = (x: number, y: number): boolean => walkable(tileAt(g, x, y)) && monAt(g, x, y) === null && !(x === p.x && y === p.y) && !(x === NPC_X && y === NPC_Y);
+  const ok = (x: number, y: number): boolean => walkable(tileAt(g, x, y)) && monAt(g, x, y) === null && !(x === p.x && y === p.y) && !isNpcAt(x, y);
   const [tx, ty] = t && cheb(t.x, t.y, p.x, p.y) <= 8 ? [t.x, t.y] : [p.x, p.y];
   if (!t && cheb(mi.x, mi.y, p.x, p.y) <= 1) return;
   const st = greedyMove(g, mi, tx, ty, ok); if (st) moveMover(mi, st[0], st[1], 300, now);
@@ -1462,9 +1465,9 @@ function afkThink(g: Game, now: number): void {
   const near = regionMons(g, p.x, p.y);
   const nearAggro = near.some((m: Mon) => m.alive && cheb(m.x, m.y, p.x, p.y) <= 1);
   // 2) Recoger botín
-  if (!nearAggro && p.bag.length < BAG_MAX && g.ground.length > 0) {
+  if (!nearAggro && p.bag.length < bagMax(g) && g.ground.length > 0) {
     let best: Ground | null = null; let bd = 99;
-    for (const gi of g.ground) { if (gi.mine !== undefined) continue; const d = cheb(gi.x, gi.y, p.x, p.y); if (d <= 7 && d < bd && regionOf(gi.x, gi.y) === regionOf(p.x, p.y)) { bd = d; best = gi; } }
+    for (const gi of g.ground) { if (gi.mine !== undefined || !afkWants(g, gi.inst)) continue; const d = cheb(gi.x, gi.y, p.x, p.y); if (d <= 7 && d < bd && regionOf(gi.x, gi.y) === regionOf(p.x, p.y)) { bd = d; best = gi; } }
     if (best) { if (!g.walkGoal) g.walkGoal = { x: best.x, y: best.y, open: false }; return; }
   }
   // 3) Elegir objetivo
@@ -1517,10 +1520,11 @@ function runAction(g: Game, a: Action, now: number): void {
     case "power3": castPower(g, 2, now); break; case "power4": castPower(g, 3, now); break;
     case "hpPot": usePotion(g, "hp", now); break; case "manaPot": usePotion(g, "mana", now); break;
     case "attack": case "nextTarget": targetNearest(g, now); g.chase = true; break;
-    case "clearTarget": if (g.shopOpen || g.bigMap) { g.shopOpen = false; g.bigMap = false; } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
+    case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open)) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
     case "shop": if (g.shopOpen) g.shopOpen = false; else requestShop(g, now); break;
     case "afk": toggleAfk(g, now); break;
     case "map": g.bigMap = !g.bigMap; break;
+    case "coins": { const c = cs(g); c.open = !c.open; c.msg = ""; break; }
     default: break;
   }
 }
@@ -1534,6 +1538,238 @@ function chaseStep(g: Game, now: number): void {
   const tt = t;
   const st = bfsStep(g, p.x, p.y, (x: number, y: number) => cheb(x, y, tt.x, tt.y) <= 1 && !isSafe(x, y), 2500);
   if (st) tryStep(g, st[0], st[1], now);
+}
+
+// ===================== Edisar Coins (tienda de PRUEBA: sin pagos reales) =====================
+// Prototipo: las coins sólo se ganan jugando (guardianes, casas superadas) o con el botón «Modo prueba». No hay pagos, formularios ni enlaces.
+const COIN_GOLD = 10000; // 1 Edisar Coin = 10 000 de oro (Cambista Darío)
+const DARIO_X = 51, DARIO_Y = 36 + OY; const DARIO_NAME = "Cambista Darío";
+const COIN_HOUSE = 5, COIN_TEST = 100; const PREM_DAYS = 30, PREM_EXP = 0.1, XP_BOOST = 0.5, XP_BOOST_MS = 3600000, XP_BOOST_MAX = 5 * 3600000;
+const BAG_STEP = 6, BAG_BUYS = 2, BAG_CAP = 20 + BAG_STEP * BAG_BUYS;
+type CoinCat = "cosmetic" | "mount" | "premium" | "util";
+interface Outfit { id: string; n: string; robe: string; trim: string; price: number; }
+interface Aura { id: string; n: string; c: [number, number, number]; price: number; }
+interface NameCol { id: string; n: string; c: string; price: number; }
+interface MountDef { id: string; n: string; price: number; speed: number; soon: boolean; } // monturas: llegan en la próxima versión
+const OUTFITS: Outfit[] = [
+  { id: "o_carmesi", n: "Túnica carmesí", robe: "#8a1c2a", trim: "#ffd34d", price: 40 },
+  { id: "o_noche", n: "Manto de medianoche", robe: "#1c2a5a", trim: "#9be8ff", price: 40 },
+  { id: "o_bosque", n: "Ropaje del bosque", robe: "#2f6a2a", trim: "#e0c08a", price: 40 },
+  { id: "o_nieve", n: "Atuendo de nieve", robe: "#e8eef4", trim: "#4aa3ff", price: 60 },
+  { id: "o_sombra", n: "Vestidura de sombra", robe: "#24182e", trim: "#c07bff", price: 60 },
+  { id: "o_dorado", n: "Atavío dorado", robe: "#b8862a", trim: "#fff0a8", price: 90 },
+];
+const AURAS: Aura[] = [
+  { id: "a_oro", n: "Aura dorada", c: [255, 211, 77], price: 80 },
+  { id: "a_hielo", n: "Aura de escarcha", c: [155, 232, 255], price: 80 },
+  { id: "a_fuego", n: "Aura ígnea", c: [255, 120, 40], price: 80 },
+  { id: "a_vacio", n: "Aura del vacío", c: [176, 112, 255], price: 120 },
+];
+const NAMECOLS: NameCol[] = [
+  { id: "n_oro", n: "Nombre dorado", c: "#ffd34d", price: 30 },
+  { id: "n_cielo", n: "Nombre celeste", c: "#7ec8ff", price: 30 },
+  { id: "n_rosa", n: "Nombre rosa", c: "#ff9ad8", price: 30 },
+  { id: "n_heaven", n: "Nombre Heaven", c: "#fff0a8", price: 60 },
+];
+const MOUNTS: MountDef[] = [
+  { id: "m_caballo", n: "Caballo pardo", price: 150, speed: 15, soon: true },
+  { id: "m_lobo", n: "Lobo de las nieves", price: 250, speed: 20, soon: true },
+  { id: "m_dragon", n: "Dragoncillo de fuego", price: 400, speed: 25, soon: true },
+];
+type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename";
+const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string }> = {
+  premium: { n: `Premium ${PREM_DAYS} días`, d: `+${Math.round(PREM_EXP * 100)}% de experiencia por cazar y los objetos raros, épicos y Heaven brillan en el suelo.`, price: 250, icon: "👑" },
+  bag: { n: `Mochila ampliada (+${BAG_STEP} casillas)`, d: `Más espacio en la mochila (hasta ${BAG_CAP} casillas).`, price: 150, icon: "🎒" },
+  scroll: { n: "Pergamino de regreso", d: "Te lleva al templo de Villa Esmeralda (no funciona dentro de las Casas).", price: 3, icon: "📜" },
+  scroll5: { n: "Pergaminos de regreso ×5", d: "Paquete de 5 pergaminos.", price: 12, icon: "📜" },
+  xp: { n: "Poción de experiencia (1 h)", d: `+${Math.round(XP_BOOST * 100)}% de experiencia por cazar durante 1 hora de juego (se acumula hasta 5 h).`, price: 25, icon: "⚗️" },
+  rename: { n: "Cambio de nombre", d: "Elige un nombre nuevo para tu personaje.", price: 100, icon: "✒️" },
+};
+interface CoinState {
+  coins: number; owned: string[]; outfit: string; aura: string; ncol: string; premUntil: number; xpLeft: number; xpT: number; bagX: number; scrolls: number; afkMin: Rarity;
+  open: boolean; exOpen: boolean; exWalk: boolean; msg: string; msgBad: boolean; earned: number;
+}
+interface Game { cs?: CoinState; }
+function newCS(): CoinState { return { coins: 0, owned: [], outfit: "", aura: "", ncol: "", premUntil: 0, xpLeft: 0, xpT: 0, bagX: 0, scrolls: 0, afkMin: "com", open: false, exOpen: false, exWalk: false, msg: "", msgBad: false, earned: 0 }; }
+function cs(g: Game): CoinState { if (!g.cs) g.cs = newCS(); return g.cs; }
+function bagMax(g: Game): number { return BAG_MAX + (g.cs ? g.cs.bagX : 0); }
+function isNpcAt(x: number, y: number): boolean { return (x === NPC_X && y === NPC_Y) || (x === DARIO_X && y === DARIO_Y) || (x === DEPOT_X && y === DEPOT_Y); }
+function premOn(g: Game, wall?: number): boolean { return !!g.cs && g.cs.premUntil > (wall ?? Date.now()); }
+function expMul(g: Game): number { const c = g.cs; if (!c) return 1; return 1 + (premOn(g) ? PREM_EXP : 0) + (c.xpLeft > 0 ? XP_BOOST : 0); }
+const RAR_RANK: Record<Rarity, number> = { com: 0, rar: 1, epi: 2, hea: 3 };
+const AFK_MINS: Rarity[] = ["com", "rar", "epi"];
+const AFK_MIN_LABEL: Record<Rarity, string> = { com: "Todo", rar: "Solo azul, morado y Heaven", epi: "Solo morado y Heaven", hea: "Solo Heaven" };
+function afkWants(g: Game, inst: Inst): boolean { return !g.afk || !g.cs || RAR_RANK[inst.rar] >= RAR_RANK[g.cs.afkMin]; }
+function setAfkMin(g: Game, r: Rarity): void { cs(g).afkMin = r; addLog(g, `AFK recoge: ${AFK_MIN_LABEL[r]}.`); }
+function coinMsg(g: Game, text: string, bad?: boolean): void { const c = cs(g); c.msg = text; c.msgBad = !!bad; if (!bad) addLog(g, `🪙 ${text}`); }
+function coinGain(g: Game, n: number, why: string, now: number): void {
+  if (n <= 0) return; const c = cs(g); c.coins += n; c.earned += n;
+  pfloat(g, `+${n} 🪙`, "#ffd34d", now, -26); addLog(g, `🪙 +${n} Edisar Coins (${why}).`);
+}
+// Jefes: pequeña probabilidad de soltar coins; cada Casa superada por primera vez da coins
+function coinDrop(g: Game, m: Mon, now: number): void {
+  const chance = m.def.boss ? 0.2 : 0.05; if (Math.random() >= chance) return;
+  coinGain(g, m.def.boss ? 1 + Math.floor(Math.random() * 3) : 1, `botín de ${m.def.name}`, now);
+}
+function coinTest(g: Game, now: number): void { coinGain(g, COIN_TEST, "modo prueba", now); coinMsg(g, `Modo prueba: +${COIN_TEST} Edisar Coins.`); }
+function owns(g: Game, id: string): boolean { return !!g.cs && g.cs.owned.includes(id); }
+function cosmeticPrice(id: string): number { const o = OUTFITS.find((x: Outfit) => x.id === id) ?? AURAS.find((x: Aura) => x.id === id) ?? NAMECOLS.find((x: NameCol) => x.id === id); return o ? o.price : -1; }
+function cosmeticName(id: string): string { const o = OUTFITS.find((x: Outfit) => x.id === id) ?? AURAS.find((x: Aura) => x.id === id) ?? NAMECOLS.find((x: NameCol) => x.id === id); return o ? o.n : id; }
+function spend(g: Game, price: number): boolean {
+  const c = cs(g); if (!(price > 0) || c.coins < price) { coinMsg(g, `No tienes suficientes Edisar Coins (cuesta ${price}, tienes ${c.coins}).`, true); return false; }
+  c.coins -= price; return true;
+}
+function buyCosmetic(g: Game, id: string): boolean {
+  const price = cosmeticPrice(id); if (price < 0) return false;
+  if (owns(g, id)) { coinMsg(g, "Ya lo tienes.", true); return false; }
+  if (!spend(g, price)) return false;
+  cs(g).owned.push(id); wearCosmetic(g, id, true); coinMsg(g, `Compraste ${cosmeticName(id)} por ${price} coins.`); return true;
+}
+function wearCosmetic(g: Game, id: string, on: boolean): void {
+  const c = cs(g); if (on && !owns(g, id)) return;
+  const v = on ? id : "";
+  if (OUTFITS.some((x: Outfit) => x.id === id)) c.outfit = v; else if (AURAS.some((x: Aura) => x.id === id)) c.aura = v; else if (NAMECOLS.some((x: NameCol) => x.id === id)) c.ncol = v;
+}
+function buyUtil(g: Game, u: UtilId, now: number, newName?: string): boolean {
+  const c = cs(g); const it = UTILS[u];
+  if (u === "bag" && c.bagX >= BAG_STEP * BAG_BUYS) { coinMsg(g, "Tu mochila ya tiene el tamaño máximo.", true); return false; }
+  if (u === "xp" && c.xpLeft + XP_BOOST_MS > XP_BOOST_MAX) { coinMsg(g, "Ya tienes el máximo de 5 h de poción de experiencia.", true); return false; }
+  let nm = "";
+  if (u === "rename") { nm = (newName ?? "").trim().replace(/\s+/g, " "); if (!/^[A-Za-zÀ-ÿ0-9 ]{2,16}$/.test(nm)) { coinMsg(g, "Escribe un nombre de 2 a 16 letras o números.", true); return false; } if (nm === g.p.name) { coinMsg(g, "Ese ya es tu nombre.", true); return false; } }
+  if (!spend(g, it.price)) return false;
+  if (u === "premium") { const base = Math.max(Date.now(), c.premUntil); c.premUntil = base + PREM_DAYS * 86400000; coinMsg(g, `¡Premium activo hasta el ${new Date(c.premUntil).toLocaleDateString("es-MX")}!`); }
+  else if (u === "bag") { c.bagX += BAG_STEP; coinMsg(g, `Mochila ampliada: ahora tiene ${bagMax(g)} casillas.`); }
+  else if (u === "scroll" || u === "scroll5") { const n = u === "scroll" ? 1 : 5; c.scrolls += n; coinMsg(g, `Compraste ${n} pergamino${n > 1 ? "s" : ""} de regreso (tienes ${c.scrolls}).`); }
+  else if (u === "xp") { c.xpLeft += XP_BOOST_MS; coinMsg(g, `Poción de experiencia activa: ${Math.round(c.xpLeft / 60000)} min restantes.`); }
+  else if (u === "rename") { const old = g.p.name; g.p.name = nm; coinMsg(g, `Ahora te llamas ${nm} (antes ${old}).`); setStatus(g, `¡Ahora te llamas ${nm}!`, now, "#ffd34d"); }
+  return true;
+}
+function readScroll(g: Game, now: number): boolean {
+  const c = cs(g); if (c.scrolls <= 0) { setStatus(g, "No tienes pergaminos de regreso (Tienda de Coins).", now); return false; }
+  if (regionOf(g.p.x, g.p.y) > 0) { setStatus(g, "El pergamino no funciona dentro de las Casas.", now, "#ff9a5a"); return false; }
+  if (isSafe(g.p.x, g.p.y) && cheb(g.p.x, g.p.y, TEMPLE_X, TEMPLE_Y) <= 1) { setStatus(g, "Ya estás en el templo.", now); return false; }
+  c.scrolls--; g.heldDirs = []; teleport(g, TEMPLE_X, TEMPLE_Y, now); setStatus(g, "📜 El pergamino te llevó al templo de Villa Esmeralda.", now, "#7dffb0"); addLog(g, `📜 Pergamino de regreso usado (quedan ${c.scrolls}).`); return true;
+}
+// Cambista Darío: coins ↔ oro (1 coin = 10 000 de oro)
+function exCoinsToGold(g: Game, n: number): boolean {
+  const c = cs(g); n = Math.floor(n); if (!(n >= 1)) return false;
+  if (n > c.coins) { coinMsg(g, `No tienes ${n} coins (tienes ${c.coins}).`, true); return false; }
+  c.coins -= n; g.p.gold += n * COIN_GOLD; coinMsg(g, `Cambiaste ${n} coin${n > 1 ? "s" : ""} por ${(n * COIN_GOLD).toLocaleString("es-MX")} de oro.`); return true;
+}
+function exGoldToCoins(g: Game, n: number): boolean {
+  const c = cs(g); n = Math.floor(n); if (!(n >= 1)) return false;
+  if (n * COIN_GOLD > g.p.gold) { coinMsg(g, `Necesitas ${(n * COIN_GOLD).toLocaleString("es-MX")} de oro (tienes ${g.p.gold.toLocaleString("es-MX")}).`, true); return false; }
+  g.p.gold -= n * COIN_GOLD; c.coins += n; coinMsg(g, `Cambiaste ${(n * COIN_GOLD).toLocaleString("es-MX")} de oro por ${n} coin${n > 1 ? "s" : ""}.`); return true;
+}
+function requestExchange(g: Game, now: number): void {
+  const p = g.p; const d = cheb(p.x, p.y, DARIO_X, DARIO_Y); const c = cs(g);
+  if (d <= 2) { c.exOpen = true; c.msg = ""; g.walkGoal = null; g.shopOpen = false; return; }
+  if (isSafe(p.x, p.y) || d <= 12) { g.walkGoal = { x: DARIO_X, y: DARIO_Y, open: true }; c.exWalk = true; g.chase = false; setStatus(g, `Caminando hacia ${DARIO_NAME}...`, now); return; }
+  setStatus(g, `${DARIO_NAME} cambia coins y oro en Villa Esmeralda, junto a la fuente.`, now);
+}
+function coinTick(g: Game, now: number): void {
+  const c = g.cs; if (!c) return;
+  if (c.xpLeft > 0) { const dt = c.xpT > 0 ? clamp(now - c.xpT, 0, 1000) : 0; c.xpLeft = Math.max(0, c.xpLeft - dt); if (c.xpLeft === 0) setStatus(g, "Se acabó la poción de experiencia.", now); }
+  c.xpT = now;
+  if (c.exOpen && (g.shopOpen || cheb(g.p.x, g.p.y, DARIO_X, DARIO_Y) > 6)) c.exOpen = false; // una ventana de NPC a la vez
+}
+function outfitColors(g: Game): [string, string] { const o = g.cs ? OUTFITS.find((x: Outfit) => x.id === g.cs?.outfit) : undefined; return o ? [o.robe, o.trim] : [g.cls.robe, g.cls.trim]; }
+function nameColor(g: Game): string { const n = g.cs ? NAMECOLS.find((x: NameCol) => x.id === g.cs?.ncol) : undefined; return n ? n.c : "#7dff7d"; }
+function drawAura(ctx: CanvasRenderingContext2D, id: string, x: number, y: number, now: number): void {
+  const a = AURAS.find((v: Aura) => v.id === id); if (!a) return; const [r, gg, b] = a.c; const k = 0.5 + 0.5 * Math.sin(now / 300);
+  const gr = ctx.createRadialGradient(x + 16, y + 20, 3, x + 16, y + 20, 20); gr.addColorStop(0, `rgba(${r},${gg},${b},${0.35 + 0.25 * k})`); gr.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(x + 16, y + 20, 19, 17, 0, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 4; i++) { const t = now / 700 + i * 1.57; ctx.fillStyle = `rgba(${r},${gg},${b},0.85)`; ctx.fillRect(x + 16 + Math.cos(t) * 13 - 1, y + 18 + Math.sin(t) * 6 - ((now / 20 + i * 9) % 18) + 6, 2, 2); }
+}
+// Guardado de la tienda (campo opcional «cs» en el código; partidas antiguas = 0 coins)
+interface SaveCS { coins: number; owned: string[]; outfit: string; aura: string; ncol: string; premUntil: number; xpLeft: number; bagX: number; scrolls: number; afkMin: Rarity; earned: number; }
+interface SaveData { cs?: SaveCS; }
+function saveCS(g: Game): SaveCS { const c = cs(g); return { coins: c.coins, owned: [...c.owned], outfit: c.outfit, aura: c.aura, ncol: c.ncol, premUntil: c.premUntil, xpLeft: Math.round(c.xpLeft), bagX: c.bagX, scrolls: c.scrolls, afkMin: c.afkMin, earned: c.earned }; }
+function readCS(v: unknown): SaveCS {
+  const d = newCS(); const out: SaveCS = { coins: 0, owned: [], outfit: "", aura: "", ncol: "", premUntil: 0, xpLeft: 0, bagX: 0, scrolls: 0, afkMin: d.afkMin, earned: 0 };
+  if (!isObj(v)) return out;
+  out.coins = intIn(v["coins"], 0, 1e9) ?? 0; out.earned = intIn(v["earned"], 0, 1e12) ?? 0;
+  const ow = v["owned"]; if (Array.isArray(ow)) out.owned = ow.filter((s: unknown): s is string => typeof s === "string" && cosmeticPrice(s) > 0).filter((s: string, i: number, a: string[]) => a.indexOf(s) === i);
+  const pickOwned = (k: string, list: Array<{ id: string }>): string => { const s = v[k]; return typeof s === "string" && out.owned.includes(s) && list.some((x: { id: string }) => x.id === s) ? s : ""; };
+  out.outfit = pickOwned("outfit", OUTFITS); out.aura = pickOwned("aura", AURAS); out.ncol = pickOwned("ncol", NAMECOLS);
+  out.premUntil = numIn(v["premUntil"], 0, 1e15) ?? 0; out.xpLeft = numIn(v["xpLeft"], 0, XP_BOOST_MAX) ?? 0;
+  const bx = intIn(v["bagX"], 0, BAG_STEP * BAG_BUYS); out.bagX = bx !== null && bx % BAG_STEP === 0 ? bx : 0;
+  out.scrolls = intIn(v["scrolls"], 0, 1e5) ?? 0;
+  const am = v["afkMin"]; out.afkMin = typeof am === "string" && (AFK_MINS as string[]).includes(am) ? (am as Rarity) : "com";
+  return out;
+}
+function loadCS(g: Game, s: SaveCS | undefined): void {
+  const c = cs(g); if (!s) return;
+  c.coins = s.coins; c.owned = [...s.owned]; c.outfit = s.outfit; c.aura = s.aura; c.ncol = s.ncol; c.premUntil = s.premUntil; c.xpLeft = s.xpLeft; c.bagX = s.bagX; c.scrolls = s.scrolls; c.afkMin = s.afkMin; c.earned = s.earned;
+}
+
+// ===================== Depósito (estilo Tibia): baúl junto al templo =====================
+const DEPOT_X = 41, DEPOT_Y = 29 + OY; const DEPOT_MAX = 80;
+interface DepotState { items: Inst[]; open: boolean; msg: string; msgBad: boolean; }
+interface Game { dep?: DepotState; }
+function dep(g: Game): DepotState { if (!g.dep) g.dep = { items: [], open: false, msg: "", msgBad: false }; return g.dep; }
+function depMsg(g: Game, text: string, bad?: boolean): void { const d = dep(g); d.msg = text; d.msgBad = !!bad; }
+function inTown(g: Game): boolean { return regionOf(g.p.x, g.p.y) === 0 && isSafe(g.p.x, g.p.y); }
+function depotNear(g: Game): boolean { return inTown(g) && cheb(g.p.x, g.p.y, DEPOT_X, DEPOT_Y) <= 1; }
+// Sólo se abre en Villa Esmeralda: al lado del baúl se abre; desde el pueblo caminas hasta él
+function requestDepot(g: Game, now: number): void {
+  const d = dep(g);
+  if (!inTown(g)) { setStatus(g, "Tu depósito está en Villa Esmeralda, junto al templo.", now); return; }
+  if (depotNear(g)) { d.open = true; d.msg = ""; g.walkGoal = null; g.shopOpen = false; if (g.cs) g.cs.exOpen = false; return; }
+  g.walkGoal = { x: DEPOT_X, y: DEPOT_Y, open: true }; if (g.cs) g.cs.exWalk = false; g.chase = false; setStatus(g, "Caminando hacia tu depósito...", now);
+}
+function depotTick(g: Game): void { const d = g.dep; if (d && d.open && (!inTown(g) || cheb(g.p.x, g.p.y, DEPOT_X, DEPOT_Y) > 2 || g.shopOpen || (!!g.cs && g.cs.exOpen))) d.open = false; }
+// Mochila → depósito (en la casilla «at» si se indica). Si está lleno no se mueve nada.
+function depositItem(g: Game, bagIdx: number, at?: number): boolean {
+  const d = dep(g); const it = g.p.bag[bagIdx]; if (!it || !d.open) return false;
+  if (d.items.length >= DEPOT_MAX) { depMsg(g, `El depósito está lleno (${DEPOT_MAX}/${DEPOT_MAX}).`, true); return false; }
+  g.p.bag.splice(bagIdx, 1); const k = at === undefined ? d.items.length : clamp(at, 0, d.items.length); d.items.splice(k, 0, it);
+  depMsg(g, `Guardaste ${itemName(it)}.`); return true;
+}
+// Depósito → mochila. Si la mochila está llena no se mueve nada.
+function withdrawItem(g: Game, depIdx: number, at?: number): boolean {
+  const d = dep(g); const it = d.items[depIdx]; if (!it || !d.open) return false;
+  if (g.p.bag.length >= bagMax(g)) { depMsg(g, "Tu mochila está llena: libera espacio para sacar objetos.", true); return false; }
+  d.items.splice(depIdx, 1); const k = at === undefined ? g.p.bag.length : clamp(at, 0, g.p.bag.length); g.p.bag.splice(k, 0, it);
+  depMsg(g, `Sacaste ${itemName(it)}.`); return true;
+}
+function depositAll(g: Game): number {
+  let n = 0; while (g.p.bag.length > 0 && depositItem(g, 0)) n++;
+  if (n > 0) depMsg(g, `Guardaste ${n} objeto${n > 1 ? "s" : ""}${g.p.bag.length > 0 ? " (el depósito se llenó)" : ""}.`, g.p.bag.length > 0); return n;
+}
+function reorderDep(g: Game, from: number, to: number): boolean {
+  const b = dep(g).items; const it = b[from]; if (!it) return false; const k = clamp(to, 0, b.length - 1); if (k === from) return false;
+  b.splice(from, 1); b.splice(k, 0, it); return true;
+}
+// Arrastrar y soltar con el depósito (envuelve applyDrop)
+type DragSrcX = DragSrc | { kind: "dep"; uid: number };
+type DropDstX = DropDst | { kind: "dep"; k: number };
+function applyDropX(g: Game, src: DragSrcX, dst: DropDstX | null, now: number): boolean {
+  if (!dst) return false; const d = dep(g);
+  if (src.kind === "dep") {
+    const idx = d.items.findIndex((i: Inst) => i.uid === src.uid); if (idx < 0) return false;
+    if (dst.kind === "dep") return dst.k < DEPOT_MAX && reorderDep(g, idx, dst.k);
+    if (dst.kind === "bag") return withdrawItem(g, idx, dst.k);
+    if (dst.kind === "eq") { const it = d.items[idx]; if (!withdrawItem(g, idx)) return false; const bi = g.p.bag.findIndex((i: Inst) => i === it); if (bi >= 0) equipItem(g, bi, now); return true; }
+    depMsg(g, "Primero sácalo a la mochila.", true); return false;
+  }
+  if (dst.kind === "dep") {
+    if (src.kind === "bag") { const idx = g.p.bag.findIndex((i: Inst) => i.uid === src.uid); return idx >= 0 && depositItem(g, idx, dst.k); }
+    if (src.kind === "eq") { const it = g.p.eq[src.slot]; if (!it || !d.open) return false; if (d.items.length >= DEPOT_MAX) { depMsg(g, `El depósito está lleno (${DEPOT_MAX}/${DEPOT_MAX}).`, true); return false; }
+      if (g.p.bag.length >= bagMax(g)) { depMsg(g, "Mochila llena: quítatelo primero a la mochila.", true); return false; }
+      unequip(g, src.slot, now); const bi = g.p.bag.findIndex((i: Inst) => i === it); return bi >= 0 && depositItem(g, bi, dst.k); }
+    depMsg(g, "Recógelo primero en la mochila.", true); return false;
+  }
+  return applyDrop(g, src, dst, now);
+}
+interface SaveData { dep?: SaveItem[]; }
+function readDep(v: unknown): SaveItem[] { const out: SaveItem[] = []; if (!Array.isArray(v)) return out; for (const x of v.slice(0, DEPOT_MAX)) { const i = readItem(x); if (i) out.push(saveItem(i)); } return out; }
+function loadDep(g: Game, s: SaveItem[] | undefined): void { dep(g).items = (s ?? []).slice(0, DEPOT_MAX).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar })); }
+function drawDepot(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + 4, y + 25, 25, 4);
+  ctx.fillStyle = "#6a4022"; ctx.fillRect(x + 4, y + 12, 24, 15); ctx.fillStyle = "#8a5630"; ctx.fillRect(x + 4, y + 7, 24, 7);
+  ctx.fillStyle = "#d8a93a"; ctx.fillRect(x + 4, y + 13, 24, 2); ctx.fillRect(x + 8, y + 7, 2, 20); ctx.fillRect(x + 22, y + 7, 2, 20); ctx.fillRect(x + 14, y + 14, 4, 5);
+  ctx.strokeStyle = "#2a1a0a"; ctx.lineWidth = 1; ctx.strokeRect(x + 4.5, y + 7.5, 23, 19);
 }
 
 // ===================== Guardado (código de partida) =====================
@@ -1554,7 +1790,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1 };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem) };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -1587,11 +1823,12 @@ function validateSave(raw: unknown): DecodeResult {
   const eqRaw = raw["eq"]; if (!isObj(eqRaw)) return bad("el equipo");
   const eq = {} as Record<Slot, SaveItem | null>;
   for (const s of SLOTS) { const v = eqRaw[s]; if (v === null || v === undefined) { eq[s] = null; continue; } const i = readItem(v); const d = i ? ITEM[i.id] : undefined; if (!i || !d || d.slot !== s) return bad("el equipo"); eq[s] = saveItem(i); }
-  const bagRaw = raw["bag"]; if (!Array.isArray(bagRaw) || bagRaw.length > BAG_MAX) return bad("la mochila");
+  const bagRaw = raw["bag"]; if (!Array.isArray(bagRaw) || bagRaw.length > BAG_CAP) return bad("la mochila");
   const bag: SaveItem[] = []; for (const v of bagRaw) { const i = readItem(v); if (!i) return bad("la mochila"); bag.push(saveItem(i)); }
   const bRaw = raw["binds"]; const binds = cloneBinds(DEFAULT_BINDS);
   if (isObj(bRaw)) for (const a of ACTIONS) { const arr = bRaw[a.id]; if (Array.isArray(arr) && arr.every((c: unknown) => typeof c === "string" && c.length > 0 && c.length < 40)) binds[a.id] = (arr as string[]).slice(0, 6); }
   if (isObj(bRaw) && !Array.isArray(bRaw["keys"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "keys" && binds[a.id].includes("KeyH"))) binds.keys = [];
+  if (isObj(bRaw) && !Array.isArray(bRaw["coins"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "coins" && binds[a.id].includes("KeyK"))) binds.coins = [];
   const x = intIn(raw["x"], 0, MW - 1), y0 = intIn(raw["y"], 0, MH - 1); if (x === null || y0 === null) return bad("la posición");
   const y = ver === 1 ? Math.min(MH - 1, y0 + OY) : y0; // las partidas v1 usaban el mapa sin el Santuario
   const hpPot2 = intIn(raw["hpPot2"], 0, 1e6) ?? 0, manaPot2 = intIn(raw["manaPot2"], 0, 1e6) ?? 0, cleared = intIn(raw["cleared"], 0, NH) ?? 0;
@@ -1603,7 +1840,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]) } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -1622,9 +1859,9 @@ function gameFromSave(d: SaveData): Game {
   g.cleared = d.cleared; g.quests = d.quests.map((q: QuestSt) => ({ ...q })); g.bossKills = [...d.bossKills];
   for (const k of SKILL_IDS) { const s = d.sk[k]; p.sk[k] = { lvl: s.lvl, tries: s.tries }; }
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
-  p.bag = d.bag.slice(0, BAG_MAX).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
+  loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -1641,7 +1878,7 @@ function lsSet(k: string, v: string): boolean { try { if (typeof window === "und
 // ===================== Bucle de actualización =====================
 function update(g: Game, now: number): void {
   const p = g.p;
-  if (now >= p.moveStart + p.moveDur && p.bag.length < BAG_MAX && g.ground.some((gi: Ground) => gi.x === p.x && gi.y === p.y && autoPick(g, gi, now, true))) pickUp(g, p.x, p.y, now, true);
+  if (now >= p.moveStart + p.moveDur && p.bag.length < bagMax(g) && g.ground.some((gi: Ground) => gi.x === p.x && gi.y === p.y && autoPick(g, gi, now, true))) pickUp(g, p.x, p.y, now, true);
   if (now >= p.moveStart + p.moveDur) {
     const v = moveVec(g.heldDirs);
     if (v) { g.walkGoal = null; g.chase = false; tryStep(g, v[0], v[1], now); }
@@ -1690,6 +1927,7 @@ function update(g: Game, now: number): void {
   g.ground = g.ground.filter((gi: Ground) => now < gi.until);
   if (g.ground.length > 80) { const bg = g.ground.filter((gi: Ground) => !!gi.boss), rest = g.ground.filter((gi: Ground) => !gi.boss); g.ground = [...rest.slice(Math.max(0, rest.length - 80)), ...bg]; }
   if (g.shopOpen && cheb(p.x, p.y, NPC_X, NPC_Y) > 6) g.shopOpen = false;
+  coinTick(g, now); depotTick(g);
   const [px, py] = drawPos(p, now);
   const rr = regionRect(regionOf(p.x, p.y));
   const vw = viewW(g); g.camX = clamp(px * TS + TS / 2 - vw / 2, rr[0] * TS, (rr[0] + rr[2]) * TS - vw); g.camY = clamp(py * TS + TS / 2 - VH / 2, rr[1] * TS, (rr[1] + rr[3]) * TS - VH);
@@ -2003,10 +2241,13 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   else { const rt = HRT[reg - 1]; if (rt && vis(rt.exit[0], rt.exit[1])) outlined(ctx, "↩ Salida", rt.exit[0] * TS - cx + 16, rt.exit[1] * TS - cy - 2, "#e0b0ff", "bold 10px sans-serif"); }
   for (const w of g.warns) { const k = clamp((now - w.born) / Math.max(1, w.at - w.born), 0, 1); ctx.fillStyle = `rgba(255,${Math.round(60 - 50 * k)},30,${0.18 + 0.35 * k + 0.1 * Math.sin(now / 60)})`; for (const [wx, wy] of w.cells) if (vis(wx, wy)) ctx.fillRect(wx * TS - cx + 1, wy * TS - cy + 1, TS - 2, TS - 2); }
   for (const gi of g.ground) if (vis(gi.x, gi.y)) drawGroundItem(ctx, gi, gi.x * TS - cx, gi.y * TS - cy, now);
+  if (premOn(g)) for (const gi of g.ground) if (gi.inst.rar !== "com" && vis(gi.x, gi.y)) { ctx.strokeStyle = RAR[gi.inst.rar].c; ctx.lineWidth = 2; ctx.strokeRect(gi.x * TS - cx + 2, gi.y * TS - cy + 2, TS - 4, TS - 4); ctx.lineWidth = 1; } // Premium: el botín raro brilla
   const t = curTarget(g);
   type Ent = { y: number; draw: () => void };
   const ents: Ent[] = [];
   ents.push({ y: NPC_Y, draw: () => { const x = NPC_X * TS - cx, y = NPC_Y * TS - cy; drawHuman(ctx, x, y, "#c0508a", "#ffd34d", "hood", "none", 2, 0, false, "holy"); outlined(ctx, "Rosa 🛒", x + 16, y - 4, "#ffb0e0", "bold 10px sans-serif"); } });
+  if (reg === 0 && vis(DARIO_X, DARIO_Y)) ents.push({ y: DARIO_Y, draw: () => { const x = DARIO_X * TS - cx, y = DARIO_Y * TS - cy; drawHuman(ctx, x, y, "#2a5a6a", "#ffd34d", "cap", "none", 2, 0, false, "holy"); outlined(ctx, "Darío 🪙", x + 16, y - 4, "#ffe08a", "bold 10px sans-serif"); } });
+  if (reg === 0 && vis(DEPOT_X, DEPOT_Y)) ents.push({ y: DEPOT_Y, draw: () => { const x = DEPOT_X * TS - cx, y = DEPOT_Y * TS - cy; drawDepot(ctx, x, y); outlined(ctx, "Depósito 📦", x + 16, y - 1, "#f0c070", "bold 10px sans-serif"); } });
   for (const m of regionMons(g, p.x, p.y)) if (m.alive) { const [mx, my] = drawPos(m, now); if (!vis(mx, my)) continue; ents.push({ y: my, draw: () => {
     const x = mx * TS - cx, y = my * TS - cy;
     if (t === m) { ctx.strokeStyle = "#ff2a2a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, TS - 2, TS - 2); ctx.lineWidth = 1; }
@@ -2020,14 +2261,15 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   ents.push({ y: py, draw: () => {
     const x = px * TS - cx, y = py * TS - cy; const c = g.cls;
     if (now < p.evadeUntil) ctx.globalAlpha = 0.55;
-    drawHuman(ctx, x, y, c.robe, c.trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
+    if (g.cs && g.cs.aura) drawAura(ctx, g.cs.aura, x, y, now);
+    const [robe, trim] = outfitColors(g); drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
     ctx.globalAlpha = 1;
     if (now < p.defUntil) { ctx.strokeStyle = "rgba(160,210,255,0.8)"; ctx.beginPath(); ctx.arc(x + 16, y + 17, 16, 0, Math.PI * 2); ctx.stroke(); }
     if (now - p.hitAt < 150) { ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(x, y, TS, TS); }
     if (now < p.poisonUntil) { ctx.fillStyle = "rgba(122,209,58,0.25)"; ctx.fillRect(x, y, TS, TS); outlined(ctx, "☠", x + 30, y + 6, "#7ad13a", "bold 10px sans-serif"); }
     if (now < p.slowUntil) { ctx.fillStyle = "rgba(155,232,255,0.25)"; ctx.fillRect(x, y, TS, TS); outlined(ctx, "❄", x + 2, y + 6, "#9be8ff", "bold 10px sans-serif"); }
     hpBar(ctx, x + 4, y - 8, 24, p.hp / Math.max(1, maxHp(g)));
-    outlined(ctx, p.name, x + 16, y - 11, "#7dff7d", "bold 10px sans-serif");
+    outlined(ctx, p.name, x + 16, y - 11, nameColor(g), "bold 10px sans-serif");
   } });
   ents.sort((a: Ent, b: Ent) => a.y - b.y); for (const e of ents) e.draw();
   for (const f of g.fx) { const a = 1 - (now - f.born) / 450; ctx.globalAlpha = clamp(a, 0, 1) * 0.7; ctx.fillStyle = ELEM_COLOR[f.elem]; for (const [x, y] of f.cells) { const sx = x * TS - cx, sy = y * TS - cy; ctx.fillRect(sx + 3, sy + 3, TS - 6, TS - 6); } ctx.globalAlpha = 1; }
@@ -2103,7 +2345,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   const dot = (x: number, y: number, c: string, r: number): void => { ctx.fillStyle = "#000"; ctx.fillRect(ox + x * s - r - 1, oy + y * s - r - 1, r * 2 + 2, r * 2 + 2); ctx.fillStyle = c; ctx.fillRect(ox + x * s - r, oy + y * s - r, r * 2, r * 2); };
   const reg = regionOf(g.p.x, g.p.y); const R = Math.max(2, labels ? s : Math.min(s, 4));
   if (reg === 0) {
-    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R);
+    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
     for (const H of HOUSES) {
       const d = DOORS[H.n - 1]; if (!d) continue; dot(d.x + 0.5, d.y + 0.5, doorColor(g, H.n), R);
@@ -2325,6 +2567,169 @@ function ShopOverlay(props: { g: Game; refresh: () => void; th: Theme; tip?: (in
   );
 }
 
+// ===== Tienda de Edisar Coins (prueba) y Cambista Darío =====
+function CoinPreview(props: { g: Game; outfit?: string; aura?: string; ncol?: string; size?: number }) {
+  const ref = useRef<HTMLCanvasElement | null>(null); const sz = props.size ?? 46;
+  useEffect(() => {
+    const c = ref.current; if (!c) return; let raf = 0; const g = props.g;
+    const draw = (): void => {
+      const ctx = c.getContext("2d"); if (!ctx) return; const now = performance.now();
+      ctx.setTransform(c.width / 40, 0, 0, c.height / 48, 0, 0); ctx.clearRect(0, 0, 40, 48);
+      const o = OUTFITS.find((x: Outfit) => x.id === props.outfit);
+      if (props.aura) drawAura(ctx, props.aura, 4, 12, now);
+      drawHuman(ctx, 4, 12, o ? o.robe : g.cls.robe, o ? o.trim : g.cls.trim, g.cls.hat, lookOf(g), 2, 0, hasShield(g), weaponInfo(g).elem);
+      const n = NAMECOLS.find((x: NameCol) => x.id === props.ncol); if (n) outlined(ctx, g.p.name.slice(0, 7), 20, 9, n.c, "bold 8px sans-serif");
+      if (props.aura) raf = requestAnimationFrame(draw);
+    };
+    draw(); return () => cancelAnimationFrame(raf);
+  }, [props.outfit, props.aura, props.ncol, props.g]);
+  return <canvas ref={ref} width={80} height={96} style={{ width: sz, height: Math.round((sz * 48) / 40), imageRendering: "pixelated", display: "block", margin: "0 auto" }} />;
+}
+function coinStyles(th: Theme) {
+  const gold = th.text.warningDeep;
+  const frame: CSSProperties = { position: "absolute", inset: 8, zIndex: 7, display: "flex", flexDirection: "column", gap: 6, background: th.bg.base, color: th.text.primary, border: `2px solid ${th.text.warning}`, borderRadius: 8,
+    boxShadow: `inset 0 0 0 3px ${th.bg.base}, inset 0 0 0 4px ${th.border.strong}, inset 0 0 0 2000px ${th.fill.secondary}`, fontFamily: TITLE_SERIF, padding: 10, fontSize: 12 };
+  const card: CSSProperties = { border: `1px solid ${th.border.strong}`, background: th.bg.elevated, borderRadius: 6, padding: 6, display: "flex", flexDirection: "column", gap: 4, alignItems: "stretch", textAlign: "center", minWidth: 0 };
+  const gbtn = (primary: boolean, off?: boolean): CSSProperties => ({ padding: "3px 8px", borderRadius: 4, cursor: off ? "default" : "pointer", fontFamily: TITLE_SERIF, fontWeight: 700, fontSize: 11, border: `1px solid ${primary ? th.text.warning : th.border.strong}`,
+    background: th.bg.base, boxShadow: primary ? `inset 0 0 0 40px ${th.fill.warningSubtle}` : "none", color: primary ? gold : th.text.primary, opacity: off ? 0.5 : 1, touchAction: "manipulation", userSelect: "none", whiteSpace: "nowrap" });
+  return { gold, frame, card, gbtn };
+}
+function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
+  const { g, th } = props; const c = cs(g); const [cat, setCat] = useState<CoinCat>("cosmetic"); const [nm, setNm] = useState<string>("");
+  const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, card, gbtn } = coinStyles(th);
+  const price = (n: number) => <span style={{ color: gold, fontWeight: 700 }}>🪙 {n}</span>;
+  const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(124px, 1fr))", gap: 6 };
+  const sec = (t: string) => <div style={{ color: gold, fontWeight: 700, margin: "6px 0 3px", borderBottom: `1px solid ${th.text.warning}`, paddingBottom: 2 }}>{t}</div>;
+  const cosCard = (id: string, n: string, p: number, prev: { outfit?: string; aura?: string; ncol?: string }, worn: boolean) => (
+    <div key={id} style={card} data-coinitem={id}>
+      <CoinPreview g={g} {...prev} />
+      <div style={{ fontWeight: 700, fontSize: 11 }}>{n}</div>
+      {owns(g, id) ? <button style={gbtn(worn)} onClick={() => act(() => wearCosmetic(g, id, !worn))}>{worn ? "✓ Puesto (quitar)" : "Usar"}</button>
+        : <button style={gbtn(true, c.coins < p)} onClick={() => act(() => { buyCosmetic(g, id); })}>Comprar {price(p)}</button>}
+    </div>);
+  const utilCard = (u: UtilId, extra: string, can: boolean) => { const it = UTILS[u]; return (
+    <div key={u} style={card} data-coinitem={u}>
+      <div style={{ fontSize: 22 }}>{it.icon}</div><div style={{ fontWeight: 700, fontSize: 11 }}>{it.n}</div>
+      <div style={{ fontSize: 10, color: th.text.secondary }}>{it.d}</div>
+      {extra && <div style={{ fontSize: 10, color: th.text.success }}>{extra}</div>}
+      {u === "scroll" && c.scrolls > 0 && <button style={gbtn(false)} onClick={() => act(() => { if (readScroll(g, performance.now())) c.open = false; })}>Usar uno ahora</button>}
+      {u === "rename" && <input value={nm} maxLength={16} placeholder="Nombre nuevo" aria-label="Nombre nuevo" onChange={(e: ChangeEvent<HTMLInputElement>) => setNm(e.target.value.slice(0, 16))} onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}
+        style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${th.text.warning}`, background: th.bg.base, color: th.text.primary, fontFamily: TITLE_SERIF, fontSize: 11, minWidth: 0 }} />}
+      <button style={gbtn(true, !can || c.coins < it.price)} onClick={() => act(() => { buyUtil(g, u, performance.now(), nm); if (u === "rename" && c.msg.startsWith("Ahora")) setNm(""); })}>{can ? <Fragment>Comprar {price(it.price)}</Fragment> : "Máximo alcanzado"}</button>
+    </div>); };
+  const tab = (k: CoinCat, label: string) => <button style={gbtn(cat === k)} onClick={() => setCat(k)}>{label}</button>;
+  const premTxt = premOn(g) ? `Activo hasta el ${new Date(c.premUntil).toLocaleDateString("es-MX")}` : "No activo";
+  return (
+    <div data-coinstore="1" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }} style={frame}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15, letterSpacing: 0.5, minWidth: 160 }}>🪙 Tienda de Edisar Coins</b>
+        <span style={{ fontWeight: 700 }}>Saldo: <span data-coinbal={c.coins} style={{ color: gold }}>🪙 {c.coins.toLocaleString("es-MX")}</span> · <span style={{ color: th.text.warning }}>💰 {g.p.gold.toLocaleString("es-MX")}</span></span>
+        <button style={gbtn(false)} onClick={() => act(() => coinTest(g, performance.now()))} title="Sólo para probar el prototipo">🧪 Modo prueba: +{COIN_TEST} coins</button>
+        <button style={gbtn(false)} onClick={() => act(() => { c.open = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `1px dashed ${th.text.warning}`, color: th.text.warningDeep, background: th.fill.warningSubtle }}>
+        ⚠️ Tienda de prueba: en la versión online se comprarán con dinero real. Aquí no hay pagos: las coins se ganan jugando (los guardianes a veces sueltan coins, +{COIN_HOUSE} por cada Casa superada por primera vez) o con el {DARIO_NAME} junto a la fuente de Villa Esmeralda: <b>1 Edisar Coin = 10,000 de oro</b>.
+        {" "}<button style={{ ...gbtn(false), padding: "1px 6px", fontSize: 10 }} onClick={() => act(() => { c.open = false; requestExchange(g, performance.now()); })}>Ir con Darío</button>
+      </div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+        {tab("cosmetic", "✨ Cosméticos")}{tab("mount", "🐎 Monturas")}{tab("premium", "👑 Premium")}{tab("util", "🎒 Utilidades")}
+        <span data-coinmsg="1" style={{ fontSize: 11, color: c.msgBad ? th.text.danger : th.text.success, marginLeft: 4 }}>{c.msg}</span>
+      </div>
+      <div style={{ overflowY: "auto", flex: 1, minHeight: 0, paddingRight: 2 }}>
+        {cat === "cosmetic" && <Fragment>
+          <div style={{ fontSize: 10, color: th.text.secondary }}>Sólo cambian el aspecto: nada de equipo ni estadísticas a la venta.</div>
+          {sec("Atuendos")}<div style={grid}>{OUTFITS.map((o: Outfit) => cosCard(o.id, o.n, o.price, { outfit: o.id, aura: c.aura, ncol: c.ncol }, c.outfit === o.id))}</div>
+          {sec("Auras")}<div style={grid}>{AURAS.map((a: Aura) => cosCard(a.id, a.n, a.price, { outfit: c.outfit, aura: a.id, ncol: c.ncol }, c.aura === a.id))}</div>
+          {sec("Color del nombre")}<div style={grid}>{NAMECOLS.map((n: NameCol) => cosCard(n.id, n.n, n.price, { outfit: c.outfit, aura: c.aura, ncol: n.id }, c.ncol === n.id))}</div>
+        </Fragment>}
+        {cat === "mount" && <Fragment>
+          <div style={{ fontSize: 11, color: th.text.secondary, marginBottom: 4 }}>🐎 Las monturas llegan en la próxima versión: te harán caminar más rápido.</div>
+          <div style={grid}>{MOUNTS.map((m: MountDef) => (
+            <div key={m.id} style={{ ...card, opacity: 0.75 }} data-coinitem={m.id}><div style={{ fontSize: 22 }}>🐎</div><div style={{ fontWeight: 700, fontSize: 11 }}>{m.n}</div>
+              <div style={{ fontSize: 10, color: th.text.secondary }}>+{m.speed} de velocidad</div><button style={gbtn(false, true)} disabled>Próximamente · {price(m.price)}</button></div>))}</div>
+        </Fragment>}
+        {cat === "premium" && <div style={grid}>{utilCard("premium", premTxt, true)}</div>}
+        {cat === "util" && <div style={grid}>
+          {utilCard("bag", `Ahora: ${bagMax(g)} casillas`, c.bagX < BAG_STEP * BAG_BUYS)}
+          {utilCard("xp", c.xpLeft > 0 ? `Activa: ${Math.ceil(c.xpLeft / 60000)} min` : "", c.xpLeft + XP_BOOST_MS <= XP_BOOST_MAX)}
+          {utilCard("scroll", `Tienes ${c.scrolls}`, true)}
+          {utilCard("scroll5", "", true)}
+          {utilCard("rename", `Ahora: ${g.p.name}`, true)}
+        </div>}
+      </div>
+      <div style={{ fontSize: 10, color: th.text.tertiary }}>Tecla para abrir/cerrar: se puede cambiar en «⌨️ Atajos».</div>
+    </div>
+  );
+}
+function ExchangeOverlay(props: { g: Game; th: Theme; refresh: () => void }) {
+  const { g, th } = props; const c = cs(g); const [dir, setDir] = useState<"c2g" | "g2c">("c2g"); const [n, setN] = useState<number>(1);
+  const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, card, gbtn } = coinStyles(th);
+  const max = dir === "c2g" ? c.coins : Math.floor(g.p.gold / COIN_GOLD); const q = clamp(Math.floor(n) || 1, 1, Math.max(1, max)); const ok = max >= 1;
+  const set = (v: number): void => setN(clamp(Math.floor(v) || 1, 1, Math.max(1, max)));
+  return (
+    <div data-exchange="1" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }} style={{ ...frame, inset: "auto", left: 12, top: 44, width: "min(60%, 380px)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>⚖️ {DARIO_NAME}</b>
+        <button style={gbtn(false)} onClick={() => act(() => { c.exOpen = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={{ textAlign: "center", fontSize: 14, fontWeight: 700, color: gold, padding: "4px 0", border: `1px solid ${th.text.warning}`, borderRadius: 4, background: th.fill.warningSubtle }}>1 Edisar Coin = 10,000 de oro</div>
+      <div style={{ display: "flex", justifyContent: "space-around", fontWeight: 700 }}><span data-exbal-coins={c.coins} style={{ color: gold }}>🪙 {c.coins.toLocaleString("es-MX")} coins</span><span data-exbal-gold={g.p.gold} style={{ color: th.text.warning }}>💰 {g.p.gold.toLocaleString("es-MX")} oro</span></div>
+      <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+        <button style={gbtn(dir === "c2g")} onClick={() => { setDir("c2g"); setN(1); }}>Coins → Oro</button>
+        <button style={gbtn(dir === "g2c")} onClick={() => { setDir("g2c"); setN(1); }}>Oro → Coins</button>
+      </div>
+      <div style={{ ...card, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}>
+        <span>{dir === "c2g" ? "Coins:" : "Coins a comprar:"}</span>
+        <button style={gbtn(false, q <= 1)} onClick={() => set(q - 1)} aria-label="Menos">−</button>
+        <input type="number" min={1} max={Math.max(1, max)} value={q} aria-label="Cantidad" onChange={(e: ChangeEvent<HTMLInputElement>) => set(Number(e.target.value))} onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}
+          style={{ width: 70, padding: "3px 6px", borderRadius: 4, border: `1px solid ${th.text.warning}`, background: th.bg.base, color: th.text.primary, fontFamily: TITLE_SERIF, fontSize: 12, textAlign: "center" }} />
+        <button style={gbtn(false, q >= max)} onClick={() => set(q + 1)} aria-label="Más">+</button>
+        <button style={gbtn(false, !ok)} onClick={() => set(max)}>Máx ({max})</button>
+      </div>
+      <div style={{ textAlign: "center", fontSize: 12 }}>{dir === "c2g" ? <Fragment>Entregas <b style={{ color: gold }}>🪙 {q}</b> y recibes <b style={{ color: th.text.warning }}>💰 {(q * COIN_GOLD).toLocaleString("es-MX")}</b></Fragment> : <Fragment>Entregas <b style={{ color: th.text.warning }}>💰 {(q * COIN_GOLD).toLocaleString("es-MX")}</b> y recibes <b style={{ color: gold }}>🪙 {q}</b></Fragment>}</div>
+      <button data-exgo="1" style={{ ...gbtn(true, !ok), fontSize: 13, padding: "5px 10px" }} onClick={() => act(() => { if (dir === "c2g") exCoinsToGold(g, q); else exGoldToCoins(g, q); setN(1); })}>{ok ? "Cambiar" : dir === "c2g" ? "No tienes coins" : "Te falta oro (10,000 por coin)"}</button>
+      <div data-coinmsg="1" style={{ fontSize: 11, textAlign: "center", minHeight: 14, color: c.msgBad ? th.text.danger : th.text.success }}>{c.msg}</div>
+      <div style={{ fontSize: 10, color: th.text.tertiary, textAlign: "center" }}>Prototipo: sin dinero real. Las coins se gastan en la 🪙 Tienda de Coins.</div>
+    </div>
+  );
+}
+
+// Ventana del depósito: arrastra entre mochila ↔ depósito, o clic + «Sacar» / «📦 Guardar» en el detalle
+interface DepDnd { start: (x: number, y: number, src: DragSrcX, tap?: () => void) => void; used: () => boolean; tip?: (inst: Inst | null, x: number, y: number) => void; }
+function DepotWindow(props: { g: Game; th: Theme; refresh: () => void; dnd: DepDnd }) {
+  const { g, th } = props; const d = dep(g); const [sel, setSel] = useState<number>(-1);
+  const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, gbtn } = coinStyles(th);
+  const si = d.items.findIndex((i: Inst) => i.uid === sel); const selInst = si >= 0 ? (d.items[si] ?? null) : null;
+  return (
+    <div data-depot="1" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }}
+      style={{ ...frame, inset: "auto", left: 8, top: 40, width: "min(52%, 400px)", maxHeight: "calc(100% - 110px)", zIndex: 6, gap: 5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>📦 Depósito <span data-depcount={d.items.length} style={{ fontSize: 11 }}>({d.items.length}/{DEPOT_MAX})</span></b>
+        <button style={gbtn(false, g.p.bag.length === 0)} onClick={() => act(() => { depositAll(g); setSel(-1); })} title="Guarda toda la mochila">Guardar todo</button>
+        <button style={gbtn(false)} onClick={() => act(() => { d.open = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={{ fontSize: 10, color: th.text.secondary }}>Arrastra objetos entre la 🎒 mochila (a la derecha) y el depósito, o tócalos y usa «Sacar» / «📦 Guardar». Lo guardado aquí se queda en tu partida.</div>
+      <div data-drop={`dep:${DEPOT_MAX}`} style={{ overflowY: "auto", minHeight: 0, flex: "1 1 auto", padding: 2, display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 2, alignContent: "start" }}>
+        {Array.from({ length: DEPOT_MAX }, (_: unknown, k: number) => { const i = d.items[k] ?? null; return <ItemCell key={i ? i.uid : `d${k}`} th={th} fluid inst={i} label="" drop={`dep:${k}`} selected={!!i && i.uid === sel} up={!!i && isUpgrade(g, i)}
+          onClick={() => { if (props.dnd.used()) return; setSel(i ? i.uid : -1); }}
+          onTip={(on: boolean, x: number, y: number) => { if (props.dnd.tip) props.dnd.tip(on ? i : null, x, y); }}
+          onDown={(e: RPointerEvent<HTMLDivElement>) => { if (i) props.dnd.start(e.clientX, e.clientY, { kind: "dep", uid: i.uid }); }} />; })}
+      </div>
+      {selInst && <div style={{ borderTop: `1px solid ${th.text.warning}`, paddingTop: 4, display: "flex", gap: 8, alignItems: "flex-start", fontFamily: th.font.family }}>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 11 }}><ItemTipBody g={g} th={th} inst={selInst} /></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <button style={gbtn(true, g.p.bag.length >= bagMax(g))} onClick={() => act(() => { if (withdrawItem(g, si)) setSel(-1); })}>⬆ Sacar</button>
+          <button style={gbtn(false)} onClick={() => setSel(-1)}>✕</button>
+        </div>
+      </div>}
+      <div data-depmsg="1" style={{ fontSize: 11, minHeight: 14, color: d.msgBad ? th.text.danger : th.text.success }}>{d.msg}</div>
+    </div>
+  );
+}
+
 function SaveModal(props: { code: string; local: boolean; onClose: () => void; th: Theme }) {
   const { th } = props; const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [msg, setMsg] = useState<string>(""); const [good, setGood] = useState<boolean>(true);
@@ -2475,10 +2880,10 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
         </div>}
       </div>
       <div data-hudscroll="1" style={{ ...panel, overflowY: "auto", minHeight: 0, flex: "0 1 auto" }}>
-        <div style={{ ...head, justifyContent: "space-between" }}><span>{p.name} · Nv {p.level}</span><span style={{ color: th.text.warning }}>💰 {p.gold}</span></div>
+        <div style={{ ...head, justifyContent: "space-between" }}><span>{p.name} · Nv {p.level}</span><span style={{ whiteSpace: "nowrap" }}><span style={{ color: th.text.warning }}>💰 {p.gold}</span> <span data-coins={cs(g).coins} title="Edisar Coins (prueba)" style={{ color: th.text.warningDeep }}>🪙 {cs(g).coins}</span></span></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 3, maxWidth: 132, margin: "0 auto" }}>
           {DOLL.map((s: Slot | "bag" | null, k: number) => s === null ? <div key={k} /> : s === "bag"
-            ? <ItemCell key={k} th={th} fluid inst={null} drop={`bag:${BAG_MAX}`} label={`🎒 ${p.bag.length}/${BAG_MAX}`} selected={showBag} onClick={() => setShowBag(!showBag)} />
+            ? <ItemCell key={k} th={th} fluid inst={null} drop={`bag:${bagMax(g)}`} label={`🎒 ${p.bag.length}/${bagMax(g)}`} selected={showBag} onClick={() => setShowBag(!showBag)} />
             : <ItemCell key={k} th={th} fluid inst={p.eq[s]} drop={`eq:${s}`} label={s === "off" ? g.cls.offName : SLOT_NAMES[s]} selected={!!p.eq[s] && p.eq[s]?.uid === sel} onClick={() => pick(p.eq[s]?.uid ?? -1)}
                 onTip={(on: boolean, x: number, y: number) => { if (props.dnd && props.dnd.tip) props.dnd.tip(on ? p.eq[s] : null, x, y, true); }}
                 onDown={(e: RPointerEvent<HTMLDivElement>) => { const it = p.eq[s]; if (it && props.dnd) props.dnd.start(e.clientX, e.clientY, { kind: "eq", slot: s, uid: it.uid }); }} />)}
@@ -2486,6 +2891,7 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
         <div style={{ display: "flex", gap: 4, justifyContent: "center", margin: "5px 0", flexWrap: "wrap" }}>
           <button style={btn(th, false, true)} onClick={() => act(() => { usePotion(g, "hp", performance.now()); })} title={`Vida: ${p.hpPot} normales + ${p.hpPot2} fuertes`}>❤️ {hpPots(p)}</button>
           <button style={btn(th, false, true)} onClick={() => act(() => { usePotion(g, "mana", performance.now()); })} title={`Maná: ${p.manaPot} normales + ${p.manaPot2} grandes`}>💧 {manaPots(p)}</button>
+          {cs(g).scrolls > 0 && <button style={btn(th, false, true)} onClick={() => act(() => { readScroll(g, performance.now()); })} title="Pergamino de regreso: al templo">📜 {cs(g).scrolls}</button>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 3, marginBottom: 6 }}>
           <button style={btn(th, g.shopOpen, true)} onClick={() => act(() => { if (g.shopOpen) g.shopOpen = false; else requestShop(g, performance.now()); })}>🛒 Tienda</button>
@@ -2495,12 +2901,18 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           {winBtn("quests", "📜 Misiones")}
           {winBtn("keys", "⌨️ Atajos")}
           {winBtn("log", "📖 Registro")}
+          <button data-coinbtn="1" style={btn(th, cs(g).open, true)} onClick={() => act(() => { const c = cs(g); c.open = !c.open; c.msg = ""; })} title="Tienda de Edisar Coins (K)">🪙 Coins</button>
+          <button data-depbtn="1" style={btn(th, !!g.dep && g.dep.open, true)} onClick={() => act(() => { if (g.dep && g.dep.open) g.dep.open = false; else requestDepot(g, performance.now()); })} title="Depósito (baúl junto al templo)">📦 Depósito</button>
           <button style={{ ...btn(th, props.full, true), gridColumn: "1 / -1" }} onClick={props.onFull} title="Tecla P">{props.full ? "✕ Salir de pantalla completa" : "⛶ Pantalla completa"}</button>
         </div>
+        <div data-afkmin={cs(g).afkMin} style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap", marginBottom: 5, fontSize: 10 }} title="Qué objetos recoge el modo AFK (el oro se recoge siempre)">
+          <span style={{ color: th.text.secondary }}>🤖 AFK recoge:</span>
+          {AFK_MINS.map((r: Rarity) => <button key={r} data-afkopt={r} style={{ ...btn(th, cs(g).afkMin === r, true), padding: "1px 5px", fontSize: 10 }} onClick={() => act(() => setAfkMin(g, r))} title={AFK_MIN_LABEL[r]}>{r === "com" ? "Todo" : <span style={{ color: cs(g).afkMin === r ? th.text.onPrimary : RAR[r].c }}>{RAR[r].n}+</span>}</button>)}
+        </div>
         {showBag && <div>
-          <div style={{ fontWeight: 700, marginBottom: 3 }}>🎒 Mochila ({p.bag.length}/{BAG_MAX})</div>
-          <div data-drop={`bag:${BAG_MAX}`} style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 2 }}>
-            {Array.from({ length: BAG_MAX }, (_: unknown, k: number) => { const i = p.bag[k] ?? null; return <ItemCell key={i ? i.uid : `e${k}`} th={th} fluid inst={i} label="" drop={`bag:${k}`} selected={!!i && i.uid === sel} onClick={() => pick(i ? i.uid : -1)} up={!!i && isUpgrade(g, i)}
+          <div style={{ fontWeight: 700, marginBottom: 3 }}>🎒 Mochila ({p.bag.length}/{bagMax(g)})</div>
+          <div data-drop={`bag:${bagMax(g)}`} style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 2 }}>
+            {Array.from({ length: bagMax(g) }, (_: unknown, k: number) => { const i = p.bag[k] ?? null; return <ItemCell key={i ? i.uid : `e${k}`} th={th} fluid inst={i} label="" drop={`bag:${k}`} selected={!!i && i.uid === sel} onClick={() => pick(i ? i.uid : -1)} up={!!i && isUpgrade(g, i)}
               onTip={(on: boolean, x: number, y: number) => { if (props.dnd && props.dnd.tip) props.dnd.tip(on ? i : null, x, y); }}
               onDown={(e: RPointerEvent<HTMLDivElement>) => { if (i && props.dnd) props.dnd.start(e.clientX, e.clientY, { kind: "bag", uid: i.uid }); }} />; })}
           </div>
@@ -2511,6 +2923,7 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
             {selBag >= 0 && <button style={btn(th, true, true)} onClick={() => act(() => { equipItem(g, selBag, performance.now()); })}>Equipar</button>}
             {selSlot && <button style={btn(th, false, true)} onClick={() => act(() => { unequip(g, selSlot, performance.now()); })}>Quitar</button>}
             <button style={btn(th, false, true)} title="Tirar al suelo, a tus pies" onClick={() => act(() => { const t = performance.now(); if (selBag >= 0) dropItem(g, selBag, null, null, t); else if (selSlot) dropItem(g, selSlot, null, null, t); setSel(-1); })}>⬇ Tirar</button>
+            {selBag >= 0 && !!g.dep && g.dep.open && <button style={btn(th, true, true)} onClick={() => act(() => { depositItem(g, selBag); setSel(-1); })} title="Guardar en el depósito">📦 Guardar</button>}
             {selBag >= 0 && (nearShop ? <button style={btn(th, false, true)} onClick={() => act(() => { sellItem(g, selBag); setSel(-1); })}>Vender ({sellValue(selInst)})</button> : <span style={{ color: th.text.tertiary, alignSelf: "center" }}>Vende con Rosa</span>)}
             <button style={btn(th, false, true)} onClick={() => setSel(-1)}>✕</button>
           </div>
@@ -2585,7 +2998,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       if (saveOpenRef.current) { if (e.code === "Escape") { e.preventDefault(); saveOpenRef.current = false; setSaveView(null); } return; }
       const L = listenRef.current;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
-      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
+      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -2602,12 +3015,13 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
   useEffect(() => { const gg = gRef.current; if (gg && !hudOpen) gg.hudPad = 0; const t = window.setTimeout(() => { const c = canvasRef.current, h = hudRef.current; if (gg && c) { const cw = c.getBoundingClientRect().width; gg.hudPad = h && cw > 0 ? clamp(((h.getBoundingClientRect().width + 6) / cw) * VW, 0, VW * 0.6) : 0; } }, 30); return () => window.clearTimeout(t); }, [hudOpen]);
   // Arrastrar objetos: mochila / equipo / suelo → mapa, mochila o ranura de equipo
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ src: DragSrc; x0: number; y0: number; on: boolean; tap?: () => void } | null>(null);
+  const dragRef = useRef<{ src: DragSrcX; x0: number; y0: number; on: boolean; tap?: () => void } | null>(null);
   const dragEnd = useRef<number>(-99999);
   const [ghost, setGhost] = useState<{ x: number; y: number; inst: Inst } | null>(null);
-  const dropDst = (cx: number, cy: number): DropDst | null => {
+  const dropDst = (cx: number, cy: number): DropDstX | null => {
     const el = document.elementFromPoint(cx, cy); const t = el ? el.closest("[data-drop]") : null; const d = t ? (t.getAttribute("data-drop") ?? "") : "";
     if (d.startsWith("bag:")) return { kind: "bag", k: Number(d.slice(4)) };
+    if (d.startsWith("dep:")) return { kind: "dep", k: Number(d.slice(4)) };
     if (d.startsWith("eq:")) { const sl = SLOTS.find((x: Slot) => x === d.slice(3)); return sl ? { kind: "eq", slot: sl } : null; }
     if (d === "map") {
       const c = canvasRef.current; if (!c || g.bigMap) return { kind: "feet" }; const r = c.getBoundingClientRect(); if (r.width <= 0 || r.height <= 0) return { kind: "feet" };
@@ -2615,10 +3029,10 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     }
     return null;
   };
-  const startDrag = (x0: number, y0: number, src: DragSrc, tap?: () => void): void => {
+  const startDrag = (x0: number, y0: number, src: DragSrcX, tap?: () => void): void => {
     if (dragRef.current) return;
     dragRef.current = { src, x0, y0, on: false, tap }; setTip(null);
-    const inst: Inst | null = src.kind === "floor" ? src.gi.inst : src.kind === "eq" ? g.p.eq[src.slot] : (g.p.bag.find((i: Inst) => i.uid === src.uid) ?? null);
+    const inst: Inst | null = src.kind === "floor" ? src.gi.inst : src.kind === "eq" ? g.p.eq[src.slot] : src.kind === "dep" ? (dep(g).items.find((i: Inst) => i.uid === src.uid) ?? null) : (g.p.bag.find((i: Inst) => i.uid === src.uid) ?? null);
     const move = (e: PointerEvent): void => {
       const d = dragRef.current; if (!d) return;
       if (!d.on && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
@@ -2631,7 +3045,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       const d = dragRef.current; dragRef.current = null; setGhost(null); if (!d) return;
       if (!d.on) { if (!cancel && d.tap) d.tap(); return; }
       dragEnd.current = performance.now();
-      if (!cancel) applyDrop(g, d.src, dropDst(e.clientX, e.clientY), performance.now());
+      if (!cancel) applyDropX(g, d.src, dropDst(e.clientX, e.clientY), performance.now());
       refresh();
     };
     const upH = (e: PointerEvent): void => end(e, false); const cancelH = (e: PointerEvent): void => end(e, true);
@@ -2655,7 +3069,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     x = clamp(x, 4, Math.max(4, vw - tw - 4)); y = clamp(y, 4, Math.max(4, vh - tht - 4));
     el.style.left = `${Math.round(x - r.left)}px`; el.style.top = `${Math.round(y - r.top)}px`;
   };
-  const tipLive = !!tip && !ghost && (tip.inst.uid < 0 ? g.shopOpen : g.p.bag.includes(tip.inst) || SLOTS.some((s: Slot) => g.p.eq[s] === tip.inst) || g.ground.some((gi: Ground) => gi.inst === tip.inst));
+  const tipLive = !!tip && !ghost && (tip.inst.uid < 0 ? g.shopOpen : g.p.bag.includes(tip.inst) || SLOTS.some((s: Slot) => g.p.eq[s] === tip.inst) || g.ground.some((gi: Ground) => gi.inst === tip.inst) || (!!g.dep && g.dep.open && g.dep.items.includes(tip.inst)));
   const onCanvasMove = (e: RPointerEvent<HTMLCanvasElement>): void => {
     if (e.pointerType !== "mouse" || e.buttons !== 0 || g.bigMap) { if (tip) setTip(null); return; }
     const c = canvasRef.current; if (!c) return; const r = c.getBoundingClientRect(); if (r.width <= 0 || r.height <= 0) return;
@@ -2672,7 +3086,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     const tx = Math.floor((px + g.camX) / TS), ty = Math.floor((py + g.camY) / TS);
     const gi = floorAt(g, tx, ty);
     if (gi && !monAt(g, tx, ty) && cheb(tx, ty, g.p.x, g.p.y) <= DROP_RANGE && regionOf(tx, ty) === regionOf(g.p.x, g.p.y)) { startDrag(e.clientX, e.clientY, { kind: "floor", gi }, () => { clickTile(g, tx, ty, performance.now()); refresh(); }); return; }
-    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else clickTile(g, tx, ty, now);
+    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else clickTile(g, tx, ty, now);
     refresh();
   };
   const hold = (d: MoveAct, on: boolean): void => { if (on) { if (!g.heldDirs.includes(d)) g.heldDirs.push(d); } else g.heldDirs = g.heldDirs.filter((x: MoveAct) => x !== d); };
@@ -2698,6 +3112,9 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {full && <button style={{ ...btn(th, true, true), position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", zIndex: 5 }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={props.onFull}>✕ Salir{props.fs ? "" : " (Esc)"}</button>}
           {win && !g.bigMap && <HudWindow g={g} th={th} win={win} onClose={() => setWin(null)} binds={binds} listening={listening} setListening={setListening} resetBinds={() => setBinds(cloneBinds(DEFAULT_BINDS))} />}
           {g.shopOpen && <ShopOverlay g={g} th={th} refresh={refresh} tip={hoverTip} />}
+          {g.cs && g.cs.exOpen && <ExchangeOverlay g={g} th={th} refresh={refresh} />}
+          {g.cs && g.cs.open && <CoinStore g={g} th={th} refresh={refresh} />}
+          {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
             <div ref={placeTip} style={{ position: "absolute", left: 0, top: 0, zIndex: 30, pointerEvents: "none", display: "flex", gap: 10, background: th.bg.elevated, color: th.text.primary, border: `1px solid ${th.border.strong}`, borderRadius: 8, padding: 8, fontSize: 11, fontFamily: th.font.family, boxShadow: `0 4px 14px ${th.border.strong}` }}>
               <div style={{ width: 210 }}><ItemTipBody g={g} th={th} inst={tip.inst} plain={tip.plain} />{!shift && cur && <div style={{ fontSize: 9, marginTop: 3, color: th.text.tertiary }}>Mayús: ver equipado</div>}</div>
@@ -2719,6 +3136,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
             <button style={btn(th)} onClick={() => doAct("hpPot")}>❤️ Vida ({hpPots(g.p)})</button>
             <button style={btn(th)} onClick={() => doAct("manaPot")}>💧 Maná ({manaPots(g.p)})</button>
             <button style={btn(th, g.shopOpen)} onClick={() => doAct("shop")}>🛒 Tienda</button>
+            <button style={btn(th, !!g.cs && g.cs.open)} onClick={() => doAct("coins")}>🪙 Coins</button>
             <button style={btn(th, g.afk)} onClick={() => doAct("afk")}>{g.afk ? "● AFK" : "🤖 AFK"}</button>
             <button style={btn(th, g.bigMap)} onClick={() => doAct("map")}>🗺️ Mapa</button>
             <button style={btn(th)} onClick={() => doAct("clearTarget")}>Esc</button>
@@ -2731,6 +3149,8 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <br />🏛️ <b>Las 12 Casas del Zodiaco</b>: sube por el camino del Santuario, al norte de la villa. Entra pisando el portal de cada casa (empieza por Aries, nivel 3); al vencer a su guardián dorado se abre la siguiente y vuelves al templo. Cuidado con los ataques marcados en rojo: ¡apártate! El AFK puede cazar dentro de las casas, pero nunca pelea contra los guardianes.
           <br />⬇ <b>Tirar objetos</b>: arrastra un objeto de la mochila o del equipo al mapa (hasta 3 casillas; si no, cae a tus pies), a otra casilla de la mochila para ordenarla, o a una ranura de equipo para ponértelo. También con «⬇ Tirar» en el detalle del objeto. Lo que tiras no se recoge solo (el AFK lo ignora); para recogerlo, arrástralo del suelo a la mochila o vuelve a pisarlo pasados 10 s.
           <br />🔍 <b>Comparar objetos</b>: pasa el ratón sobre un objeto (mochila, suelo o tienda) para compararlo con lo que llevas puesto: ▲ verde mejor, ▼ rojo peor. Mantén Mayús para ver tu objeto equipado al lado. En táctil, tócalo para ver la comparación en el detalle. Un ▲ verde en la casilla marca una mejora para ti.
+          <br />🪙 <b>Edisar Coins (prueba)</b>: tecla K o botón «🪙 Coins» abre la tienda (cosméticos, premium, mochila, pergaminos, poción de experiencia, cambio de nombre; monturas próximamente). Sin pagos reales: se ganan jugando, con «Modo prueba» o con el Cambista Darío junto a la fuente (1 Edisar Coin = 10,000 de oro). En el HUD, «🤖 AFK recoge» elige si el AFK recoge todo o sólo objetos Raros (azul), Épicos (morado) y Heaven; el oro se recoge siempre.
+          <br />📦 <b>Depósito</b>: el baúl junto al templo guarda hasta 80 objetos. Tócalo (o camina hasta él) para abrirlo y arrastra objetos entre la mochila y el depósito, o usa «📦 Guardar» / «⬆ Sacar». Sólo se abre en Villa Esmeralda.
           <br />⛶ <b>Pantalla completa</b>: botón ⛶ o tecla P (se puede cambiar en «Atajos»). Si el navegador no la permite, el juego ocupa toda la página; «✕ Salir» o Esc para volver.
         </div>}
       </div>

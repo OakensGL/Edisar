@@ -6,6 +6,8 @@ Edisar es un RPG de navegador al estilo Tibia, creado por Juan Carlos (OakensGL)
 
 Las partidas se guardan en el navegador del jugador. El progreso queda en el almacenamiento local de este dispositivo.
 
+Incluye una tienda de prueba de Edisar Coins, un cambista, un filtro de rareza para el loot AFK y un depósito.
+
 ## Cómo reconstruir
 
 ```bash
