@@ -9,14 +9,14 @@ type HatStyle = "hood" | "pointy" | "horns" | "cap" | "mask" | "helm";
 type Look = "staff" | "bow" | "sword" | "axe" | "club" | "dagger" | "none";
 type MonId = string;
 type MoveAct = "up" | "down" | "left" | "right" | "ul" | "ur" | "dl" | "dr";
-type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins" | "mount" | "qlog";
+type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "power5" | "power6" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins" | "mount" | "qlog";
 type Binds = Record<Action, string[]>;
 type Slot = "head" | "body" | "legs" | "feet" | "weapon" | "off" | "amulet" | "ring";
 type WType = "sword" | "axe" | "club" | "dagger" | "rod" | "wand" | "staff" | "bow" | "shield" | "quiver" | "orb" | "armor" | "jewel";
 type Rarity = "com" | "rar" | "epi" | "hea";
 type SkillId = "magic" | "melee" | "dist" | "shield";
 type School = "magic" | "melee" | "dist" | "level";
-type PKind = "strike" | "area" | "heal" | "hot" | "wave" | "field" | "drain" | "dot" | "summon" | "spin" | "buff" | "slow" | "dash" | "blink" | "smoke";
+type PKind = "strike" | "area" | "heal" | "hot" | "wave" | "field" | "drain" | "dot" | "summon" | "spin" | "buff" | "slow" | "dash" | "blink" | "smoke" | "ult" | "pull";
 type StatKey = "atk" | "def" | "arm" | "magic" | "hp" | "mana" | "speed";
 type Stats = Record<StatKey, number>;
 
@@ -70,7 +70,7 @@ const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y 
 const PLAYER_T = -7;
 const NPC_NAME = "Rosa la mercader";
 const HP_POT_PRICE = 50, MANA_POT_PRICE = 50;
-const SLOT = 32, SLOT_GAP = 4, SLOT_N = 6;
+const SLOT = 32, SLOT_GAP = 4, SLOT_N = 8;
 const BAR_W = SLOT_N * SLOT + (SLOT_N - 1) * SLOT_GAP;
 const HUD_RES = 200; // ancho (px del lienzo) que suele ocupar el HUD a la derecha
 let BAR_X = Math.round((VW - HUD_RES - BAR_W) / 2);
@@ -80,7 +80,7 @@ function setView(w: number, h: number): void {
   VW = Math.max(320, Math.round(w)); VH = Math.max(240, Math.round(h)); VW_T = Math.ceil(VW / TS); VH_T = Math.ceil(VH / TS);
   BAR_Y = VH - SLOT - 10; BAR_X = Math.max(84, Math.round((VW - HUD_RES - BAR_W) / 2));
 }
-const SLOT_ACTS: Action[] = ["power1", "power2", "power3", "power4", "hpPot", "manaPot"];
+const SLOT_ACTS: Action[] = ["power1", "power2", "power3", "power4", "hpPot", "manaPot", "power5", "power6"];
 const SLOTS: Slot[] = ["head", "body", "legs", "feet", "weapon", "off", "amulet", "ring"];
 const STAT_KEYS: StatKey[] = ["atk", "def", "arm", "magic", "hp", "mana", "speed"];
 const SLOT_NAMES: Record<Slot, string> = { head: "Casco", body: "Armadura", legs: "Piernas", feet: "Botas", weapon: "Arma", off: "Escudo", amulet: "Amuleto", ring: "Anillo" };
@@ -98,7 +98,7 @@ const WT_INT: Partial<Record<WType, number>> = { sword: 1600, axe: 2000, club: 1
 const ACTIONS: Array<{ id: Action; label: string }> = [
   { id: "up", label: "Mover arriba" }, { id: "down", label: "Mover abajo" }, { id: "left", label: "Mover a la izquierda" }, { id: "right", label: "Mover a la derecha" },
   { id: "ul", label: "Diagonal arriba-izquierda" }, { id: "ur", label: "Diagonal arriba-derecha" }, { id: "dl", label: "Diagonal abajo-izquierda" }, { id: "dr", label: "Diagonal abajo-derecha" },
-  { id: "power1", label: "Poder 1" }, { id: "power2", label: "Poder 2" }, { id: "power3", label: "Poder 3" }, { id: "power4", label: "Poder 4" },
+  { id: "power1", label: "Poder 1" }, { id: "power2", label: "Poder 2" }, { id: "power3", label: "Poder 3" }, { id: "power4", label: "Poder 4" }, { id: "power5", label: "Poder 5 (nivel 100; caballero: nivel 35)" }, { id: "power6", label: "Poder 6 (caballero: nivel 100)" },
   { id: "hpPot", label: "Poción de vida" }, { id: "manaPot", label: "Poción de maná" },
   { id: "attack", label: "Atacar al más cercano" }, { id: "nextTarget", label: "Siguiente objetivo" }, { id: "clearTarget", label: "Quitar objetivo / cerrar" },
   { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" }, { id: "mount", label: "Montar / desmontar" }, { id: "qlog", label: "Diario de misiones" },
@@ -106,7 +106,7 @@ const ACTIONS: Array<{ id: Action; label: string }> = [
 const DEFAULT_BINDS: Binds = {
   up: ["KeyW", "ArrowUp", "Numpad8"], down: ["KeyS", "ArrowDown", "Numpad2"], left: ["KeyA", "ArrowLeft", "Numpad4"], right: ["KeyD", "ArrowRight", "Numpad6"],
   ul: ["KeyQ", "Numpad7"], ur: ["KeyE", "Numpad9"], dl: ["KeyZ", "Numpad1"], dr: ["KeyC", "Numpad3"],
-  power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"],
+  power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"], power5: ["F7", "Digit7"], power6: ["F8", "Digit8"],
   hpPot: ["F5", "Digit5"], manaPot: ["F6", "Digit6"], attack: ["Space"], nextTarget: ["Tab"], clearTarget: ["Escape"],
   shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"], qlog: ["KeyJ"],
 };
@@ -508,7 +508,7 @@ let MAP_CACHE: Uint8Array | null = null;
 function buildMap(): Uint8Array {
   if (MAP_CACHE) return MAP_CACHE;
   const big = new Uint8Array(MW * MH).fill(ROCK);
-  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big); buildCroqLair(big); buildUw(big);
+  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big); buildCroqLair(big); buildUw(big); buildV22(big);
   MAP_CACHE = big; return big;
 }
 // Mundo exterior: se genera con las coordenadas de siempre (96×72) y se desplaza OY casillas al sur
@@ -546,6 +546,7 @@ function zoneName(g: Game, x: number, y: number): string {
   if (r >= UW_R0) return uwZoneName(x, y);
   if (r === 0 && inCastleZone(x, y)) return castleZoneName(x, y);
   if (r > 0) { const H = HOUSES[r - 1], rt = HRT[r - 1]; if (!H) return "Santuario"; return rt && inRect(rt.room, x, y) ? `${H.glyph} Templo de ${H.boss.split(" de ")[0] ?? H.boss}` : `${H.glyph} Casa de ${H.name}`; }
+  if (inTr(x, y)) return "🥋 Sala de entrenamiento";
   if (y < OY) return "Santuario: camino de las 12 Casas";
   const oy = y - OY;
   if (isSafe(x, y)) return "Villa Esmeralda (zona segura)";
@@ -754,6 +755,7 @@ function newGame(cls: ClassDef, name: string): Game {
   for (const rt of HRT) if (rt) for (const s of rt.spawns) all.push(s);
   for (const s of CROQ_SPAWNS) all.push(s);
   for (const s of UW_SPAWNS) all.push(s);
+  for (const s of TR_SPAWNS) all.push(s);
   for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && inCastleBlock(s[1], s[2])) all.splice(i, 1); } // nothing spawns inside the Torre de Croqui
   for (const [mid, x0, y0] of all) {
     let fx = -1, fy = -1;
@@ -883,7 +885,7 @@ function killMon(g: Game, m: Mon, now: number): void {
   if (bigBoss) { coinDrop(g, m, now); mountDrop(g, m, now); }
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
-  if (m.def.house) houseKill(g, m, now);
+  if (m.def.house && !m.gm) houseKill(g, m, now);
   nqKill(g, m, now);
 }
 // ===================== Las Casas: misiones y guardianes =====================
@@ -952,6 +954,7 @@ function damageMon(g: Game, m: Mon, dmg: number, now: number, elem: Elem, crit?:
   if (!m.alive || !(dmg > 0)) return;
   if (m.def.uw && m.def.boss) { dmg = uwDmg(g, m, dmg, now); if (!(dmg > 0)) return; }
   m.hp -= dmg; m.angryUntil = now + 15000;
+  if (m.def.monk && m.hp < 1) m.hp = 1; // los monjes de entrenamiento no mueren
   addFloat(g, m.x * TS + 16, m.y * TS + 4, crit ? `${dmg}!` : String(dmg), crit ? "#ffe066" : ELEM_COLOR[elem], now);
   if (m.hp <= 0) killMon(g, m, now);
 }
@@ -975,6 +978,7 @@ function die(g: Game, now: number): void {
 }
 function hurtPlayer(g: Game, dmg: number, now: number): void {
   const p = g.p;
+  if (gmGod(g)) { pfloat(g, "🛠 0", "#ffd34d", now); return; }
   if (!(dmg > 0)) { pfloat(g, "fallo", "#9fb4c8", now); return; }
   p.hp -= dmg; p.hitAt = now; pfloat(g, String(dmg), "#ff4040", now);
   if (p.hp <= 0) die(g, now);
@@ -1155,6 +1159,7 @@ function afterMove(g: Game, now: number): void {
 }
 function houseOpen(g: Game, n: number): boolean { return n <= g.cleared + 1; }
 function usePortal(g: Game, now: number): void {
+  if (v22Portal(g, now)) return;
   if (croqPortal(g, now)) return;
   if (uwPortal(g, now)) return;
   const p = g.p; const r = regionOf(p.x, p.y);
@@ -1197,6 +1202,7 @@ function hitCells(g: Game, cells: Array<[number, number]>, min: number, max: num
 }
 function castPower(g: Game, i: number, now: number): boolean {
   const p = g.p; const pw = g.cls.powers[i]; if (!pw) return false;
+  if (powLocked(g, pw)) { setStatus(g, `🔒 ${pw.name}: se desbloquea en el nivel ${pw.lvl ?? 0}.`, now, "#ff9a5a"); return false; }
   if (now < (p.cd[i] ?? 0)) { setStatus(g, `${pw.name}: en enfriamiento (${Math.ceil(((p.cd[i] ?? 0) - now) / 1000)} s).`, now); return false; }
   if (now < p.gcd) return false;
   if (p.mana < pw.mana) { setStatus(g, `No tienes suficiente maná para ${pw.name}.`, now); return false; }
@@ -1265,6 +1271,8 @@ function castPower(g: Game, i: number, now: number): boolean {
       p.x = best[0]; p.y = best[1]; p.fx = p.x; p.fy = p.y; p.moveStart = 0; p.face = dirFrom(t.x - p.x, t.y - p.y); p.critNext = true;
       setStatus(g, "Paso sombrío: tu próximo golpe será crítico.", now, "#b070ff"); afterMove(g, now); break;
     }
+    case "ult": if (!castUlt(g, pw, t, lo, hi, now)) return false; break;
+    case "pull": if (!castPull(g, pw, now)) return false; break;
     case "smoke": {
       for (const m of g.mons) if (m.alive && cheb(m.x, m.y, p.x, p.y) <= 7) { m.calmUntil = now + pw.dur; m.angryUntil = 0; }
       p.evadeUntil = now + pw.dur; g.target = -1; g.fx.push({ cells: circle(p.x, p.y, 5), elem: "star", born: now });
@@ -1311,7 +1319,7 @@ function clickTile(g: Game, x: number, y: number, now: number): void {
   if (x === STABLE_X && y === STABLE_Y) { requestStable(g, now); return; }
   const qn = qnpcAt(x, y); if (qn) { talkTo(g, qn.id, now); return; }
   const m = monAt(g, x, y); if (m) { g.target = m.id; g.chase = true; return; }
-  if (walkable(tileAt(g, x, y))) { g.walkGoal = { x, y, open: false }; g.pending = null; g.chase = false; }
+  walkToTile(g, x, y, now);
 }
 function greedyMove(g: Game, e: Mover, tx: number, ty: number, ok: (x: number, y: number) => boolean): [number, number] | null {
   let best: [number, number] | null = null; let bd = cheb(e.x, e.y, tx, ty) * 10 + Math.abs(e.x - tx) + Math.abs(e.y - ty);
@@ -1337,12 +1345,13 @@ function stepMon(g: Game, m: Mon, now: number): void {
   }
   if (g.dim && !inDim(m.x, m.y)) return; // en Otra Dimensión el resto de la Casa espera
   if (m.dotUntil > now && now >= m.dotNext) { m.dotNext = now + 1000; damageMon(g, m, roll(m.dotMin, m.dotMax), now, "dark"); if (!m.alive) return; }
-  const d = cheb(m.x, m.y, p.x, p.y); const calm = now < m.calmUntil;
+  if (m.def.monk) { monkStep(g, m, now); return; }
+  const d = cheb(m.x, m.y, p.x, p.y); const calm = now < m.calmUntil || gmInvis(g);
   const aggro = !calm && !isSafe(p.x, p.y) && (d <= 6 || now < m.angryUntil);
-  if (m.def.id === CROQ_ID) { croqTick(g, m, now); if (!m.alive || (g.dim && !inDim(m.x, m.y))) return; }
-  if ((m.def.id === VENEQ_ID || m.def.id === "croq_guard") && aggro && venequitoThink(g, m, now, d)) return;
-  if (m.def.uw && aggro && uwThink(g, m, now, d)) return;
-  if (m.def.boss && !m.def.uw && aggro && (d <= 10 || m.def.id === CROQ_ID) && (m.def.id === CROQ_ID ? croquiThink(g, m, now, d) : bossThink(g, m, now, d))) return;
+  if (m.def.id === CROQ_ID && !gmPlain(m)) { croqTick(g, m, now); if (!m.alive || (g.dim && !inDim(m.x, m.y))) return; }
+  if ((m.def.id === VENEQ_ID || m.def.id === "croq_guard") && aggro && !gmPlain(m) && venequitoThink(g, m, now, d)) return;
+  if (m.def.uw && aggro && !gmPlain(m) && uwThink(g, m, now, d)) return;
+  if (m.def.boss && !m.def.uw && aggro && !gmPlain(m) && (d <= 10 || m.def.id === CROQ_ID) && (m.def.id === CROQ_ID ? croquiThink(g, m, now, d) : bossThink(g, m, now, d))) return;
   if (aggro && d > 1 && highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) { if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); hurtMinion(g, roll(Math.round(m.def.atk * 0.6), Math.round(m.def.atk * 1.0)), now, m.def.name); } return; }
   if (aggro && d <= 1) {
     if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); if (highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) hurtMinion(g, roll(Math.round(m.def.atk * 0.5), Math.round(m.def.atk * 0.9)), now, m.def.name); }
@@ -1456,7 +1465,7 @@ interface SaveData { dm?: number; }
 function demonOn(g: Game): boolean { return g.cls.id === "warlock" && g.p.level >= DEMON_LVL; }
 function powName(g: Game, pw: Power): string { return pw.kind === "summon" && demonOn(g) ? `Invocar ${DEMON.NAME}` : pw.name; }
 function powTip(g: Game, pw: Power): string {
-  if (pw.kind !== "summon" || g.cls.id !== "warlock") return `${pw.name} («${pw.words}») · ${pw.mana} maná`;
+  if (pw.kind !== "summon" || g.cls.id !== "warlock") return `${pw.name} («${pw.words}») · ${pw.mana} maná${pw.lvl ? ` · desde nivel ${pw.lvl}` : ""}${powDesc(pw)}`;
   return demonOn(g) ? `😈 ${DEMON.NAME} («${pw.words}»): demonio con más vida y daño; su golpe de fuego oscuro quema un área 3×3 alrededor del objetivo. ${pw.mana} maná.`
     : `${pw.name} («${pw.words}»): esbirro sombrío que golpea a un objetivo. En el nivel ${DEMON_LVL} se convierte en el ${DEMON.NAME} (daño en área). ${pw.mana} maná.`;
 }
@@ -1521,10 +1530,11 @@ function afkRate(g: Game, now: number): number { const h = (now - g.afkStart) / 
 // @@AFK
 function afkReady(g: Game, i: number, now: number, reserve: number): boolean {
   const pw = g.cls.powers[i]; if (!pw) return false;
-  return now >= (g.p.cd[i] ?? 0) && now >= g.p.gcd && g.p.mana >= pw.mana + reserve;
+  return !powLocked(g, pw) && now >= (g.p.cd[i] ?? 0) && now >= g.p.gcd && g.p.mana >= pw.mana + reserve;
 }
 const AFK_MIN_LVL: Record<string, number> = { rat: 1, rotworm: 4, troll: 3, wasp: 5, mino: 14, guard: 22, boss: 40 };
 function afkOk(g: Game, m: Mon): boolean {
+  if (m.def.monk && !inTr(g.p.x, g.p.y)) return false;
   const r = regionOf(m.x, m.y); if (r !== regionOf(g.p.x, g.p.y)) return false;
   if ((m.def.boss || m.def.id === "boss") && !g.afkBoss && r > 0) return false;
   const rt = HRT[r - 1]; if (r > 0 && rt && inRect(rt.room, m.x, m.y) && !g.afkBoss) return false;
@@ -1535,6 +1545,7 @@ function afkThink(g: Game, now: number): void {
   const p = g.p; const mhp = Math.max(1, maxHp(g)), mmp = Math.max(1, maxMana(g)); const pows = g.cls.powers;
   // 1) Curarse
   if (p.hp < mhp * 0.55) {
+    const bi = pows.findIndex((pw: Power) => pw.ult === "bless"); if (bi >= 0 && afkReady(g, bi, now, 0)) { castPower(g, bi, now); return; }
     const hi = pows.findIndex((pw: Power) => pw.kind === "heal");
     if (hi >= 0 && afkReady(g, hi, now, 0)) { castPower(g, hi, now); return; }
     const ti = pows.findIndex((pw: Power) => pw.kind === "hot");
@@ -1566,11 +1577,11 @@ function afkThink(g: Game, now: number): void {
   if (t) {
     const d = cheb(t.x, t.y, p.x, p.y); const reserve = mmp * 0.2;
     // 4) Poderes ofensivos
-    for (let i = 0; i < pows.length; i++) {
+    for (const i of afkOrder(pows)) {
       const pw = pows[i]; if (!pw || !afkReady(g, i, now, reserve) || isSafe(p.x, p.y)) continue;
       const k = pw.kind;
       const ok = (k === "strike" || k === "drain" || k === "slow" || k === "dot" || k === "area" || k === "field") ? inReach(g, t, pw.range) && !(k === "dot" && t.dotUntil > now)
-        : k === "spin" ? d <= 1 : k === "wave" ? d <= 3 : k === "summon" ? !g.minion && d <= 5 : k === "buff" ? d <= 1 && p.hp < mhp * 0.7 : false;
+        : k === "spin" ? d <= 1 : k === "wave" ? d <= 3 : k === "summon" ? !g.minion && d <= 5 : k === "buff" ? d <= 1 && p.hp < mhp * 0.7 : k === "ult" || k === "pull" ? ultAfkOk(g, pw, t, d) : false;
       if (ok) { castPower(g, i, now); return; }
     }
     if (!free) return;
@@ -1600,6 +1611,7 @@ function runAction(g: Game, a: Action, now: number): void {
   switch (a) {
     case "power1": castPower(g, 0, now); break; case "power2": castPower(g, 1, now); break;
     case "power3": castPower(g, 2, now); break; case "power4": castPower(g, 3, now); break;
+    case "power5": castPower(g, 4, now); break; case "power6": castPower(g, 5, now); break;
     case "hpPot": usePotion(g, "hp", now); break; case "manaPot": usePotion(g, "mana", now); break;
     case "attack": case "nextTarget": targetNearest(g, now); g.chase = true; break;
     case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open) || (!!g.mt && g.mt.open) || (!!g.nq && (g.nq.log || !!g.nq.talk))) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; if (g.mt) g.mt.open = false; if (g.nq) { g.nq.log = false; replyBye(g); } } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
@@ -2079,7 +2091,7 @@ const DIM_START: [number, number] = [DIM_X0 + 4, DIM_Y0 + 11];
 const DIM_RIFT: [number, number] = [DIM_X0 + 29, DIM_Y0 + 6];
 const DIM_RECT: [number, number, number, number] = [DIM_X0, DIM_Y0, DIM_W, DIM_H];
 function inDim(x: number, y: number): boolean { return x >= DIM_X0 && x < DIM_X0 + DIM_W && y >= DIM_Y0 && y < DIM_Y0 + DIM_H; }
-function viewRect(x: number, y: number): [number, number, number, number] { return inDim(x, y) ? DIM_RECT : regionRect(regionOf(x, y)); }
+function viewRect(x: number, y: number): [number, number, number, number] { return inTr(x, y) ? TR_RECT : inDim(x, y) ? DIM_RECT : regionRect(regionOf(x, y)); }
 // Plataformas flotantes sobre el vacío (WATER = vacío intransitable que no tapa los hechizos)
 function buildDim(m: Uint8Array): void {
   const set = (x: number, y: number, t: number): void => { m[(DIM_Y0 + y) * MW + DIM_X0 + x] = t; };
@@ -3970,7 +3982,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined, uw: saveUw(g) };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined, uw: saveUw(g), gm: gmOn(g) ? 1 : undefined };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -4011,6 +4023,7 @@ function validateSave(raw: unknown): DecodeResult {
   if (isObj(bRaw) && !Array.isArray(bRaw["coins"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "coins" && binds[a.id].includes("KeyK"))) binds.coins = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["mount"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "mount" && binds[a.id].includes("KeyR"))) binds.mount = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["qlog"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "qlog" && binds[a.id].includes("KeyJ"))) binds.qlog = [];
+  for (const [pa, keys] of [["power5", ["F7", "Digit7"]], ["power6", ["F8", "Digit8"]]] as Array<[Action, string[]]>) if (isObj(bRaw) && !Array.isArray(bRaw[pa])) binds[pa] = keys.filter((k: string) => !ACTIONS.some((a: { id: Action; label: string }) => a.id !== pa && binds[a.id].includes(k)));
   const x = intIn(raw["x"], 0, MW - 1), y0 = intIn(raw["y"], 0, MH - 1); if (x === null || y0 === null) return bad("la posición");
   const y = ver === 1 ? Math.min(MH - 1, y0 + OY) : y0; // las partidas v1 usaban el mapa sin el Santuario
   const hpPot2 = intIn(raw["hpPot2"], 0, 1e6) ?? 0, manaPot2 = intIn(raw["manaPot2"], 0, 1e6) ?? 0, cleared = intIn(raw["cleared"], 0, NH) ?? 0;
@@ -4022,7 +4035,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]), dm: raw["dm"] === 1 ? 1 : undefined, uw: readUw(raw["uw"]) } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]), dm: raw["dm"] === 1 ? 1 : undefined, uw: readUw(raw["uw"]), gm: raw["gm"] === 1 ? 1 : undefined } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -4043,7 +4056,7 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; loadUw(g, d.uw); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; loadUw(g, d.uw); if (d.gm === 1) gmSt(g).on = true; let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -4187,7 +4200,7 @@ function update(g: Game, now: number): void {
   g.ground = g.ground.filter((gi: Ground) => now < gi.until);
   if (g.ground.length > 80) { const bg = g.ground.filter((gi: Ground) => !!gi.boss), rest = g.ground.filter((gi: Ground) => !gi.boss); g.ground = [...rest.slice(Math.max(0, rest.length - 80)), ...bg]; }
   if (g.shopOpen && cheb(p.x, p.y, NPC_X, NPC_Y) > 6) g.shopOpen = false;
-  coinTick(g, now); depotTick(g); nqTick(g); buffTick(g, now, Date.now()); gemTick(g, now); uwTick(g, now);
+  coinTick(g, now); depotTick(g); nqTick(g); buffTick(g, now, Date.now()); gemTick(g, now); uwTick(g, now); ultTick(g, now); gmTick(g);
   const [px, py] = drawPos(p, now);
   const rr = viewRect(p.x, p.y);
   const vw = viewW(g); g.camX = clamp(px * TS + TS / 2 - vw / 2, rr[0] * TS, (rr[0] + rr[2]) * TS - vw); g.camY = clamp(py * TS + TS / 2 - VH / 2, rr[1] * TS, (rr[1] + rr[3]) * TS - VH);
@@ -4301,6 +4314,7 @@ function drawBrute(ctx: CanvasRenderingContext2D, x: number, y: number, body: st
   ctx.restore();
 }
 function drawMonster(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): void {
+  if (m.def.monk) { drawSplinter(ctx, x, y, m.face, now, now - (m.angryUntil - 15000) < 150); return; }
   if (drawCroqMon(ctx, m, x, y, now)) return;
   if (drawUwMon(ctx, m, x, y, now)) return;
   const ph = walkPhase(m, now); const id = m.def.id;
@@ -4612,7 +4626,7 @@ function drawGroundItem(ctx: CanvasRenderingContext2D, gi: Ground, x: number, y:
 }
 
 function outlined(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, font: string): void {
-  ctx.font = font; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.85)"; ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.lineWidth = 1;
+  ctx.font = font; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(0,0,0,0.85)"; ctx.strokeText(text, x, y); ctx.lineJoin = "miter"; ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.lineWidth = 1;
 }
 function hpBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, frac: number): void {
   const f = clamp(frac, 0, 1); ctx.fillStyle = "#000"; ctx.fillRect(x, y, w, 4);
@@ -4637,7 +4651,7 @@ function drawPowerIcon(ctx: CanvasRenderingContext2D, pw: Power, x: number, y: n
   const c = ELEM_COLOR[pw.elem];
   const gr = ctx.createRadialGradient(x + 16, y + 16, 2, x + 16, y + 16, 16); gr.addColorStop(0, c); gr.addColorStop(1, "#151520");
   ctx.fillStyle = gr; ctx.fillRect(x + 1, y + 1, SLOT - 2, SLOT - 2);
-  const G: Record<PKind, string> = { strike: "✹", area: "✷", heal: "✚", hot: "❁", wave: "≈", field: "♨", drain: "♥", dot: "☠", summon: "☻", spin: "⟳", buff: "⛨", slow: "❄", dash: "»", blink: "☾", smoke: "☁" };
+  const G: Record<PKind, string> = { strike: "✹", area: "✷", heal: "✚", hot: "❁", wave: "≈", field: "♨", drain: "♥", dot: "☠", summon: "☻", spin: "⟳", buff: "⛨", slow: "❄", dash: "»", blink: "☾", smoke: "☁", ult: "✺", pull: "⛓" };
   outlined(ctx, G[pw.kind], x + 16, y + 22, "#ffffff", "bold 16px sans-serif");
 }
 function drawFlask(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
@@ -4658,15 +4672,16 @@ function drawPowerBar(ctx: CanvasRenderingContext2D, g: Game, now: number, binds
   for (let i = 0; i < SLOT_N; i++) {
     const x = BAR_X + i * (SLOT + SLOT_GAP), y = BAR_Y; const act = SLOT_ACTS[i] ?? "power1";
     ctx.fillStyle = "#1c1c26"; ctx.fillRect(x, y, SLOT, SLOT);
-    let frac = 0; let dim = false;
-    if (i < 4) {
-      const pw = g.cls.powers[i]; if (pw) { drawPowerIcon(ctx, pw, x, y); const left = (p.cd[i] ?? 0) - now; frac = left > 0 ? clamp(left / pw.cd, 0, 1) : clamp((p.gcd - now) / 900, 0, 1) * 0.6; dim = p.mana < pw.mana; }
-    } else {
+    let frac = 0; let dim = false; let lk = 0; const pi = slotPow(i);
+    if (pi >= 0) {
+      const pw = g.cls.powers[pi]; if (pw) { drawPowerIcon(ctx, pw, x, y); const left = (p.cd[pi] ?? 0) - now; frac = left > 0 ? clamp(left / pw.cd, 0, 1) : clamp((p.gcd - now) / 900, 0, 1) * 0.6; dim = p.mana < pw.mana || powLocked(g, pw); if (powLocked(g, pw)) lk = pw.lvl ?? 0; }
+    } else if (i === 4 || i === 5) {
       const hp = i === 4; drawIcon(ctx, hp ? "pot_hp" : "pot_mana", x, y, SLOT, "com", now, { bg: false, frame: false });
       outlined(ctx, String(hp ? hpPots(p) : manaPots(p)), x + 25, y + 30, "#ffffff", "bold 10px sans-serif");
       frac = clamp((p.nextPotion - now) / 1000, 0, 1); dim = (hp ? hpPots(p) : manaPots(p)) <= 0;
     }
     if (dim) { ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(x, y, SLOT, SLOT); }
+    if (lk > 0) { outlined(ctx, "🔒", x + 16, y + 17, "#ffffff", "bold 11px sans-serif"); outlined(ctx, String(lk), x + 16, y + 29, "#ffd34d", "bold 9px sans-serif"); }
     if (frac > 0) { ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.save(); ctx.beginPath(); ctx.rect(x, y, SLOT, SLOT); ctx.clip(); ctx.beginPath(); ctx.moveTo(x + 16, y + 16); ctx.arc(x + 16, y + 16, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.fill(); ctx.restore(); }
     ctx.strokeStyle = "#6a5a30"; ctx.strokeRect(x + 0.5, y + 0.5, SLOT - 1, SLOT - 1);
     const k = binds[act][0]; if (k) { ctx.font = "bold 9px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = "#000"; ctx.fillText(keyLabel(k), x + 3, y + 3); ctx.fillStyle = "#ffe9a8"; ctx.fillText(keyLabel(k), x + 2, y + 2); }
@@ -4797,6 +4812,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   if (reg === 0 && vis(UW_GATE[0], UW_GATE[1] + 2)) drawUwGate(ctx, g, UW_GATE[0] * TS - cx, UW_GATE[1] * TS - cy, now);
   else { const rt = HRT[reg - 1]; if (rt && vis(rt.exit[0], rt.exit[1])) outlined(ctx, "↩ Salida", rt.exit[0] * TS - cx + 16, rt.exit[1] * TS - cy - 2, "#e0b0ff", "bold 10px sans-serif"); }
   for (const w of g.warns) { const k = clamp((now - w.born) / Math.max(1, w.at - w.born), 0, 1); ctx.fillStyle = `rgba(255,${Math.round(60 - 50 * k)},30,${0.18 + 0.35 * k + 0.1 * Math.sin(now / 60)})`; for (const [wx, wy] of w.cells) if (vis(wx, wy)) ctx.fillRect(wx * TS - cx + 1, wy * TS - cy + 1, TS - 2, TS - 2); }
+  drawV22Floor(ctx, g, now);
   for (const gi of g.ground) if (vis(gi.x, gi.y)) drawGroundItem(ctx, gi, gi.x * TS - cx, gi.y * TS - cy, now);
   if (premOn(g)) for (const gi of g.ground) if (gi.inst.rar !== "com" && vis(gi.x, gi.y)) { ctx.strokeStyle = RAR[gi.inst.rar].c; ctx.lineWidth = 2; ctx.strokeRect(gi.x * TS - cx + 2, gi.y * TS - cy + 2, TS - 4, TS - 4); ctx.lineWidth = 1; } // Premium: el botín raro brilla
   const t = curTarget(g);
@@ -4820,17 +4836,17 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   const [px, py] = drawPos(p, now);
   ents.push({ y: py, draw: () => {
     const x = px * TS - cx, y = py * TS - cy; const c = g.cls;
-    if (now < p.evadeUntil) ctx.globalAlpha = 0.55;
+    if (now < p.evadeUntil || gmInvis(g)) ctx.globalAlpha = 0.55;
     if (g.cs && g.cs.aura) drawAura(ctx, g.cs.aura, x, y, now);
     const [robe, trim] = outfitColors(g); const md = riding(g);
-    if (md) drawRider(ctx, g, md, x, y, p.face, walkPhase(p, now), mtFlip(g, p.face), now, robe, trim); else drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
+    if (gmOn(g)) drawMinato(ctx, x, y, p.face, walkPhase(p, now), now); else if (md) drawRider(ctx, g, md, x, y, p.face, walkPhase(p, now), mtFlip(g, p.face), now, robe, trim); else drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
     ctx.globalAlpha = 1;
     if (now < p.defUntil) { ctx.strokeStyle = "rgba(160,210,255,0.8)"; ctx.beginPath(); ctx.arc(x + 16, y + 17, 16, 0, Math.PI * 2); ctx.stroke(); }
     if (now - p.hitAt < 150) { ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(x, y, TS, TS); }
     if (now < p.poisonUntil) { ctx.fillStyle = "rgba(122,209,58,0.25)"; ctx.fillRect(x, y, TS, TS); outlined(ctx, "☠", x + 30, y + 6, "#7ad13a", "bold 10px sans-serif"); }
     if (now < p.slowUntil) { ctx.fillStyle = "rgba(155,232,255,0.25)"; ctx.fillRect(x, y, TS, TS); outlined(ctx, "❄", x + 2, y + 6, "#9be8ff", "bold 10px sans-serif"); }
     hpBar(ctx, x + 4, y - 8, 24, p.hp / Math.max(1, maxHp(g)));
-    outlined(ctx, p.name, x + 16, y - 11, nameColor(g), "bold 10px sans-serif");
+    outlined(ctx, gmOn(g) ? `[GM] ${p.name}` : p.name, x + 16, y - 11, gmOn(g) ? "#ffd34d" : nameColor(g), "bold 10px sans-serif");
   } });
   ents.sort((a: Ent, b: Ent) => a.y - b.y); for (const e of ents) e.draw();
   for (const f of g.fx) { const a = 1 - (now - f.born) / 450; ctx.globalAlpha = clamp(a, 0, 1) * 0.7; ctx.fillStyle = ELEM_COLOR[f.elem]; for (const [x, y] of f.cells) { const sx = x * TS - cx, sy = y * TS - cy; ctx.fillRect(sx + 3, sy + 3, TS - 6, TS - 6); } ctx.globalAlpha = 1; }
@@ -4875,7 +4891,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (lt.note) { ctx.fillStyle = "#c8c8c8"; ctx.fillText(lt.note, 10, y0 + 21 + n * 14, w - 12); }
     ctx.globalAlpha = 1;
   }
-  drawCroqOverlay(ctx, g, now); drawDimOverlay(ctx, g, now); drawUwOverlay(ctx, g, now);
+  drawCroqOverlay(ctx, g, now); drawDimOverlay(ctx, g, now); drawUwOverlay(ctx, g, now); drawV22Overlay(ctx, g, now);
   if (now - g.statusAt < 4500 && g.status) { ctx.globalAlpha = clamp((4500 - (now - g.statusAt)) / 600, 0, 1); outlined(ctx, g.status, viewW(g) / 2, BAR_Y - 20, g.statusColor, "bold 12px sans-serif"); ctx.globalAlpha = 1; }
   drawPowerBar(ctx, g, now, binds);
   if (g.bigMap) drawBigMap(ctx, g, now, "sans-serif");
@@ -4934,7 +4950,7 @@ function miniZoomStep(g: Game, dir: number): number {
 }
 // Dibuja la región actual (mundo exterior o una Casa) dentro del rectángulo dado, centrada (o centrada en el jugador si hay zoom)
 function drawRegionMap(ctx: CanvasRenderingContext2D, g: Game, bx: number, by: number, bw: number, bh: number, now: number, labels: boolean, zoom?: number): [number, number, number, number] {
-  const [rx, ry, rw, rh] = regionRect(regionOf(g.p.x, g.p.y));
+  const [rx, ry, rw, rh] = mapRect(g);
   const z = Math.max(1, zoom ?? 1); const s = Math.min(bw / rw, bh / rh) * z;
   const ox = z > 1 ? bx + bw / 2 - (g.p.x + 0.5 - rx) * s : bx + (bw - rw * s) / 2, oy = z > 1 ? by + bh / 2 - (g.p.y + 0.5 - ry) * s : by + (bh - rh * s) / 2;
   if (z > 1) { ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip(); }
@@ -4961,6 +4977,401 @@ function drawBigMap(ctx: CanvasRenderingContext2D, g: Game, now: number, font: s
   ctx.fillText(H ? "✚ Tú   ■ Salida (morado)   ■ Guardián (rojo)   — M o Esc para cerrar" : "✚ Tú  ■ Templo  ■ Tienda (rosa)  ■ Rey Minotauro (rojo)  Casas: ■ abierta (amarilla) ■ superada (verde) ■ sellada (gris)", VW / 2, VH - 30);
 }
 // @@ENDMINI
+
+// ===================== v22: poderes de nivel 100, «Cadenas» del caballero, sala de entrenamiento, portal del templo, Modo GM =====================
+// ---------- Poderes nuevos: uno de nivel 100 por vocación (índice 4; en el caballero, índice 5) y las Cadenas del Guardián (caballero, nivel 35) ----------
+type UltK = "bless" | "inferno" | "eclipse" | "quake" | "skyrain" | "shadows";
+interface Power { lvl?: number; ult?: UltK; r2?: number; }
+interface UltFx { k: UltK | "pull"; x: number; y: number; r: number; born: number; dur: number; from?: Array<[number, number]>; }
+interface UltWave { at: number; cells: Array<[number, number]>; lo: number; hi: number; elem: Elem; melee: boolean; }
+interface Game { ultFx?: UltFx[]; ultQ?: UltWave[]; walkMark?: [number, number]; }
+const ULT_LVL = 100, PULL_LVL = 35;
+function ultPw(name: string, words: string, k: UltK, elem: Elem, mana: number, cd: number, min: number, max: number, range: number, school: School, r2: number, o?: { dur?: number; leech?: number; hits?: number }): Power {
+  return { ...pw(name, words, "ult", elem, mana, cd, min, max, range, school, o), lvl: ULT_LVL, ult: k, r2 };
+}
+CLASSES.druid.powers.push(ultPw("Bendición del Bosque", "exura gran mas res", "bless", "earth", 260, 40000, 14, 24, 0, "magic", 20, { dur: 6000 }));
+CLASSES.sorc.powers.push(ultPw("Infierno", "exevo gran mas flam", "inferno", "fire", 320, 30000, 52, 90, 5, "magic", 29));
+CLASSES.warlock.powers.push(ultPw("Eclipse Oscuro", "exevo gran mas mort", "eclipse", "dark", 300, 30000, 44, 78, 5, "magic", 25, { leech: 0.12 }));
+CLASSES.knight.powers.push({ ...pw("Cadenas del Guardián", "exeta con", "pull", "phys", 30, 6000, 0, 0, 5, "level"), lvl: PULL_LVL });
+CLASSES.knight.powers.push(ultPw("Furia Sísmica", "exori gran mas", "quake", "phys", 140, 30000, 40, 70, 0, "melee", 13, { dur: 5000 }));
+CLASSES.archer.powers.push(ultPw("Lluvia del Cielo", "exevo gran mas san", "skyrain", "arrow", 160, 30000, 22, 38, 6, "dist", 25, { hits: 3 }));
+CLASSES.rogue.powers.push(ultPw("Danza de las Mil Sombras", "exori gran umbra", "shadows", "phys", 130, 30000, 16, 28, 4, "melee", 16, { hits: 3 }));
+const POW_ACTS: Action[] = ["power1", "power2", "power3", "power4", "power5", "power6"];
+function slotPow(i: number): number { const a = SLOT_ACTS[i]; return a ? POW_ACTS.indexOf(a) : -1; }
+function powLocked(g: Game, pw: Power): boolean { return g.p.level < (pw.lvl ?? 0); }
+function powDesc(pw: Power): string {
+  if (pw.kind === "pull") return " · atrae a los monstruos (no jefes) en radio 5 junto a ti";
+  switch (pw.ult) {
+    case "bless": return " · cura el 40 % de tu vida + regeneración 6 s, limpia veneno y lentitud, daña un poco alrededor";
+    case "inferno": return " · gran explosión de fuego (radio ~5) sobre el objetivo o a tu alrededor";
+    case "eclipse": return " · gran área oscura (radio ~5); recuperas parte del daño como vida";
+    case "quake": return " · onda sísmica (radio ~3,5) y -50 % de daño recibido 5 s";
+    case "skyrain": return " · 3 oleadas de flechas caen del cielo sobre un área grande (radio ~5)";
+    case "shadows": return " · 3 golpes a cada uno de hasta 8 enemigos cercanos";
+    default: return "";
+  }
+}
+function ultCells(g: Game, pw: Power, t: Mon | null): Array<[number, number]> {
+  const p = g.p; const c: [number, number] = t && pw.range > 0 && inReach(g, t, pw.range) ? [t.x, t.y] : [p.x, p.y];
+  return circle(c[0], c[1], pw.r2 ?? 9).filter((q: [number, number]) => !isSafe(q[0], q[1]));
+}
+function ultFx(g: Game, f: UltFx): void { const a = (g.ultFx ??= []); a.push(f); if (a.length > 12) a.shift(); }
+function castUlt(g: Game, pw: Power, t: Mon | null, lo: number, hi: number, now: number): boolean {
+  const p = g.p; const k = pw.ult; if (!k) return false;
+  if (k !== "bless" && isSafe(p.x, p.y)) { setStatus(g, "No puedes atacar en la zona segura.", now); return false; }
+  const cells = ultCells(g, pw, t); const c0 = cells.length > 0 && t && pw.range > 0 && inReach(g, t, pw.range) ? [t.x, t.y] : [p.x, p.y];
+  const melee = pw.school !== "magic";
+  ultFx(g, { k, x: c0[0] ?? p.x, y: c0[1] ?? p.y, r: Math.sqrt(pw.r2 ?? 9), born: now, dur: k === "skyrain" ? 1900 : 1000 });
+  switch (k) {
+    case "bless": {
+      const mh = maxHp(g); const a = Math.round(mh * 0.4); p.hp = Math.min(mh, p.hp + a); pfloat(g, `+${a}`, "#5cff7a", now);
+      p.hotUntil = now + pw.dur; p.hotNext = now + 1000; p.hotMin = Math.round(mh * 0.04); p.hotMax = Math.round(mh * 0.06); p.poisonUntil = 0; p.slowUntil = 0;
+      if (!isSafe(p.x, p.y)) hitCells(g, cells, lo, hi, pw.elem, now, false); break;
+    }
+    case "inferno": hitCells(g, cells, lo, hi, pw.elem, now, false); break;
+    case "quake": hitCells(g, cells.filter((q: [number, number]) => q[0] !== p.x || q[1] !== p.y), lo, hi, pw.elem, now, true); p.defUntil = Math.max(p.defUntil, now + pw.dur); break;
+    case "eclipse": {
+      const set = new Set<number>(cells.map((q: [number, number]) => q[1] * MW + q[0])); let tot = 0;
+      g.fx.push({ cells, elem: pw.elem, born: now });
+      for (const m of g.mons) if (m.alive && set.has(m.y * MW + m.x)) { const b = m.hp; hitMon(g, m, roll(lo, hi), pw.elem, now, 0); tot += b - Math.max(0, m.hp); }
+      const h = Math.min(Math.round(tot * pw.leech), Math.round(maxHp(g) * 0.25)); if (h > 0) { p.hp = Math.min(maxHp(g), p.hp + h); pfloat(g, `+${h}`, "#5cff7a", now); } break;
+    }
+    case "skyrain": { const q = (g.ultQ ??= []); for (let w = 0; w < pw.hits; w++) q.push({ at: now + 400 + w * 500, cells, lo, hi, elem: pw.elem, melee }); break; }
+    case "shadows": {
+      const foes = g.mons.filter((m: Mon) => m.alive && cheb(m.x, m.y, p.x, p.y) * cheb(m.x, m.y, p.x, p.y) <= (pw.r2 ?? 16) && regionOf(m.x, m.y) === regionOf(p.x, p.y)).sort((a: Mon, b: Mon) => cheb(a.x, a.y, p.x, p.y) - cheb(b.x, b.y, p.x, p.y)).slice(0, 8);
+      if (foes.length === 0) { setStatus(g, "No hay enemigos cerca.", now); g.ultFx?.pop(); return false; }
+      for (const m of foes) { g.fx.push({ cells: [[m.x, m.y]], elem: "dark", born: now }); for (let h = 0; h < pw.hits && m.alive; h++) hitMon(g, m, roll(lo, hi) * physMul(g, m, pw.elem), pw.elem, now, 0); }
+      break;
+    }
+  }
+  if (pw.school === "melee") trainSkill(g, "melee", 3, now); if (pw.school === "dist") trainSkill(g, "dist", 3, now);
+  return true;
+}
+function ultTick(g: Game, now: number): void {
+  const q = g.ultQ; if (q && q.length > 0) { const keep: UltWave[] = []; for (const w of q) { if (now < w.at) { keep.push(w); continue; } hitCells(g, w.cells, w.lo, w.hi, w.elem, now, w.melee); } g.ultQ = keep; }
+  if (g.ultFx && g.ultFx.length > 0) g.ultFx = g.ultFx.filter((f: UltFx) => now - f.born < f.dur);
+}
+function pullable(g: Game, m: Mon, range: number): boolean {
+  const p = g.p; const d = cheb(m.x, m.y, p.x, p.y);
+  return m.alive && !m.def.boss && m.def.id !== "boss" && !m.def.monk && d > 1 && d <= range && regionOf(m.x, m.y) === regionOf(p.x, p.y) && los(g, p.x, p.y, m.x, m.y);
+}
+function castPull(g: Game, pw: Power, now: number): boolean {
+  const p = g.p; if (isSafe(p.x, p.y)) { setStatus(g, "No puedes atacar en la zona segura.", now); return false; }
+  const list = regionMons(g, p.x, p.y).filter((m: Mon) => pullable(g, m, pw.range)).sort((a: Mon, b: Mon) => cheb(a.x, a.y, p.x, p.y) - cheb(b.x, b.y, p.x, p.y));
+  if (list.length === 0) { setStatus(g, "No hay monstruos que atraer.", now); return false; }
+  const from: Array<[number, number]> = []; let n = 0;
+  for (const m of list) {
+    let best: [number, number] | null = null; let bd = 99;
+    for (const [dx, dy] of DIRS8) { const x = p.x + dx, y = p.y + dy; if (!canMonEnter(g, x, y)) continue; const d = cheb(x, y, m.x, m.y); if (d < bd) { bd = d; best = [x, y]; } }
+    if (!best) break;
+    from.push([m.x, m.y]); m.fx = m.x; m.fy = m.y; m.x = best[0]; m.y = best[1]; m.moveStart = now; m.moveDur = 200; m.angryUntil = now + 15000; m.nextMove = now + 500; m.calmUntil = 0; n++;
+  }
+  ultFx(g, { k: "pull", x: p.x, y: p.y, r: pw.range, born: now, dur: 600, from });
+  setStatus(g, `⛓ ${pw.name}: atraes a ${n} monstruo${n === 1 ? "" : "s"}.`, now, "#c8d0ff"); return true;
+}
+function ultAfkOk(g: Game, pw: Power, t: Mon, d: number): boolean {
+  const p = g.p; if (pw.kind === "pull") return !regionMons(g, p.x, p.y).some((m: Mon) => m.alive && (!!m.def.boss || m.def.id === "boss") && cheb(m.x, m.y, p.x, p.y) <= 12) && regionMons(g, p.x, p.y).filter((m: Mon) => pullable(g, m, pw.range) && afkOk(g, m)).length >= 2;
+  switch (pw.ult) {
+    case "bless": return p.hp < maxHp(g) * 0.7;
+    case "quake": return d <= 2; case "shadows": return d <= 3;
+    default: return inReach(g, t, pw.range);
+  }
+}
+// ---------- Sala de entrenamiento (monjes estilo Tibia) al sur-oeste, bajo la Otra Dimensión; puerta en la esquina SE de la villa ----------
+interface MonDef { monk?: boolean; }
+interface Mon { gm?: boolean; }
+const MONK_ID = "monk";
+(MONS as Record<string, MonDef>)[MONK_ID] = { id: MONK_ID, name: "Maestro Astilla", hp: 50000, exp: 0, atk: 6, speed: 900, gold: 0, respawn: 1000, armored: false, drop: 0, dropN: 0, lootLvl: 1, rar: [0, 0, 0], monk: true, afk: 1, atkMs: 2000 };
+const TR_X0 = 0, TR_Y0 = OW_H + 26, TR_W = 40, TR_H = 14;
+const TR_RECT: [number, number, number, number] = [TR_X0, TR_Y0, TR_W, TR_H];
+const TR_DOOR: [number, number] = [TX1 - 1, TY1 - 1];       // portal en la villa (esquina sureste)
+const TR_SIGN: [number, number] = [TX1 - 2, TY1];           // letrero en el muro, junto a la puerta
+const TR_EXIT: [number, number] = [TR_X0 + 2, TR_Y0 + 6], TR_ENTRY: [number, number] = [TR_X0 + 4, TR_Y0 + 6];
+const TR_MONKS: Array<[number, number]> = [];
+for (let k = 0; k < 5; k++) { TR_MONKS.push([TR_X0 + 9 + k * 6, TR_Y0 + 2]); TR_MONKS.push([TR_X0 + 9 + k * 6, TR_Y0 + 11]); }
+const TR_SPAWNS: Array<[MonId, number, number]> = TR_MONKS.map((q: [number, number]): [MonId, number, number] => [MONK_ID, q[0], q[1]]);
+function inTr(x: number, y: number): boolean { return x >= TR_X0 && x < TR_X0 + TR_W && y >= TR_Y0 && y < TR_Y0 + TR_H; }
+// Portal del templo → Puerta del Inframundo (tras vencer a Géminis) y su portal de regreso junto a la Puerta
+const TP_TEMPLE: [number, number] = [TEMPLE_X + 2, TEMPLE_Y + 2], TP_GATE_BACK: [number, number] = [UW_GATE[0] - 2, UW_GATE[1] + 1], TP_GATE_ARRIVE: [number, number] = [UW_GATE[0], UW_GATE[1] + 2];
+function buildV22(m: Uint8Array): void {
+  const set = (x: number, y: number, t: number): void => { if (x >= 0 && y >= 0 && x < MW && y < MH) m[y * MW + x] = t; };
+  const rect = (x0: number, y0: number, x1: number, y1: number, t: number): void => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, t); };
+  const X = TR_X0, Y = TR_Y0;
+  rect(X + 1, Y + 1, X + TR_W - 2, Y + TR_H - 2, WALL); rect(X + 2, Y + 2, X + TR_W - 3, Y + TR_H - 3, FLOOR);
+  for (let k = 0; k <= 5; k++) { const wx = X + 6 + k * 6; rect(wx, Y + 2, wx, Y + 4, WALL); rect(wx, Y + 9, wx, Y + 11, WALL); } // cabinas: 5 arriba y 5 abajo
+  set(TR_EXIT[0], TR_EXIT[1], PORTAL); set(TR_DOOR[0], TR_DOOR[1], PORTAL);
+  set(TP_TEMPLE[0], TP_TEMPLE[1], PORTAL); set(TP_GATE_BACK[0], TP_GATE_BACK[1], PORTAL);
+}
+function v22Portal(g: Game, now: number): boolean {
+  const p = g.p; const at = (q: [number, number]): boolean => p.x === q[0] && p.y === q[1];
+  const go = (x: number, y: number, msg: string): true => { g.returnAt = 0; g.heldDirs = []; teleport(g, x, y, now); setStatus(g, msg, now, "#7dffb0"); return true; };
+  if (at(TR_DOOR)) { addLog(g, "🥋 Sala de entrenamiento: ataca a un monje para subir habilidades (no dan experiencia ni botín)."); return go(TR_ENTRY[0], TR_ENTRY[1], "🥋 Sala de entrenamiento — elige una cabina y ataca a tu monje. El portal ✦ te devuelve a la villa."); }
+  if (at(TR_EXIT)) return go(TR_DOOR[0] - 1, TR_DOOR[1], "Volviste a Villa Esmeralda.");
+  if (at(TP_GATE_BACK)) return go(TEMPLE_X, TEMPLE_Y, "Has vuelto al templo de Villa Esmeralda.");
+  if (at(TP_TEMPLE)) {
+    if (g.cleared < NH) {
+      const ok = !(p.fx === p.x && p.fy === p.y) && walkable(tileAt(g, p.fx, p.fy)) && tileAt(g, p.fx, p.fy) !== PORTAL; p.x = ok ? p.fx : TEMPLE_X; p.y = ok ? p.fy : TEMPLE_Y; p.fx = p.x; p.fy = p.y; p.moveStart = 0; g.walkGoal = null; g.heldDirs = [];
+      setStatus(g, "🔒 Portal al Inframundo: se abre al vencer a Géminis (Saga y Kanon).", now, "#ff9a5a"); return true;
+    }
+    return go(TP_GATE_ARRIVE[0], TP_GATE_ARRIVE[1], "✦ El portal te lleva ante la Puerta del Inframundo. El portal de al lado te devuelve al templo.");
+  }
+  return false;
+}
+function monkStep(g: Game, m: Mon, now: number): void {
+  const p = g.p; const lastHit = m.angryUntil - 15000;
+  if (m.hp < m.def.hp && now - lastHit > 3000) m.hp = m.def.hp; // se recupera del todo si dejas de golpearlo 3 s
+  const d = cheb(m.x, m.y, p.x, p.y);
+  if (d <= 1 && now < m.angryUntil && !gmInvis(g) && now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); }
+  else if (d <= 4) m.face = dirFrom(p.x - m.x, p.y - m.y);
+}
+// ---------- Clic para caminar (estilo Tibia) ----------
+const WALK_MAX = 40;
+function walkToTile(g: Game, x: number, y: number, now: number): boolean {
+  const p = g.p;
+  if (x === p.x && y === p.y) return false;
+  if (regionOf(x, y) !== regionOf(p.x, p.y) || inTr(x, y) !== inTr(p.x, p.y) || inDim(x, y) !== inDim(p.x, p.y) || cheb(x, y, p.x, p.y) > WALK_MAX) { setStatus(g, "Está demasiado lejos para ir caminando.", now); return false; }
+  if (!walkable(tileAt(g, x, y)) || isNpcAt(x, y)) { setStatus(g, "No puedes caminar ahí.", now); return false; }
+  if (!bfsStep(g, p.x, p.y, (a: number, b: number) => a === x && b === y, 20000)) { setStatus(g, "No hay camino hasta allí.", now); return false; }
+  g.walkGoal = { x, y, open: false }; g.walkMark = [x, y]; g.pending = null; g.chase = false; return true;
+}
+// Minimapa: de un punto del lienzo del minimapa (px) a una casilla del mundo (misma cuenta que drawRegionMap)
+function miniTile(g: Game, mx: number, my: number, size: number): [number, number] | null {
+  if (inDim(g.p.x, g.p.y)) return null;
+  const [rx, ry, rw, rh] = mapRect(g); const z = Math.max(1, g.miniZoom ?? 1); const s = Math.min(size / rw, size / rh) * z;
+  const ox = z > 1 ? size / 2 - (g.p.x + 0.5 - rx) * s : (size - rw * s) / 2, oy = z > 1 ? size / 2 - (g.p.y + 0.5 - ry) * s : (size - rh * s) / 2;
+  const x = rx + Math.floor((mx - ox) / s), y = ry + Math.floor((my - oy) / s);
+  return x >= rx && y >= ry && x < rx + rw && y < ry + rh ? [x, y] : null;
+}
+function mapRect(g: Game): [number, number, number, number] { return inTr(g.p.x, g.p.y) ? TR_RECT : regionRect(regionOf(g.p.x, g.p.y)); }
+// ---------- Modo GM (herramienta de prueba) ----------
+interface GmState { on: boolean; open: boolean; god: boolean; inv: boolean; msg: string; bad: boolean; }
+interface Game { gm?: GmState; }
+interface SaveData { gm?: 1; }
+type GmField = "level" | "magic" | "melee" | "dist" | "shield" | "gold" | "coins";
+const GM_FIELDS: Array<{ id: GmField; n: string; lo: number; hi: number }> = [
+  { id: "level", n: "Nivel", lo: 1, hi: 500 }, { id: "magic", n: "Nivel mágico", lo: 0, hi: 300 }, { id: "melee", n: "Cuerpo a cuerpo", lo: 0, hi: 300 },
+  { id: "dist", n: "Distancia", lo: 0, hi: 300 }, { id: "shield", n: "Escudo", lo: 0, hi: 300 }, { id: "gold", n: "Oro", lo: 0, hi: 1e12 }, { id: "coins", n: "Edisar Coins", lo: 0, hi: 1e9 },
+];
+function gmSt(g: Game): GmState { return (g.gm ??= { on: false, open: false, god: false, inv: false, msg: "", bad: false }); }
+function gmOn(g: Game): boolean { return !!g.gm && g.gm.on; }
+function gmGod(g: Game): boolean { return !!g.gm && g.gm.on && g.gm.god; }
+function gmInvis(g: Game): boolean { return !!g.gm && g.gm.on && g.gm.inv; }
+function gmMsg(g: Game, msg: string, bad?: boolean): boolean { const s = gmSt(g); s.msg = msg; s.bad = !!bad; return !bad; }
+function setGm(g: Game, on: boolean, now: number): void {
+  const s = gmSt(g); s.on = on; s.open = on; if (!on) { s.god = false; s.inv = false; }
+  setStatus(g, on ? "🛠 Modo GM activado (herramienta de prueba)." : "Modo GM desactivado.", now, on ? "#ffd34d" : "#ffffff"); addLog(g, on ? "🛠 Modo GM activado: panel de pruebas abierto." : "🛠 Modo GM desactivado.");
+}
+function runCmd(g: Game, txt: string, now: number): string {
+  const t = txt.trim().toLowerCase().replace(/\s+/g, " ");
+  if (t === "/gm" || t === "/gm on" || t === "/gm off") { setGm(g, t === "/gm" ? !gmOn(g) : t === "/gm on", now); return gmOn(g) ? "Modo GM activado." : "Modo GM desactivado."; }
+  return "Comando desconocido. Prueba «/gm».";
+}
+function gmNum(v: string | number, lo: number, hi: number): number | null { const n = typeof v === "number" ? v : v.trim() === "" ? NaN : Number(v); return Number.isFinite(n) && Math.floor(n) === n && n >= lo && n <= hi ? n : null; }
+function gmGet(g: Game, f: GmField): number { const p = g.p; return f === "level" ? p.level : f === "gold" ? p.gold : f === "coins" ? cs(g).coins : p.sk[f].lvl; }
+function gmSet(g: Game, f: GmField, v: string | number, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const F = GM_FIELDS.find((x: { id: GmField }) => x.id === f); if (!F) return gmMsg(g, "Campo no válido.", true);
+  const n = gmNum(v, F.lo, F.hi); if (n === null) return gmMsg(g, `${F.n}: escribe un número entero entre ${F.lo} y ${F.hi.toLocaleString("es-MX")}.`, true);
+  const p = g.p;
+  if (f === "level") { p.exp = expFor(n); p.level = n; refreshStats(g); p.hp = maxHp(g); p.mana = maxMana(g); }
+  else if (f === "gold") p.gold = n; else if (f === "coins") cs(g).coins = n;
+  else { p.sk[f] = { lvl: n, tries: 0 }; refreshStats(g); }
+  p.hp = Math.min(p.hp, maxHp(g)); p.mana = Math.min(p.mana, maxMana(g)); void now;
+  return gmMsg(g, `${F.n} = ${n.toLocaleString("es-MX")}.`);
+}
+function gmItem(g: Game, id: string, rar: string, qty: string | number, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const d = ITEM[id]; if (!d) return gmMsg(g, "Elige un objeto de la lista.", true);
+  if (!Object.prototype.hasOwnProperty.call(RAR, rar)) return gmMsg(g, "Rareza no válida.", true);
+  const free = bagMax(g) - g.p.bag.length; if (free <= 0) return gmMsg(g, "La mochila está llena.", true);
+  const n = gmNum(qty, 1, 100); if (n === null) return gmMsg(g, "Cantidad: un número entero de 1 a 100.", true);
+  const k = Math.min(n, free); const r = rar as Rarity;
+  for (let i = 0; i < k; i++) { const inst: Inst = { uid: g.nextUid++, id: d.id, rar: r }; if (!readItem(saveItem(inst))) return gmMsg(g, "Ese objeto no admite esa rareza.", true); g.p.bag.push(inst); }
+  pfloat(g, `🛠 ${d.name}`, RAR[r].c, now, -18);
+  return gmMsg(g, `Creado: ${k}× ${d.name} (${RAR[r].n})${k < n ? ` — solo cabían ${k}` : ""}.`);
+}
+function gmSpawn(g: Game, id: string, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const def = (MONS as Record<string, MonDef | undefined>)[id]; if (!def) return gmMsg(g, "Elige un monstruo de la lista.", true);
+  const p = g.p; if (isSafe(p.x, p.y)) return gmMsg(g, "No se puede invocar dentro de la zona segura.", true);
+  let m: Mon | null = null;
+  for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1, 1]] as Array<[number, number]>) { m = spawnTemp(g, def, p.x + dx, p.y + dy, now); if (m) break; }
+  if (!m) return gmMsg(g, "No hay espacio libre cerca para invocarlo.", true);
+  m.gm = true; if (gmInvis(g)) m.angryUntil = 0;
+  return gmMsg(g, `Invocado: ${def.name}${def.boss ? " (jefe)" : ""}.`);
+}
+// Fuera de su sala, los jefes invocados por el GM pelean sin sus técnicas de arena (que dependen de la sala)
+function monHome(d: MonDef): number { return d.uw ? UW_R0 + d.uw - 1 : d.id === CROQ_ID || d.id === VENEQ_ID || d.id === "croq_guard" ? CROQ_R : d.house ?? -1; }
+function gmPlain(m: Mon): boolean { if (!m.gm) return false; const h = monHome(m.def); return h >= 0 && h !== regionOf(m.x, m.y); }
+const GM_PLACES: Array<{ id: string; n: string }> = [
+  { id: "town", n: "Villa Esmeralda (plaza)" }, { id: "temple", n: "Templo de Villa Esmeralda" }, { id: "train", n: "🥋 Sala de entrenamiento" }, { id: "gate", n: "Puerta del Inframundo" },
+  ...HOUSES.map((H: { n: number; name: string; glyph: string }) => ({ id: `h${H.n}`, n: `${H.glyph} Casa de ${H.name}` })),
+  ...UW_ZONES.map((Z: { name: string; glyph: string }, i: number) => ({ id: `uw${i}`, n: `${Z.glyph} Inframundo: ${Z.name}` })),
+  { id: "tower", n: "🔥 Torre de Croqui (sala)" }, { id: "lair", n: "🔥 Guarida de Croqui" },
+];
+function gmPlaceXY(id: string): [number, number] | null {
+  if (id === "town") return [TX0 + 8, TY0 + 6]; if (id === "temple") return [TEMPLE_X, TEMPLE_Y]; if (id === "train") return TR_ENTRY; if (id === "gate") return TP_GATE_ARRIVE;
+  if (id === "tower") return [CROQ_DOOR[0] - 2, CROQ_DOOR[1]]; if (id === "lair") return CROQ_ENTRY;
+  if (/^h\d+$/.test(id)) { const rt = HRT[Number(id.slice(1)) - 1]; return rt ? rt.entry : null; }
+  return null;
+}
+function gmLeave(g: Game): void {
+  const p = g.p; const r0 = regionOf(p.x, p.y); if (r0 > 0) resetRegion(g, r0); if (r0 !== CROQ_R && g.croq) resetRegion(g, CROQ_R);
+  g.returnAt = 0; g.heldDirs = []; g.dim = null; g.dimFx = null; g.ultQ = [];
+}
+function gmTeleport(g: Game, place: string, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const uw = /^uw(\d)$/.exec(place); const P = GM_PLACES.find((x: { id: string }) => x.id === place); if (!P) return gmMsg(g, "Elige un destino de la lista.", true);
+  if (uw) { const z = Number(uw[1]); if (!(z >= 0 && z < UW_N)) return gmMsg(g, "Zona no válida.", true); gmLeave(g); uwGo(g, z, now, "🛠 GM: viajaste a"); return gmMsg(g, `Teletransportado a ${P.n}.`); }
+  const q = gmPlaceXY(place); if (!q) return gmMsg(g, "Destino no válido.", true);
+  return gmGo(g, q[0], q[1], P.n, now);
+}
+function gmTeleportXY(g: Game, xs: string | number, ys: string | number, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const x = gmNum(xs, 0, MW - 1), y = gmNum(ys, 0, MH - 1); if (x === null || y === null) return gmMsg(g, `Coordenadas: x de 0 a ${MW - 1}, y de 0 a ${MH - 1}.`, true);
+  return gmGo(g, x, y, `${x}, ${y}`, now);
+}
+function gmGo(g: Game, x: number, y: number, label: string, now: number): boolean {
+  let spot: [number, number] | null = null;
+  for (let r = 0; r <= 3 && !spot; r++) for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r; dx++) { const nx = x + dx, ny = y + dy; if (cheb(nx, ny, x, y) === r && canPlayerEnter(g, nx, ny) && tileAt(g, nx, ny) !== PORTAL) { spot = [nx, ny]; break; } }
+  if (!spot) return gmMsg(g, `No hay suelo libre en ${label} (ni a 3 casillas).`, true);
+  gmLeave(g); teleport(g, spot[0], spot[1], now); setStatus(g, `🛠 GM: teletransportado a ${g.zone}.`, now, "#ffd34d");
+  return gmMsg(g, `Teletransportado a ${label} (${spot[0]}, ${spot[1]}).`);
+}
+function gmHeal(g: Game, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const p = g.p; p.hp = maxHp(g); p.mana = maxMana(g); p.poisonUntil = 0; p.slowUntil = 0; pfloat(g, "🛠 +vida +maná", "#5cff7a", now, -18);
+  return gmMsg(g, "Vida y maná al máximo.");
+}
+function gmKillAll(g: Game, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const p = g.p; let n = 0;
+  for (const m of [...regionMons(g, p.x, p.y)]) if (m.alive && !m.def.monk && cheb(m.x, m.y, p.x, p.y) <= 8 && regionOf(m.x, m.y) === regionOf(p.x, p.y)) { killMon(g, m, now); n++; }
+  return gmMsg(g, n > 0 ? `Eliminados ${n} monstruos cercanos.` : "No hay monstruos cerca.");
+}
+function gmToggle(g: Game, k: "god" | "inv", now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const s = gmSt(g); s[k] = !s[k];
+  if (k === "inv" && s.inv) for (const m of regionMons(g, g.p.x, g.p.y)) m.angryUntil = 0;
+  void now; return gmMsg(g, k === "god" ? `Modo dios: ${s.god ? "activado (no recibes daño)" : "desactivado"}.` : `Invisible: ${s.inv ? "activado (los monstruos te ignoran)" : "desactivado"}.`);
+}
+function gmTick(g: Game): void { if (!gmGod(g)) return; const p = g.p; p.poisonUntil = 0; if (p.hp < maxHp(g)) p.hp = maxHp(g); }
+function afkOrder(pows: Power[]): number[] { const ix = pows.map((_: Power, i: number) => i); return [...ix.filter((i: number) => pows[i]?.kind === "ult" || pows[i]?.kind === "pull"), ...ix.filter((i: number) => pows[i]?.kind !== "ult" && pows[i]?.kind !== "pull")]; }
+// ---------- v22: dibujo (Minato del GM, Maestro Astilla, portales, letrero, efectos de los poderes de nivel 100, marca de destino) ----------
+function v22R(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string): void { c.fillStyle = col; c.fillRect(x, y, w, h); }
+/** Atuendo GM al estilo de Minato: haori blanco de Hokage con llamas rojas en el bajo, traje jōnin azul oscuro con chaleco verde, pelo rubio en punta. */
+function drawMinato(ctx: CanvasRenderingContext2D, x: number, y: number, face0: Dir, ph: number, now: number): void {
+  const c = ctx; let face = face0; c.save(); c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill();
+  c.translate(x, y); if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const lg = ph === 1 ? 1.5 : ph === 2 ? -1.5 : 0; const bob = ph === 0 ? Math.sin(now / 400) * 0.4 : 0.5; const sw = Math.sin(now / 300) * 0.8;
+  const WH = "#f4f4f0", WS = "#cfd2d6", RED = "#e0301e", OR = "#ff8a2a", NAVY = "#1e2a44", VEST = "#3f5a32", VD = "#2c4024", SKIN = "#f2c9a0", HAIR = "#ffd94a", HS = "#e0a820";
+  const top = 12 - bob, hy = 3 - bob;
+  const flames = (x0: number, x1: number, yb: number): void => { c.fillStyle = RED; c.beginPath(); c.moveTo(x0, yb); const n = 5, w = (x1 - x0) / n; for (let k = 0; k < n; k++) { const h = 4 + ((k * 7) % 3) + Math.sin(now / 160 + k) * 0.8; c.lineTo(x0 + w * k + w * 0.5, yb - h); c.lineTo(x0 + w * (k + 1), yb); } c.closePath(); c.fill();
+    c.fillStyle = OR; for (let k = 0; k < 5; k++) { const fx = x0 + (x1 - x0) * (k + 0.5) / 5; c.beginPath(); c.moveTo(fx - 1.2, yb); c.lineTo(fx, yb - 2.5); c.lineTo(fx + 1.2, yb); c.fill(); } };
+  const haori = (back: boolean): void => { c.fillStyle = WH; c.beginPath(); c.moveTo(9, top); c.lineTo(23, top); c.lineTo(26 + sw, 28); c.lineTo(6 - sw, 28); c.closePath(); c.fill(); v22R(c, 6 - sw, 27.5, 20 + sw * 2, 0.8, WS); flames(6.5 - sw, 25.5 + sw, 28); if (back) { c.fillStyle = RED; c.font = "bold 6px sans-serif"; c.textAlign = "center"; c.fillText("四代目", 16, top + 8); c.fillText("火影", 16, top + 14); } };
+  if (face === 2 || face === 0) {
+    if (face === 2) haori(false);
+    v22R(c, 11.5 + lg, 20, 4, 8, NAVY); v22R(c, 16.5 - lg, 20, 4, 8, NAVY); v22R(c, 11 + lg, 26.5, 5, 2.5, "#2a3a6a"); v22R(c, 16 - lg, 26.5, 5, 2.5, "#2a3a6a"); // piernas y sandalias
+    if (face === 2) {
+      v22R(c, 10, top + 1, 12, 9, NAVY); v22R(c, 10.5, top + 1.5, 11, 8, VEST); v22R(c, 11.5, top + 3, 3, 2.5, VD); v22R(c, 17.5, top + 3, 3, 2.5, VD); v22R(c, 15.5, top + 1.5, 1, 8, VD); v22R(c, 10, top + 9, 12, 1.5, NAVY); // chaleco con bolsillos
+      v22R(c, 7.5, top + 1, 3, 8, WH); v22R(c, 21.5, top + 1, 3, 8, WH); v22R(c, 8, top + 9, 2.5, 2, SKIN); v22R(c, 22, top + 9, 2.5, 2, SKIN); // mangas del haori
+    } else { haori(true); }
+    // cabeza
+    v22R(c, 12, hy + 2, 8, 7.5, face === 2 ? SKIN : HAIR);
+    c.fillStyle = HAIR; c.beginPath(); c.moveTo(10.5, hy + 4); for (const [px, py] of [[10, hy - 2], [12.5, hy + 1], [13, hy - 4], [15, hy], [16.5, hy - 5], [18, hy], [19.5, hy - 4], [20, hy + 1], [22.5, hy - 1], [21.5, hy + 4]] as Array<[number, number]>) c.lineTo(px, py); c.closePath(); c.fill();
+    if (face === 2) {
+      v22R(c, 11.8, hy + 3, 8.4, 1.6, "#3a4a7a"); v22R(c, 14, hy + 3.2, 4, 1.2, "#c8ccd4"); // bandana con placa
+      c.fillStyle = HAIR; c.beginPath(); c.moveTo(11, hy + 3); c.lineTo(10.5, hy + 10); c.lineTo(12.5, hy + 5); c.fill(); c.beginPath(); c.moveTo(21, hy + 3); c.lineTo(21.5, hy + 10); c.lineTo(19.5, hy + 5); c.fill(); // mechones largos a los lados
+      v22R(c, 13.2, hy + 5.6, 1.8, 1.6, "#2a6ad0"); v22R(c, 17, hy + 5.6, 1.8, 1.6, "#2a6ad0"); v22R(c, 14.8, hy + 8.2, 2.4, 0.6, "#b07a5a");
+      v22R(c, 11, hy + 1, 10, 1, HS);
+    } else v22R(c, 12, hy + 7, 8, 2.5, HAIR);
+  } else { // perfil
+    c.fillStyle = WH; c.beginPath(); c.moveTo(11, top); c.lineTo(17, top); c.lineTo(15 - sw, 28); c.lineTo(5 - sw, 28); c.closePath(); c.fill(); flames(5 - sw, 15 - sw, 28);
+    v22R(c, 13 + lg, 20, 4, 8, NAVY); v22R(c, 15 - lg, 20, 4, 8, "#16203a"); v22R(c, 13 + lg, 26.5, 6, 2.5, "#2a3a6a");
+    v22R(c, 12.5, top + 1, 8, 9, VEST); v22R(c, 18, top + 3, 2, 3, VD); v22R(c, 12, top + 9, 9, 1.5, NAVY); v22R(c, 13, top + 1, 3, 9, WH); v22R(c, 14, top + 9, 2.5, 2, SKIN);
+    v22R(c, 14, hy + 2, 6.5, 7.5, SKIN); v22R(c, 13.5, hy + 3, 7, 1.6, "#3a4a7a"); v22R(c, 18.8, hy + 5.6, 1.5, 1.5, "#2a6ad0");
+    c.fillStyle = HAIR; c.beginPath(); c.moveTo(12, hy + 9); for (const [px, py] of [[9, hy + 1], [12, hy + 1], [11, hy - 4], [14.5, hy - 1], [16, hy - 5], [18, hy - 1], [21.5, hy - 2], [20.5, hy + 2.5], [15, hy + 3], [14.5, hy + 8]] as Array<[number, number]>) c.lineTo(px, py); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+/** Maestro Astilla (monje de entrenamiento): viejo sensei rata con túnica granate, bastón, bigotes largos, pelaje gris pardo y cola rosa. */
+function drawSplinter(ctx: CanvasRenderingContext2D, x: number, y: number, face0: Dir, now: number, hit: boolean): void {
+  const c = ctx; let face = face0; c.save(); c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill();
+  c.translate(x, y); if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const br = Math.sin(now / 700) * 0.4; const FUR = "#8a7a6a", FD = "#6a5a4c", FL = "#b8a898", ROBE = "#7a1f2a", RD = "#5a141c", BELT = "#c8a060", PINK = "#e8a0a8", STICK = "#7a5a32";
+  const top = 13 - br, hy = 4 - br;
+  // cola rosa (detrás)
+  c.strokeStyle = PINK; c.lineWidth = 1.6; c.beginPath(); c.moveTo(face === 0 ? 16 : 9, 27); c.quadraticCurveTo(face === 0 ? 20 : 2, 30, face === 0 ? 24 : 3 + Math.sin(now / 500), 22); c.stroke(); c.lineWidth = 1;
+  // túnica granate
+  c.fillStyle = ROBE; c.beginPath(); c.moveTo(10, top); c.lineTo(22, top); c.lineTo(25, 29); c.lineTo(7, 29); c.closePath(); c.fill();
+  v22R(c, 7.5, 27.5, 17, 1.5, RD); v22R(c, 10, top + 7, 12, 1.6, BELT);
+  if (face === 2) { c.fillStyle = RD; c.beginPath(); c.moveTo(13, top); c.lineTo(16, top + 6); c.lineTo(19, top); c.fill(); v22R(c, 15.5, top + 6, 1, 14, RD); }
+  v22R(c, 10.5, 28.5, 4, 1.5, FL); v22R(c, 17.5, 28.5, 4, 1.5, FL); // patas
+  // bastón
+  if (face !== 0) { v22R(c, 24, 6 - br, 1.6, 23, STICK); v22R(c, 23.5, 6 - br, 2.6, 2, "#5a3e20"); v22R(c, 22.5, top + 7, 3, 2.2, FUR); }
+  v22R(c, 7.5, top + 6, 3, 3, FUR);
+  // cabeza
+  if (face === 2) {
+    c.fillStyle = FUR; c.beginPath(); c.ellipse(16, hy + 6, 5.5, 5, 0, 0, Math.PI * 2); c.fill();
+    for (const sx of [-1, 1]) { c.fillStyle = FUR; c.beginPath(); c.arc(16 + sx * 5.5, hy + 1, 3.2, 0, Math.PI * 2); c.fill(); c.fillStyle = PINK; c.beginPath(); c.arc(16 + sx * 5.5, hy + 1, 1.8, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = FL; c.beginPath(); c.ellipse(16, hy + 9, 3, 2.6, 0, 0, Math.PI * 2); c.fill(); v22R(c, 15, hy + 9.8, 2, 1.4, PINK);
+    v22R(c, 13, hy + 5, 1.6, 1.2, "#111"); v22R(c, 17.4, hy + 5, 1.6, 1.2, "#111"); v22R(c, 12.6, hy + 4, 2.4, 0.6, "#e8e0d8"); v22R(c, 17, hy + 4, 2.4, 0.6, "#e8e0d8"); // ojos y cejas blancas
+    v22R(c, 15.2, hy + 11, 1.6, 3, "#d8d0c8"); // perilla
+    c.strokeStyle = "#f0ece4"; c.lineWidth = 0.6; c.beginPath(); for (const sx of [-1, 1]) { c.moveTo(16 + sx * 2, hy + 9.5); c.lineTo(16 + sx * 11, hy + 8); c.moveTo(16 + sx * 2, hy + 10); c.lineTo(16 + sx * 11, hy + 11.5); c.moveTo(16 + sx * 2, hy + 10.4); c.lineTo(16 + sx * 9, hy + 14); } c.stroke(); c.lineWidth = 1;
+  } else if (face === 0) {
+    c.fillStyle = FUR; c.beginPath(); c.ellipse(16, hy + 6, 5.5, 5, 0, 0, Math.PI * 2); c.fill(); for (const sx of [-1, 1]) { c.beginPath(); c.arc(16 + sx * 5.5, hy + 1, 3.2, 0, Math.PI * 2); c.fill(); }
+    v22R(c, 13, hy + 3, 6, 1, FD);
+  } else {
+    c.fillStyle = FUR; c.beginPath(); c.ellipse(15, hy + 6, 4.6, 4.8, 0, 0, Math.PI * 2); c.fill(); c.beginPath(); c.moveTo(18, hy + 4); c.lineTo(24, hy + 8.5); c.lineTo(18, hy + 10); c.closePath(); c.fill();
+    c.beginPath(); c.arc(13.5, hy + 1, 3.2, 0, Math.PI * 2); c.fill(); c.fillStyle = PINK; c.beginPath(); c.arc(13.5, hy + 1, 1.8, 0, Math.PI * 2); c.fill(); v22R(c, 23.5, hy + 7.8, 1.6, 1.4, PINK);
+    v22R(c, 18, hy + 4.8, 1.5, 1.3, "#111"); v22R(c, 17.5, hy + 3.8, 2.4, 0.6, "#e8e0d8"); v22R(c, 19, hy + 10, 1.4, 3, "#d8d0c8");
+    c.strokeStyle = "#f0ece4"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(22, hy + 8.5); c.lineTo(30, hy + 7); c.moveTo(22, hy + 9); c.lineTo(30, hy + 11); c.stroke(); c.lineWidth = 1;
+  }
+  if (hit) { c.fillStyle = "rgba(255,255,255,0.25)"; c.fillRect(6, 0, 20, 30); }
+  c.restore();
+}
+function v22Vis(g: Game, x: number, y: number): boolean { const sx = x * TS - g.camX, sy = y * TS - g.camY; return sx > -TS * 3 && sx < VW + TS * 2 && sy > -TS * 3 && sy < VH + TS * 2; }
+/** Bajo las criaturas: brillo de los portales nuevos, letrero de la sala de entrenamiento y marca de destino del clic para caminar. */
+function drawV22Floor(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  const cx = g.camX, cy = g.camY; const sx = (q: [number, number]): number => q[0] * TS - cx, sy = (q: [number, number]): number => q[1] * TS - cy;
+  const glow = (q: [number, number], col: string, open: boolean): void => {
+    if (!v22Vis(g, q[0], q[1])) return; const x = sx(q) + 16, y = sy(q) + 16; const a = open ? 0.55 + 0.25 * Math.sin(now / 220) : 0.35;
+    const gr = ctx.createRadialGradient(x, y, 2, x, y, 22); gr.addColorStop(0, open ? `rgba(255,255,255,${a})` : "rgba(120,110,130,0.6)"); gr.addColorStop(0.45, col); gr.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gr; ctx.fillRect(x - 24, y - 24, 48, 48);
+    if (open) { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 0; k < 3; k++) { const r = 5 + k * 4 + ((now / 90) % 4); ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); } ctx.stroke(); ctx.lineWidth = 1; }
+  };
+  const open = g.cleared >= NH;
+  glow(TP_TEMPLE, open ? "rgba(176,96,255,0.85)" : "rgba(90,74,106,0.8)", open); glow(TP_GATE_BACK, "rgba(176,96,255,0.85)", true); glow(TR_DOOR, "rgba(255,200,90,0.8)", true); glow(TR_EXIT, "rgba(255,200,90,0.8)", true);
+  if (v22Vis(g, TR_SIGN[0], TR_SIGN[1])) { const x = sx(TR_SIGN), y = sy(TR_SIGN); v22R(ctx, x + 14, y + 8, 4, 22, "#6a4a22"); v22R(ctx, x + 2, y + 2, 28, 12, "#c8a060"); ctx.strokeStyle = "#5a3e20"; ctx.strokeRect(x + 2.5, y + 2.5, 27, 11); outlined(ctx, "🥋→", x + 16, y + 12, "#ffffff", "bold 9px sans-serif"); }
+  const wg = g.walkGoal; const mk = g.walkMark;
+  if (wg && !wg.open && mk && mk[0] === wg.x && mk[1] === wg.y && v22Vis(g, mk[0], mk[1])) { const x = sx(mk) + 16, y = sy(mk) + 16; const r = 6 + Math.sin(now / 150) * 1.5; ctx.strokeStyle = "#ffe066"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
+}
+/** Sobre todo: etiquetas de los portales y efectos de los poderes de nivel 100 / Cadenas. */
+function drawV22Overlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  const cx = g.camX, cy = g.camY; const lab = (q: [number, number], t: string, col: string): void => { if (v22Vis(g, q[0], q[1])) outlined(ctx, t, q[0] * TS - cx + 16, q[1] * TS - cy - 4, col, "bold 10px sans-serif"); };
+  const open = g.cleared >= NH;
+  lab(TP_TEMPLE, open ? "✦ Portal al Inframundo" : "🔒 Portal al Inframundo", open ? "#d8a0ff" : "#a898b8");
+  if (!open && v22Vis(g, TP_TEMPLE[0], TP_TEMPLE[1]) && cheb(g.p.x, g.p.y, TP_TEMPLE[0], TP_TEMPLE[1]) <= 3) outlined(ctx, "Se abre al vencer a Géminis", TP_TEMPLE[0] * TS - cx + 16, TP_TEMPLE[1] * TS - cy + 40, "#ffb080", "bold 9px sans-serif");
+  lab(TP_GATE_BACK, "↩ Al templo", "#d8a0ff"); lab(TR_DOOR, "🥋 Sala de entrenamiento", "#ffd890"); lab(TR_EXIT, "↩ Villa", "#ffd890");
+  if (inTr(g.p.x, g.p.y)) outlined(ctx, "🥋 Sala de entrenamiento — los monjes no mueren ni dan experiencia: ¡entrena tus habilidades!", TR_X0 * TS - cx + TR_W * TS / 2, TR_Y0 * TS - cy + 22, "#ffd890", "bold 11px sans-serif");
+  for (const f of g.ultFx ?? []) {
+    const k = clamp((now - f.born) / f.dur, 0, 1); const x = f.x * TS - cx + 16, y = f.y * TS - cy + 16; const R = (f.r + 0.5) * TS;
+    ctx.save(); ctx.globalAlpha = 1 - k * 0.8;
+    if (f.k === "pull") { ctx.strokeStyle = "#c8d0ff"; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); for (const q of f.from ?? []) { const qx = q[0] * TS - cx + 16, qy = q[1] * TS - cy + 16; ctx.moveTo(qx + (x - qx) * k, qy + (y - qy) * k); ctx.lineTo(x, y); } ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(x, y, R * (1 - k), 0, Math.PI * 2); ctx.stroke(); }
+    else if (f.k === "skyrain") { ctx.strokeStyle = "rgba(255,240,200,0.6)"; ctx.setLineDash([3, 6]); ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.strokeStyle = "#e0c08a"; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i < 26; i++) { const a = (i * 2.4) % (Math.PI * 2), rr = R * (((i * 37) % 100) / 100); const ax = x + Math.cos(a) * rr, ay = y + Math.sin(a) * rr * 0.8; const fall = ((now / 4 + i * 23) % 60); ctx.moveTo(ax - 3, ay - 60 + fall); ctx.lineTo(ax, ay - 48 + fall); } ctx.stroke(); }
+    else {
+      const col = f.k === "bless" ? "92,255,122" : f.k === "inferno" ? "255,120,30" : f.k === "eclipse" ? "150,70,255" : f.k === "quake" ? "200,150,90" : "200,200,220";
+      const gr = ctx.createRadialGradient(x, y, 4, x, y, R * (0.4 + 0.6 * k)); gr.addColorStop(0, `rgba(${col},0.75)`); gr.addColorStop(0.7, `rgba(${col},0.35)`); gr.addColorStop(1, `rgba(${col},0)`);
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, R * (0.4 + 0.6 * k), 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = `rgba(${col},0.95)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, R * k, 0, Math.PI * 2); ctx.stroke();
+      if (f.k === "quake") { ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + 0.3; ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * R * k, y + Math.sin(a) * R * k * 0.8); } ctx.stroke(); }
+      if (f.k === "shadows") { ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i * 1.7 + now / 90; ctx.moveTo(x + Math.cos(a) * R * 0.2, y + Math.sin(a) * R * 0.2); ctx.lineTo(x + Math.cos(a + 0.6) * R * 0.9, y + Math.sin(a + 0.6) * R * 0.9); } ctx.stroke(); }
+      if (f.k === "bless") { ctx.fillStyle = "#b0ffb0"; for (let i = 0; i < 14; i++) { const a = i * 0.9, rr = R * 0.8 * ((i * 13 % 10) / 10); ctx.fillRect(x + Math.cos(a) * rr, y + Math.sin(a) * rr - k * 30, 3, 3); } }
+    }
+    ctx.restore();
+  }
+}
 
 // ===================== Interfaz =====================
 type Theme = ReturnType<typeof useGrokTheme>;
@@ -5365,6 +5776,61 @@ function MountPreview(props: { g: Game; d: MountDef; size?: number }) {
   }, [props.d, props.g]);
   return <canvas ref={ref} width={80} height={96} style={{ width: sz, height: Math.round((sz * 48) / 40), imageRendering: "pixelated", display: "block", margin: "0 auto" }} />;
 }
+// ===== v22: panel del Modo GM (herramienta de prueba) =====
+function GmWindow(props: { g: Game; th: Theme; refresh: () => void }) {
+  const { g, th } = props; const s = gmSt(g); const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, gbtn } = coinStyles(th);
+  const [q, setQ] = useState<string>(""); const [item, setItem] = useState<string>(""); const [rar, setRar] = useState<string>("com"); const [qty, setQty] = useState<string>("1");
+  const [mon, setMon] = useState<string>("rat"); const [place, setPlace] = useState<string>("temple"); const [tx, setTx] = useState<string>(""); const [ty, setTy] = useState<string>("");
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(GM_FIELDS.map((f: { id: GmField }) => [f.id, String(gmGet(g, f.id))])));
+  const ql = q.trim().toLowerCase(); const items = ITEMS.filter((d: ItemDef) => !ql || d.name.toLowerCase().includes(ql) || d.id.includes(ql)).slice(0, 300);
+  const mons = Object.values(MONS as Record<string, MonDef>).sort((a: MonDef, b: MonDef) => Number(!!a.boss) - Number(!!b.boss) || a.name.localeCompare(b.name, "es"));
+  const inp: CSSProperties = { background: th.bg.base, color: th.text.primary, border: `1px solid ${th.border.strong}`, borderRadius: 4, padding: "2px 4px", fontSize: 11, minWidth: 0 };
+  const row: CSSProperties = { display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" };
+  const sec: CSSProperties = { borderTop: `1px solid ${th.border.strong}`, paddingTop: 4, display: "flex", flexDirection: "column", gap: 4 };
+  const selItem = item && ITEM[item] ? item : (items[0]?.id ?? "");
+  return (
+    <div data-gm="1" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }}
+      style={{ ...frame, inset: "auto", left: 8, top: 40, width: "min(62%, 470px)", maxHeight: "calc(100% - 110px)", zIndex: 6, gap: 5, overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>🛠 Modo GM <span style={{ fontSize: 10, color: th.text.danger }}>PROTOTIPO · solo para pruebas</span></b>
+        <button data-gmoff="1" style={gbtn(false)} onClick={() => act(() => setGm(g, false, performance.now()))}>Desactivar GM</button>
+        <button style={gbtn(false)} onClick={() => act(() => { s.open = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={sec}><b>Crear objeto (a la mochila)</b>
+        <div style={row}><input data-gmq="1" aria-label="Buscar objeto" placeholder="Buscar por nombre…" value={q} style={{ ...inp, flex: "1 1 120px" }} onChange={(e: ChangeEvent<HTMLInputElement>) => { setQ(e.target.value); setItem(""); }} />
+          <select data-gmitem="1" aria-label="Objeto" value={selItem} style={{ ...inp, flex: "2 1 160px" }} onChange={(e: ChangeEvent<HTMLSelectElement>) => setItem(e.target.value)}>{items.map((d: ItemDef) => <option key={d.id} value={d.id}>{d.name} (nv {d.lvl})</option>)}</select></div>
+        <div style={row}><select data-gmrar="1" aria-label="Rareza" value={rar} style={inp} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRar(e.target.value)}>{(Object.keys(RAR) as Rarity[]).map((r: Rarity) => <option key={r} value={r}>{RAR[r].n}</option>)}</select>
+          <input data-gmqty="1" aria-label="Cantidad" value={qty} inputMode="numeric" style={{ ...inp, width: 44 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setQty(e.target.value)} />
+          <button data-gmcreate="1" style={gbtn(true)} onClick={() => act(() => { gmItem(g, selItem, rar, qty, performance.now()); })}>Crear</button></div>
+      </div>
+      <div style={sec}><b>Invocar monstruo o jefe junto a ti</b>
+        <div style={row}><select data-gmmon="1" aria-label="Monstruo" value={mon} style={{ ...inp, flex: 1 }} onChange={(e: ChangeEvent<HTMLSelectElement>) => setMon(e.target.value)}>{mons.map((m: MonDef) => <option key={m.id} value={m.id}>{m.boss || m.id === "boss" ? "👑 " : ""}{m.name}</option>)}</select>
+          <button data-gmspawn="1" style={gbtn(true)} onClick={() => act(() => { gmSpawn(g, mon, performance.now()); })}>Invocar</button>
+          <button data-gmkill="1" style={gbtn(false)} onClick={() => act(() => { gmKillAll(g, performance.now()); })}>Matar cercanos</button></div>
+      </div>
+      <div style={sec}><b>Teletransporte</b>
+        <div style={row}><select data-gmplace="1" aria-label="Destino" value={place} style={{ ...inp, flex: 1 }} onChange={(e: ChangeEvent<HTMLSelectElement>) => setPlace(e.target.value)}>{GM_PLACES.map((P: { id: string; n: string }) => <option key={P.id} value={P.id}>{P.n}</option>)}</select>
+          <button data-gmtp="1" style={gbtn(true)} onClick={() => act(() => { gmTeleport(g, place, performance.now()); })}>Ir</button></div>
+        <div style={row}>x <input data-gmx="1" aria-label="x" value={tx} inputMode="numeric" style={{ ...inp, width: 50 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setTx(e.target.value)} /> y <input data-gmy="1" aria-label="y" value={ty} inputMode="numeric" style={{ ...inp, width: 50 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setTy(e.target.value)} />
+          <button data-gmtpxy="1" style={gbtn(false)} onClick={() => act(() => { gmTeleportXY(g, tx, ty, performance.now()); })}>Ir a x, y</button><span style={{ fontSize: 10, color: th.text.secondary }}>Estás en {g.p.x}, {g.p.y}</span></div>
+      </div>
+      <div style={sec}><b>Personaje</b>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 4 }}>
+          {GM_FIELDS.map((f: { id: GmField; n: string }) => <div key={f.id} style={row}><span style={{ fontSize: 10, flex: "1 1 60px" }}>{f.n}</span>
+            <input data-gmf={f.id} aria-label={f.n} value={vals[f.id] ?? ""} inputMode="numeric" style={{ ...inp, width: 70 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setVals({ ...vals, [f.id]: e.target.value })} />
+            <button data-gmset={f.id} style={gbtn(false)} onClick={() => act(() => { if (gmSet(g, f.id, vals[f.id] ?? "", performance.now())) setVals({ ...vals, [f.id]: String(gmGet(g, f.id)) }); })}>✓</button></div>)}
+        </div>
+        <div style={row}>
+          <button data-gmgod="1" style={gbtn(s.god)} onClick={() => act(() => { gmToggle(g, "god", performance.now()); })}>{s.god ? "✓ " : ""}Modo dios</button>
+          <button data-gminv="1" style={gbtn(s.inv)} onClick={() => act(() => { gmToggle(g, "inv", performance.now()); })}>{s.inv ? "✓ " : ""}Invisible</button>
+          <button data-gmheal="1" style={gbtn(false)} onClick={() => act(() => { gmHeal(g, performance.now()); })}>Curar + maná</button>
+        </div>
+      </div>
+      <div data-gmmsg="1" style={{ fontSize: 11, minHeight: 14, color: s.bad ? th.text.danger : th.text.success }}>{s.msg}</div>
+    </div>
+  );
+}
 function MountsWindow(props: { g: Game; th: Theme; refresh: () => void; keyName: string }) {
   const { g, th } = props; const s = mt(g); const act = (f: () => void): void => { f(); props.refresh(); };
   const { gold, frame, card, gbtn } = coinStyles(th); const cur = riding(g); const near = stableNear(g);
@@ -5608,7 +6074,7 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           <button style={btn(th, false, true)} onClick={() => props.setOpen(false)} title="Ocultar HUD">▸</button>
         </div>
         {showMini && <div ref={miniWrapRef} data-minizoom={g.miniZoom ?? 1} style={{ position: "relative", width: "100%", maxWidth: 132, margin: "0 auto" }}>
-          <canvas ref={props.miniRef} width={MINI_SIZE} height={MINI_SIZE} onClick={() => act(() => { g.bigMap = !g.bigMap; })} title="Rueda del ratón: zoom · clic: mapa completo" style={{ width: "100%", aspectRatio: "1 / 1", imageRendering: "pixelated", borderRadius: 4, cursor: "pointer", display: "block" }} />
+          <canvas ref={props.miniRef} width={MINI_SIZE} height={MINI_SIZE} onClick={(e) => act(() => { const c = e.currentTarget; const r = c.getBoundingClientRect(); if (r.width <= 0) return; const t = miniTile(g, ((e.clientX - r.left) * c.width) / r.width, ((e.clientY - r.top) * c.height) / r.height, c.width); if (t) walkToTile(g, t[0], t[1], performance.now()); })} onDoubleClick={() => act(() => { g.bigMap = !g.bigMap; })} title="Clic: caminar hasta allí · doble clic: mapa completo · rueda del ratón: zoom" style={{ width: "100%", aspectRatio: "1 / 1", imageRendering: "pixelated", borderRadius: 4, cursor: "pointer", display: "block" }} />
           <div style={{ position: "absolute", right: 2, bottom: 2, display: "flex", gap: 2, alignItems: "center" }}>
             <button style={{ ...btn(th, false, true), padding: "0 5px", lineHeight: "14px", background: th.bg.base, opacity: (g.miniZoom ?? 1) <= 1 ? 0.45 : 1 }} onClick={() => act(() => { miniZoomStep(g, -1); })} title="Alejar minimapa (rueda abajo)" aria-label="Alejar minimapa">−</button>
             <span data-minizoom-label="1" style={{ fontSize: 9, fontWeight: 700, padding: "0 3px", borderRadius: 3, background: th.bg.base, color: th.text.primary, lineHeight: "14px" }}>{g.miniZoom ?? 1}x</span>
@@ -5647,6 +6113,7 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           <button data-depbtn="1" style={btn(th, !!g.dep && g.dep.open, true)} onClick={() => act(() => { if (g.dep && g.dep.open) g.dep.open = false; else requestDepot(g, performance.now()); })} title="Depósito (baúl junto al templo)">📦 Depósito</button>
           <button data-mountbtn="1" style={btn(th, !!g.mt && g.mt.open, true)} onClick={() => act(() => { const s = mt(g); s.open = !s.open; s.msg = ""; if (s.open && g.dep) g.dep.open = false; })} title="Monturas: elige y monta">🐎 Monturas</button>
           <button data-qlogbtn="1" style={btn(th, !!g.nq && g.nq.log, true)} onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones">🗒️ Diario</button>
+          <button data-gmbtn="1" style={btn(th, gmOn(g), true)} onClick={() => act(() => { if (!gmOn(g)) setGm(g, true, performance.now()); else { const s = gmSt(g); s.open = !s.open; } })} title="Modo GM: herramienta de prueba (también con el comando /gm)">🛠 {gmOn(g) ? "Panel GM" : "Modo GM (prueba)"}</button>
           <button style={{ ...btn(th, props.full, true), gridColumn: "1 / -1" }} onClick={props.onFull} title="Tecla P">{props.full ? "✕ Salir de pantalla completa" : "⛶ Pantalla completa"}</button>
         </div>
         {nqActive(g).length > 0 && <div data-qtrack="1" onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones"
@@ -5694,6 +6161,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
   const gRef = useRef<Game | null>(null);
   if (!gRef.current) { gRef.current = props.save ? gameFromSave(props.save) : newGame(CLASSES[props.cls], props.name); if (!props.save) applyAccount(gRef.current, openAccount(LS_KV)); }
   const g = gRef.current;
+  const [cmd, setCmd] = useState<string | null>(null);
   const [binds, setBindsS] = useState<Binds>(() => cloneBinds(props.save ? props.save.binds : DEFAULT_BINDS)); const bindsRef = useRef<Binds>(binds);
   const [saveView, setSaveView] = useState<{ code: string; local: boolean } | null>(null); const saveOpenRef = useRef<boolean>(false);
   const openSave = (): void => {
@@ -5750,6 +6218,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       const L = listenRef.current;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
       if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && !(gg.nq && (gg.nq.log || gg.nq.talk)) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
+      if (e.key === "/" && !actionFor(bindsRef.current, e.code)) { e.preventDefault(); gg.heldDirs = []; setCmd("/"); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -5867,6 +6336,9 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {g.cs && g.cs.open && <CoinStore g={g} th={th} refresh={refresh} />}
           {g.nq && g.nq.log && <QuestLog g={g} th={th} refresh={refresh} keyName={binds.qlog[0] ? keyLabel(binds.qlog[0]) : "—"} />}
           {g.nq && g.nq.talk && <NpcDialog g={g} th={th} refresh={refresh} />}
+          {g.gm && g.gm.on && g.gm.open && <GmWindow g={g} th={th} refresh={refresh} />}
+          {cmd !== null && <input data-cmd="1" aria-label="Comando" autoFocus value={cmd} placeholder="/gm" onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: 8, bottom: 56, zIndex: 8, width: 220, background: th.bg.base, color: th.text.primary, border: `1px solid ${th.text.warning}`, borderRadius: 4, padding: "3px 6px", fontFamily: th.font.mono, fontSize: 12 }}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCmd(e.target.value)} onBlur={() => setCmd(null)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") { const out = runCmd(g, cmd, performance.now()); setStatus(g, out, performance.now(), "#ffd34d"); setCmd(null); refresh(); } else if (e.key === "Escape") setCmd(null); }} />}
           {g.mt && g.mt.open && <MountsWindow g={g} th={th} refresh={refresh} keyName={binds.mount[0] ? keyLabel(binds.mount[0]) : "—"} />}
           {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
@@ -5886,7 +6358,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1, minWidth: 200 }}>
             <button style={btn(th, true)} onClick={() => doAct("attack")}>⚔️ Atacar</button>
             <button style={btn(th)} onClick={() => doAct("nextTarget")}>Sig. objetivo</button>
-            {g.cls.powers.map((pw: Power, i: number) => <button key={i} data-pow={i} style={btn(th)} title={powTip(g, pw)} onClick={() => doAct(SLOT_ACTS[i] ?? "power1")}>{i + 1}. {pw.kind === "summon" && demonOn(g) ? "😈 Demonio" : short(pw.name)}</button>)}
+            {g.cls.powers.map((pw: Power, i: number) => <button key={i} data-pow={i} style={btn(th)} title={powTip(g, pw)} onClick={() => doAct(POW_ACTS[i] ?? "power1")}>{i + 1}. {powLocked(g, pw) ? "🔒" : ""}{pw.kind === "summon" && demonOn(g) ? "😈 Demonio" : short(pw.name)}</button>)}
             <button style={btn(th)} onClick={() => doAct("hpPot")}>❤️ Vida ({hpPots(g.p)})</button>
             <button style={btn(th)} onClick={() => doAct("manaPot")}>💧 Maná ({manaPots(g.p)})</button>
             <button style={btn(th, g.shopOpen)} onClick={() => doAct("shop")}>🛒 Tienda</button>
