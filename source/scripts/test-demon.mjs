@@ -26,7 +26,7 @@ await page.select('select[aria-label="Vocación"]', "warlock");
 await page.type("input", "Brujo"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Crear personaje")).click()); await sleep(1200);
 await page.reload(); await sleep(500);
 // an open grass patch in the overworld (not town), far from spawns
-const spot = async () => ev(() => { const g = globalThis.__edisarG.current; const W = 352, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 12]);
+const spot = async () => ev(() => { const g = globalThis.__edisarG.current; const W = g.tiles.length / 144, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 12]);
   for (let y = 36; y < 140; y++) for (let x = 8; x < 170; x++) { if (x >= 30 && x <= 60 && y >= 50 && y <= 76) continue; let ok = true;
     for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 8 && ok; dx++) ok = walk.has(T[(y + dy) * W + x + dx]) && (T[(y + dy) * W + x + dx] === 0);
     if (ok && !g.mons.some((m) => m.alive && Math.max(Math.abs(m.x - x), Math.abs(m.y - y)) <= 10)) return [x, y]; }

@@ -64,7 +64,7 @@ const TS = 32; let VW_T = 21; let VH_T = 13; let VW = TS * VW_T; let VH = TS * V
 const OY = 32; const OW_W = 96; const OW_H = 72 + OY; const HW = 64, HH = 48, NH = 12;
 const DIM_X0 = 4, DIM_Y0 = OW_H + 4, DIM_W = 34, DIM_H = 22; // Otra Dimensión: arena aparte (cuenta como Casa de Géminis)
 const GEM_BHP = 1.2, GEM_BATK = 1.0, GEM_KHP = 0.8, GEM_KATK = 1.1; // Saga y Kanon (sobre la curva de las Casas)
-const MW = OW_W + 4 * HW; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 5; const DIAG_MUL = 1.4; const BAG_MAX = 20;
+const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 5; const DIAG_MUL = 1.4; const BAG_MAX = 20;
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
 const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
 const PLAYER_T = -7;
@@ -449,8 +449,8 @@ function expFor(L: number): number { return Math.round((50 / 3) * (L * L * L - 6
 function levelFor(exp: number): number { let L = 1; while (L < 500 && expFor(L + 1) <= exp) L++; return L; }
 function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL; }
 function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL; }
-function regionOf(x: number, y: number): number { if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
-function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
+function regionOf(x: number, y: number): number { if (x >= UW_X0) return UW_R0 + clamp(Math.floor(y / HH), 0, 2) * 3 + clamp(Math.floor((x - UW_X0) / HW), 0, 2); if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
+function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r >= UW_R0) { const i = r - UW_R0; return [UW_X0 + (i % 3) * HW, Math.floor(i / 3) * HH, HW, HH]; } if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
 function inRect(q: [number, number, number, number], x: number, y: number): boolean { return x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]; }
 function isSafe(x: number, y: number): boolean { return x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1; }
 
@@ -508,12 +508,12 @@ let MAP_CACHE: Uint8Array | null = null;
 function buildMap(): Uint8Array {
   if (MAP_CACHE) return MAP_CACHE;
   const big = new Uint8Array(MW * MH).fill(ROCK);
-  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big); buildCroqLair(big);
+  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big); buildCroqLair(big); buildUw(big);
   MAP_CACHE = big; return big;
 }
 // Mundo exterior: se genera con las coordenadas de siempre (96×72) y se desplaza OY casillas al sur
 function buildOverworld(big: Uint8Array): Uint8Array {
-  const BW = OW_W + 4 * HW; const MW = OW_W, MH = 72, TX0 = 40, TY0 = 28, TX1 = 56, TY1 = 40; const r = rng(1337); const m = big;
+  const BW = UW_X0 + 3 * HW; const MW = OW_W, MH = 72, TX0 = 40, TY0 = 28, TX1 = 56, TY1 = 40; const r = rng(1337); const m = big;
   const set = (x: number, y: number, t: number): void => { if (x >= 0 && y >= 0 && x < MW && y < MH) m[(y + OY) * BW + x] = t; };
   const get = (x: number, y: number): number => m[(y + OY) * BW + x] ?? ROCK;
   const rect = (x0: number, y0: number, x1: number, y1: number, t: number): void => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, t); };
@@ -543,6 +543,7 @@ function zoneName(g: Game, x: number, y: number): string {
   const r = regionOf(x, y);
   if (inDim(x, y)) return "✦ ??? — Otra Dimensión";
   if (r === CROQ_R) return croqZone(x, y);
+  if (r >= UW_R0) return uwZoneName(x, y);
   if (r === 0 && inCastleZone(x, y)) return castleZoneName(x, y);
   if (r > 0) { const H = HOUSES[r - 1], rt = HRT[r - 1]; if (!H) return "Santuario"; return rt && inRect(rt.room, x, y) ? `${H.glyph} Templo de ${H.boss.split(" de ")[0] ?? H.boss}` : `${H.glyph} Casa de ${H.name}`; }
   if (y < OY) return "Santuario: camino de las 12 Casas";
@@ -713,7 +714,7 @@ interface Mon { spec: number[]; enraged: boolean; temp: boolean; }
 function makeMon(id: number, def: MonDef, x: number, y: number): Mon {
   return { id, def, hp: def.hp, alive: true, respawnAt: 0, deadAt: 0, x, y, fx: x, fy: y, sx: x, sy: y, moveStart: 0, moveDur: 1, face: 2, nextMove: 0, nextAtk: 0, angryUntil: 0, slowUntil: 0, dotUntil: 0, dotNext: 0, dotMin: 0, dotMax: 0, calmUntil: 0, spec: [], enraged: false, temp: false };
 }
-function indexMons(g: Game): void { const br: Mon[][] = []; for (let r = 0; r <= CROQ_R; r++) br.push([]); for (const m of g.mons) br[regionOf(m.sx, m.sy)]?.push(m); g.byRegion = br; }
+function indexMons(g: Game): void { const br: Mon[][] = []; for (let r = 0; r <= UW_RMAX; r++) br.push([]); for (const m of g.mons) br[regionOf(m.sx, m.sy)]?.push(m); g.byRegion = br; }
 function regionMons(g: Game, x: number, y: number): Mon[] { return g.byRegion[regionOf(x, y)] ?? g.mons; }
 // Monstruo temporal (invocaciones, clones, segunda fase): no reaparece
 function spawnTemp(g: Game, def: MonDef | undefined, x: number, y: number, now: number): Mon | null {
@@ -726,7 +727,7 @@ function spawnTemp(g: Game, def: MonDef | undefined, x: number, y: number, now: 
 }
 // Al salir o morir: desaparecen invocaciones/clones y los guardianes se recuperan
 function resetRegion(g: Game, r: number): void {
-  if (r <= 0) return; if (r === CROQ_R) croqReset(g); let any = false;
+  if (r <= 0) return; if (r === CROQ_R) croqReset(g); if (r >= UW_R0) uwReset(g, r); let any = false;
   for (const m of g.byRegion[r] ?? []) {
     if (m.temp) { if (m.alive) { m.alive = false; m.respawnAt = Infinity; } any = true; continue; }
     if (m.def.boss && m.alive) { m.hp = m.def.hp; m.enraged = false; m.spec = []; m.angryUntil = 0; m.x = m.sx; m.y = m.sy; m.fx = m.sx; m.fy = m.sy; }
@@ -752,6 +753,7 @@ function newGame(cls: ClassDef, name: string): Game {
   const all: Array<[MonId, number, number]> = [...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]): [MonId, number, number] => [s[0], s[1], s[2] + OY]);
   for (const rt of HRT) if (rt) for (const s of rt.spawns) all.push(s);
   for (const s of CROQ_SPAWNS) all.push(s);
+  for (const s of UW_SPAWNS) all.push(s);
   for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && inCastleBlock(s[1], s[2])) all.splice(i, 1); } // nothing spawns inside the Torre de Croqui
   for (const [mid, x0, y0] of all) {
     let fx = -1, fy = -1;
@@ -820,8 +822,9 @@ function addExp(g: Game, amt: number, now: number): void {
   }
 }
 function rollItem(g: Game, def: MonDef): Inst | null {
-  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== "gemini_gold" && !isCroqItem(d.id));
+  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id));
   if (def.house) { const hi = pool.filter((d: ItemDef) => d.lvl >= def.lootLvl - 18); if (hi.length > 0 && Math.random() < 0.75) pool = hi; }
+  if (def.uw) pool = uwPool(def, pool);
   if (Math.random() < 0.7) { const mine = pool.filter((d: ItemDef) => d.voc === null || d.voc.includes(g.cls.id)); if (mine.length > 0) pool = mine; }
   const d = pool[Math.floor(Math.random() * pool.length)]; if (!d) return null;
   const [pr, pe, ph] = def.rar; const r = Math.random();
@@ -876,7 +879,7 @@ function killMon(g: Game, m: Mon, now: number): void {
     }
   }
   if (got.length > 0) bossLoot(g, m, got, now);
-  croqKill(g, m, now);
+  croqKill(g, m, now); uwKill(g, m, now);
   if (bigBoss) { coinDrop(g, m, now); mountDrop(g, m, now); }
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
@@ -889,7 +892,7 @@ function questReward(n: number): { exp: number; gold: number; item: string } {
   return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.5), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
 }
 function rewardItem(g: Game, maxLvl: number, rar: Rarity): Inst | null {
-  const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && !isCroqItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
+  const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
   const top = pool.slice(0, 8); const d = top[Math.floor(Math.random() * top.length)]; if (!d) return null;
   return { uid: g.nextUid++, id: d.id, rar };
 }
@@ -947,6 +950,7 @@ function houseKill(g: Game, m: Mon, now: number): void {
 }
 function damageMon(g: Game, m: Mon, dmg: number, now: number, elem: Elem, crit?: boolean): void {
   if (!m.alive || !(dmg > 0)) return;
+  if (m.def.uw && m.def.boss) { dmg = uwDmg(g, m, dmg, now); if (!(dmg > 0)) return; }
   m.hp -= dmg; m.angryUntil = now + 15000;
   addFloat(g, m.x * TS + 16, m.y * TS + 4, crit ? `${dmg}!` : String(dmg), crit ? "#ffe066" : ELEM_COLOR[elem], now);
   if (m.hp <= 0) killMon(g, m, now);
@@ -1152,6 +1156,7 @@ function afterMove(g: Game, now: number): void {
 function houseOpen(g: Game, n: number): boolean { return n <= g.cleared + 1; }
 function usePortal(g: Game, now: number): void {
   if (croqPortal(g, now)) return;
+  if (uwPortal(g, now)) return;
   const p = g.p; const r = regionOf(p.x, p.y);
   if (r > 0) {
     const d = DOORS[r - 1], H = HOUSES[r - 1]; if (!d || !H) return;
@@ -1336,7 +1341,8 @@ function stepMon(g: Game, m: Mon, now: number): void {
   const aggro = !calm && !isSafe(p.x, p.y) && (d <= 6 || now < m.angryUntil);
   if (m.def.id === CROQ_ID) { croqTick(g, m, now); if (!m.alive || (g.dim && !inDim(m.x, m.y))) return; }
   if ((m.def.id === VENEQ_ID || m.def.id === "croq_guard") && aggro && venequitoThink(g, m, now, d)) return;
-  if (m.def.boss && aggro && (d <= 10 || m.def.id === CROQ_ID) && (m.def.id === CROQ_ID ? croquiThink(g, m, now, d) : bossThink(g, m, now, d))) return;
+  if (m.def.uw && aggro && uwThink(g, m, now, d)) return;
+  if (m.def.boss && !m.def.uw && aggro && (d <= 10 || m.def.id === CROQ_ID) && (m.def.id === CROQ_ID ? croquiThink(g, m, now, d) : bossThink(g, m, now, d))) return;
   if (aggro && d > 1 && highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) { if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); hurtMinion(g, roll(Math.round(m.def.atk * 0.6), Math.round(m.def.atk * 1.0)), now, m.def.name); } return; }
   if (aggro && d <= 1) {
     if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); if (highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) hurtMinion(g, roll(Math.round(m.def.atk * 0.5), Math.round(m.def.atk * 0.9)), now, m.def.name); }
@@ -2512,7 +2518,7 @@ const CROQ_UNIQUES = ["croq_wand", "croq_hat", "croq_robe", "croq_legs", "croq_b
 function isCroqItem(id: string): boolean { return id.startsWith("croq_"); }
 addLoot(it("croq_wand", "Varita de Croqui", "weapon", "wand", 70, CASTERS, 9000, { atk: 122, range: 5, elem: "fire", magic: 8, mana: 150 }));
 addLoot(it("croq_hat", "Sombrero de Ferumbras", "head", "armor", 70, CASTERS, 9000, { arm: 8, magic: 4, mana: 260 }));
-addLoot(it("croq_robe", "Túnica turquesa de Croqui", "body", "armor", 70, CASTERS, 9000, { arm: 13, mana: 520, magic: 5, hp: 120 }));
+addLoot(it("croq_robe", "Túnica turquesa de Croqui", "body", "armor", 70, CASTERS, 9000, { arm: 13, mana: 920, magic: 5, hp: 120 })); // v21: siempre por encima de la Armadura Dorada de Géminis (PV/armadura de v20: no altera el balance de Croqui)
 addLoot(it("croq_legs", "Faldar turquesa de Croqui", "legs", "armor", 70, CASTERS, 8000, { arm: 8, mana: 260, magic: 2 }));
 addLoot(it("croq_boots", "Botas del Archimago", "feet", "armor", 70, null, 8000, { arm: 7, speed: 28 }));
 addLoot(it("croq_ring", "Anillo de los Anillos Azules", "ring", "jewel", 70, null, 8000, { atk: 8, magic: 4, hp: 160, mana: 120 }));
@@ -2522,7 +2528,7 @@ addLoot(it("croq_blade", "Espada ígnea de Croqui", "weapon", "sword", 70, KN, 9
 addLoot(it("croq_bow", "Arco del Fénix", "weapon", "bow", 70, AR, 9000, { atk: 122, range: 6, elem: "fire" }));
 addLoot(it("croq_dag", "Daga de brasa", "weapon", "dagger", 70, RO, 9000, { atk: 112, elem: "fire", speed: 10 }));
 addLoot(it("croq_shield", "Escudo de la Llama Turquesa", "off", "shield", 70, KN, 8000, { def: 62, arm: 8 }));
-addLoot(it("croq_mail", "Coraza de magma", "body", "armor", 70, PHYS, 9000, { arm: 20, hp: 320 }));
+addLoot(it("croq_mail", "Coraza de magma", "body", "armor", 70, PHYS, 9000, { arm: 25, hp: 440, atk: 4 })); // v21: siempre por encima de la Armadura Dorada de Géminis
 OUTFITS.push({ id: "o_croqui", n: "Atuendo de Croqui", robe: "#17b8b0", trim: "#7a2ed0", price: 0 });
 AURAS.push({ id: "a_croqui", n: "Anillos de Croqui", c: [90, 200, 255], price: 0 });
 MOUNTS.push({ id: "m_croqui", n: "Dragón turquesa de Croqui", price: 0, speed: 45, src: "boss", mon: CROQ_ID, chance: CROQ.MOUNT_P, kind: "dragon", body: "#17b8b0", dark: "#0c5a5a", mane: "#b070ff" });
@@ -2685,7 +2691,7 @@ function croqKill(g: Game, m: Mon, now: number): void {
   const rr = (): Rarity => { const [pr, pe] = CROQ.RAR; const r = Math.random(); return r < pr ? "rar" : r < pr + pe ? "epi" : "hea"; };
   const uniq = CROQ_UNIQUES.map((id: string) => ITEM[id]).filter((d: ItemDef | undefined): d is ItemDef => !!d && voc(d));
   const u = uniq[Math.floor(Math.random() * uniq.length)]; if (u) items.push({ uid: g.nextUid++, id: u.id, rar: Math.random() < CROQ.UNIQUE_HEA ? "hea" : "epi" });
-  const pool = ITEMS.filter((d: ItemDef) => d.lvl >= CROQ.POOL_MIN_LVL && d.id !== "gemini_gold" && !isCroqItem(d.id)); const mine = pool.filter(voc);
+  const pool = ITEMS.filter((d: ItemDef) => d.lvl >= CROQ.POOL_MIN_LVL && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isUwItem(d.id)); const mine = pool.filter(voc);
   for (let k = 1; k < CROQ.DROP_N; k++) {
     const src = Math.random() < CROQ.POOL_UNIQUE ? uniq : Math.random() < 0.7 && mine.length ? mine : pool; const d = src[Math.floor(Math.random() * src.length)];
     if (d) items.push({ uid: g.nextUid++, id: d.id, rar: rr() });
@@ -2741,6 +2747,897 @@ function drawCroqTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: nu
   if (drawCroqCastleTile(ctx, t, x, y, wx, wy, now)) return true;
   if (!inCroq(wx, wy)) return false;
   drawCroquiTile(ctx, t === WATER ? "lava" : t === PORTAL ? "portal" : t === MARBLE ? "floor" : "wall", x, y, hash(wx, wy), now); return true;
+}
+
+// ===================== HADES: el Inframundo (post-juego, se abre al vencer a Saga y Kanon de Géminis) =====================
+// Nueve zonas (regiones 14–22) en una franja nueva al este del mapa (MW crece 3×HW; MH no cambia). Cada zona es una celda de
+// 64×48 con 10 salas en serpentina + la sala del jefe. Reutiliza las casillas existentes (MARBLE suelo, HWALL muro, WATER río,
+// PORTAL) y las dibuja con la paleta de cada zona, así que caminar / disparar / buscar caminos / minimapa no necesitan tiles nuevos.
+// Progreso por personaje en SaveData.uw = { z: zonas superadas, k: victorias por jefe } (partidas viejas: sin campo → 0).
+interface UwZone { name: string; glyph: string; boss: string; room: string; mobs: Array<[string, string]>; river: boolean; }
+const UW_ZONES: UwZone[] = [
+  { name: "Río Aqueronte", glyph: "⛵", boss: "Caronte de Aqueronte", room: "Embarcadero de Caronte", river: true, mobs: [["Soldado esqueleto", "skel"], ["Raimi de Gusano", "worm"], ["Ivan de Troll", "troll"]] },
+  { name: "Primera Prisión · Tribunal", glyph: "⚖", boss: "Lune de Balrog", room: "Sala del Juicio", river: true, mobs: [["Zelos de Rana", "frog"], ["Myu de Papillon", "papillon"], ["Gigant de Cíclope", "cyclops"]] },
+  { name: "Valle de Wyvern", glyph: "🐉", boss: "Radamanthys de Wyvern", room: "Trono del Juez Wyvern", river: true, mobs: [["Queen de Mandrágora", "mandrake"], ["Sylphid de Basilisco", "basilisk"], ["Gordon de Minotauro", "minotaur"]] },
+  { name: "Monte del Grifo", glyph: "🦅", boss: "Minos de Grifo", room: "Trono del Juez Grifo", river: true, mobs: [["Stand de Escarabajo", "beetle"], ["Pharaoh de Esfinge", "sphinx"], ["Rock de Golem", "golem"]] },
+  { name: "Bosque de Garuda", glyph: "🪶", boss: "Aiacos de Garuda", room: "Trono del Juez Garuda", river: true, mobs: [["Mils de Elfo", "elf"], ["Niobe de Deep", "deep"], ["Violate de Behemoth", "behemoth"]] },
+  { name: "Cocito", glyph: "❄", boss: "Valentine de Arpía", room: "Lago helado del Cocito", river: true, mobs: [["Cube de Dullahan", "dullahan"], ["Edward de Sílfide", "sylph"], ["Byaku de Nigromante", "necro"]] },
+  { name: "Giudecca", glyph: "🎻", boss: "Pandora", room: "Salón del Trono de Giudecca", river: false, mobs: [["Ox de Gorgona", "gorgon"], ["Markino de Mosca", "fly"], ["Guardia Real de Giudecca", "royal"]] },
+  { name: "Campos Elíseos", glyph: "🌾", boss: "Thanatos y Hypnos", room: "Jardín de los Dioses Gemelos", river: true, mobs: [["Ícelo, dios del sueño", "icelus"], ["Fántaso, dios del sueño", "phantasos"], ["Morfeo, dios del sueño", "morpheus"]] },
+  { name: "Templo de Hades", glyph: "👑", boss: "Hades", room: "Trono de Hades", river: true, mobs: [["Guardia del Templo de Hades", "tguard"], ["Oneiros, dios del sueño", "oneiros"], ["Sombra del Eclipse", "eshade"]] },
+];
+const UW_N = UW_ZONES.length, UW_RMAX = UW_R0 + UW_N - 1;
+const UW_REC = [80, 85, 90, 95, 100, 105, 110, 115, 120];                       // nivel recomendado por zona (jugador activo en solitario)
+const UW_GATE: [number, number] = [22, 2];                                        // Santuario: al final del camino, pasada la Casa de Géminis (x 30)
+const UW_HADES = "uw9boss", UW_THAN = "uw8boss", UW_HYP = "uw8boss2";
+// Balance (la simulación t_hadesbal comprueba que cada zona es más dura que la anterior):
+const UWB = {
+  MOB_HP: [1.5, 1.56, 1.62, 1.68, 1.74, 1.8, 1.86, 1.92, 1.98],                // × la fórmula de las Casas (32 + 2.8·nv^1.45)
+  MOB_ATK: [330, 347, 365, 382, 400, 417, 435, 452, 470],                      // ataque del espectro normal (Géminis: 265); la vida de los magos apenas sube del 80 al 120
+  BOSS_HP: [40, 44, 48, 52, 56, 60, 60, 68, 62],                               // × vida del espectro normal de su zona (gemelos: ×0.48 cada uno; Manigoldo de Cáncer ayuda)
+  BOSS_ATK: [400, 420, 440, 460, 480, 500, 520, 540, 545],                     // ataque del jefe (Saga: 358); las técnicas son × este valor
+  TELE: [1, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82, 0.79, 0.76],                    // menos tiempo para esquivar en cada zona
+  GAP: [1500, 1450, 1400, 1350, 1300, 1250, 1200, 1150, 1100],                 // pausa entre técnicas
+  TELE_MIN: 620, SAFE_MIN: 1500, TWIN_HP: 0.48,
+  HADES_P2: 0.66, HADES_P3: 0.33, ECL_MS: 22000, ECL_RAIN: 1600,
+};
+// Capas de botín por zona: probabilidad de soltar objeto, rarezas [raro, épico, heaven] y nivel del objeto de la zona
+function uwMobRar(z: number): [number, number, number] { return [0.26 + 0.02 * z, 0.1 + 0.012 * z, 0.016 + 0.004 * z]; }
+function uwBossRar(z: number): [number, number, number] { return z >= 8 ? [0.1, 0.45, 0.45] : [0.35, 0.3 + 0.025 * z, 0.12 + 0.035 * z]; }
+function uwMobDrop(z: number): number { return 0.11 + 0.007 * z; }
+function uwBossDropN(z: number): number { return z >= 8 ? 7 : 3 + Math.floor(z / 2); }
+// ---------- objetos: una capa nueva por zona (21 piezas, nivel = nivel de la zona) + 9 únicos de Hades ----------
+// REGLA: los 13 únicos de Croqui (jefe de banda) son SIEMPRE lo mejor del juego. Cada estadística de una pieza del Inframundo
+// parte de su pieza «del Zodiaco» (_t5) y se acerca al único de Croqui de su ranura y vocación sin igualarlo nunca:
+// capa z → (z+1)/10 del camino; Hades → hasta 1 punto por debajo. Si el único de Croqui no tiene esa estadística, la pieza tampoco (0).
+// Sin contraparte de Croqui (carcaj, sai, yelmo/grebas físicos): +6% por capa sobre la base del Zodiaco.
+const UW_TIER_N = ["del Aqueronte", "de Balrog", "de Wyvern", "del Grifo", "de Garuda", "del Cocito", "de Giudecca", "de los Elíseos", "del Eclipse"];
+const UW_POW = ["atk", "def", "arm", "magic", "hp", "mana", "speed"] as const;
+type UwPow = typeof UW_POW[number];
+const UW_FRAC_HADES = 1; // Hades: justo 1 punto por debajo del único de Croqui en cada estadística
+/** Únicos de Croqui que compiten con una pieza de esta ranura para alguna de sus vocaciones. */
+function croqMatches(slot: Slot, voc: ClassId[] | null): ItemDef[] {
+  const cls: ClassId[] = voc ?? [...CASTERS, ...PHYS]; const out: ItemDef[] = [];
+  for (const id of CROQ_UNIQUES) { const c = ITEM[id]; if (!c || c.slot !== slot) continue; if (cls.some((k: ClassId) => c.voc === null || c.voc.includes(k)) && !out.includes(c)) out.push(c); }
+  return out;
+}
+function uwStat(base: ItemDef | undefined, cqs: ItemDef[], frac: number, s: UwPow): number {
+  const b = base ? base[s] : 0;
+  if (cqs.length === 0) return Math.round(b * (1 + 0.6 * frac));
+  const top = Math.min(...cqs.map((c: ItemDef) => c[s])) - 1; if (top < 0) return 0;
+  const lo = Math.min(b, top); return Math.min(top, Math.floor(lo + (top - lo) * frac));
+}
+function uwPiece(id: string, name: string, baseId: string, slot: Slot, wt: WType, voc: ClassId[] | null, lvl: number, price: number, frac: number, elem?: Elem): ItemDef {
+  const base = ITEM[baseId]; const cqs = croqMatches(slot, voc); const o: ItemOpt = {};
+  for (const s of UW_POW) { const v = uwStat(base, cqs, frac, s); if (v > 0) o[s] = v; }
+  const rg = base ? base.range : 1; const rcap = cqs.length ? Math.min(...cqs.map((c: ItemDef) => c.range)) : rg; if (slot === "weapon") o.range = Math.min(rg, rcap);
+  o.elem = elem ?? (base ? base.elem : "phys");
+  return it(id, name, slot, wt, lvl, voc, price, o);
+}
+function uwTier(z: number): void {
+  const L = UW_REC[z] ?? 80, nm = UW_TIER_N[z] ?? "", pr = Math.round(70 * L), u = z + 1, f = (z + 1) / 10;
+  const add = (id: string, name: string, slot: Slot, wt: WType, voc: ClassId[] | null, elem?: Elem): void => addLoot(uwPiece(`${id}_u${u}`, `${name} ${nm}`, `${id}_t5`, slot, wt, voc, L, pr, f, elem));
+  add("rod", "Vara", "weapon", "rod", DR); add("wand", "Varita", "weapon", "wand", SO); add("stf", "Bastón", "weapon", "staff", WA);
+  add("swd", "Espada", "weapon", "sword", KN, z >= 4 ? "dark" : "phys"); add("axe", "Hacha", "weapon", "axe", KN); add("clb", "Martillo", "weapon", "club", KN);
+  add("bow", "Arco", "weapon", "bow", AR, z >= 6 ? "holy" : "dark"); add("dag", "Daga", "weapon", "dagger", RO, "dark");
+  add("shd", "Escudo", "off", "shield", KN); add("qv", "Carcaj", "off", "quiver", AR); add("orb", "Orbe", "off", "orb", CASTERS); add("ldg", "Sai", "off", "dagger", RO);
+  add("hdp", "Yelmo", "head", "armor", PHYS); add("hdc", "Tiara", "head", "armor", CASTERS); add("bdp", "Sapuri", "body", "armor", PHYS); add("bdc", "Túnica", "body", "armor", CASTERS);
+  add("lgp", "Grebas", "legs", "armor", PHYS); add("lgc", "Faldar", "legs", "armor", CASTERS); add("ft", "Botas", "feet", "armor", null); add("am", "Amuleto", "amulet", "jewel", null); add("rg", "Anillo", "ring", "jewel", null);
+}
+for (let z = 0; z < UW_N; z++) uwTier(z);
+// Únicos de Hades (nivel 125): lo mejor del Inframundo, siempre por debajo del único de Croqui correspondiente
+const HADES_DEFS: Array<[string, string, string, Slot, WType, ClassId[] | null, Elem | undefined]> = [
+  ["hds_sword", "Espada de Hades", "swd_t5", "weapon", "sword", KN, "dark"], ["hds_bow", "Arco del Eclipse", "bow_t5", "weapon", "bow", AR, "dark"],
+  ["hds_dag", "Colmillo del Rey del Inframundo", "dag_t5", "weapon", "dagger", RO, "dark"], ["hds_staff", "Cetro de Hades", "stf_t5", "weapon", "staff", CASTERS, "dark"],
+  ["hds_armor", "Sapuri alada de Hades", "bdp_t5", "body", "armor", PHYS, undefined], ["hds_robe", "Manto del Rey del Inframundo", "bdc_t5", "body", "armor", CASTERS, undefined],
+  ["hds_helm", "Diadema de Hades", "hdc_t5", "head", "armor", CASTERS, undefined], ["hds_boots", "Grebas aladas del Hipermundo", "ft_t5", "feet", "armor", null, undefined],
+  ["hds_ring", "Anillo de la Estrella Oscura", "rg_t5", "ring", "jewel", null, undefined], ["hds_amulet", "Colgante de Pandora «Yours Ever»", "am_t5", "amulet", "jewel", null, undefined],
+];
+const HADES_ITEMS: string[] = HADES_DEFS.map((h) => h[0]);
+for (const h of HADES_DEFS) addLoot(uwPiece(h[0], h[1], h[2], h[3], h[4], h[5], 125, 16000, UW_FRAC_HADES, h[6]));
+function isHadesItem(id: string): boolean { return id.startsWith("hds_"); }
+function isUwItem(id: string): boolean { return isHadesItem(id) || /_u\d$/.test(id); }
+function uwItemZone(id: string): number { const m = /_u(\d)$/.exec(id); return m ? Number(m[1]) : isHadesItem(id) ? 10 : 0; }
+// Botín de un monstruo del Inframundo: sobre todo la capa de SU zona (75%), algo de la anterior (15%) y el resto de su nivel
+function uwPool(def: MonDef, pool: ItemDef[]): ItemDef[] {
+  const u = def.uw ?? 0; if (u <= 0) return pool; const r = Math.random();
+  const want = r < 0.75 ? u : r < 0.9 ? u - 1 : 0; if (want <= 0) return pool;
+  const hi = pool.filter((d: ItemDef) => uwItemZone(d.id) === want); return hi.length > 0 ? hi : pool;
+}
+interface MonDef { uw?: number; }
+// ---------- geometría ----------
+type UwRect = [number, number, number, number];                                    // x0, y0, x1, y1 (inclusive), relativos a la celda
+interface UwLay { rooms: UwRect[]; links: UwRect[]; arena: UwRect; pocket: UwRect | null; entry: [number, number]; exit: [number, number]; up: [number, number] | null; down: [number, number] | null;
+  aExit: [number, number]; aDown: [number, number] | null; boss: Array<[number, number]>; }
+function uwOrigin(z: number): [number, number] { return [UW_X0 + (z % 3) * HW, Math.floor(z / 3) * HH]; }
+function uwRoom(cx: number, cy: number): UwRect { return [cx * 16 + 2, cy * 16 + 2, cx * 16 + 13, cy * 16 + 13]; }
+function uwHLink(cx: number, cy: number): UwRect { return [cx * 16 + 14, cy * 16 + 6, cx * 16 + 17, cy * 16 + 8]; }   // sala (cx,cy) ↔ (cx+1,cy)
+function uwVLink(cx: number, cy: number): UwRect { return [cx * 16 + 6, cy * 16 + 14, cx * 16 + 8, cy * 16 + 17]; }   // sala (cx,cy) ↔ (cx,cy+1)
+const UW_LAYS: UwLay[] = UW_ZONES.map((_: UwZone, z: number): UwLay => {
+  if (z === UW_N - 1) { // Templo de Hades: entrada → bajada → galería de 4 salas → gran salón del trono (todo el ancho); arriba, el bolsillo sellado del Gran Eclipse
+    return { rooms: [uwRoom(0, 0), uwRoom(0, 1), uwRoom(1, 1), uwRoom(2, 1), uwRoom(3, 1)], links: [uwVLink(0, 0), uwHLink(0, 1), uwHLink(1, 1), uwHLink(2, 1), uwVLink(3, 1)],
+      arena: [2, 34, 61, 45], pocket: [18, 2, 61, 13], entry: [4, 7], exit: [2, 7], up: [2, 3], down: null, aExit: [61, 45], aDown: null, boss: [[31, 39]] };
+  }
+  const order: Array<[number, number]> = [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1], [1, 1], [0, 1], [0, 2], [1, 2]];
+  const links: UwRect[] = [uwHLink(0, 0), uwHLink(1, 0), uwHLink(2, 0), uwVLink(3, 0), uwHLink(2, 1), uwHLink(1, 1), uwHLink(0, 1), uwVLink(0, 1), uwHLink(0, 2), uwHLink(1, 2)];
+  return { rooms: order.map((c: [number, number]) => uwRoom(c[0], c[1])), links, arena: [34, 34, 61, 45], pocket: null, entry: [4, 7], exit: [2, 7], up: z > 0 ? [2, 3] : null, down: [2, 11],
+    aExit: [61, 45], aDown: [61, 34], boss: z === 7 ? [[43, 39], [52, 39]] : [[47, 39]] };
+});
+function uwZoneOf(x: number, y: number): number { return x >= UW_X0 && x < MW && y >= 0 && y < MH ? regionOf(x, y) - UW_R0 : -1; }
+function uwRel(z: number, x: number, y: number): [number, number] { const [ox, oy] = uwOrigin(z); return [x - ox, y - oy]; }
+function uwAbs(z: number, c: [number, number]): [number, number] { const [ox, oy] = uwOrigin(z); return [ox + c[0], oy + c[1]]; }
+function uwIn(q: UwRect, c: [number, number]): boolean { return c[0] >= q[0] && c[0] <= q[2] && c[1] >= q[1] && c[1] <= q[3]; }
+function inUwArena(x: number, y: number): boolean { const z = uwZoneOf(x, y); const L = UW_LAYS[z]; return !!L && uwIn(L.arena, uwRel(z, x, y)); }
+function inUwPocket(x: number, y: number): boolean { const z = uwZoneOf(x, y); const L = UW_LAYS[z]; return !!L && !!L.pocket && uwIn(L.pocket, uwRel(z, x, y)); }
+function uwPortalCells(z: number): Array<[number, number]> { const L = UW_LAYS[z]; if (!L) return []; const out: Array<[number, number]> = [L.exit, L.aExit]; if (L.up) out.push(L.up); if (L.down) out.push(L.down); if (L.aDown) out.push(L.aDown); return out.map((c: [number, number]) => uwAbs(z, c)); }
+const UW_ECL_START: [number, number] = [20, 7], UW_ECL_RIFT: [number, number] = [58, 7];
+function buildUw(m: Uint8Array): void {
+  for (let z = 0; z < UW_N; z++) {
+    const [ox, oy] = uwOrigin(z); const L = UW_LAYS[z]!; const Zd = UW_ZONES[z]!; const r = rng(4400 + z * 31);
+    const set = (x: number, y: number, t: number): void => { if (x >= 0 && y >= 0 && x < HW && y < HH) m[(oy + y) * MW + ox + x] = t; };
+    const get = (x: number, y: number): number => m[(oy + y) * MW + ox + x] ?? HWALL;
+    const fill = (q: UwRect, t: number): void => { for (let y = q[1]; y <= q[3]; y++) for (let x = q[0]; x <= q[2]; x++) set(x, y, t); };
+    fill([0, 0, HW - 1, HH - 1], HWALL);
+    if (Zd.river) { // ríos (rojos / helados / del Leteo) entre las salas: los pasillos los cruzan como puentes
+      for (let y = 1; y < HH - 1; y++) for (const cx of [15, 16, 31, 32, 47, 48]) set(cx, y, WATER);
+      for (let x = 1; x < HW - 1; x++) for (const cy of [15, 16, 31, 32]) set(x, cy, WATER);
+    }
+    for (const q of L.rooms) fill(q, MARBLE);
+    for (const q of L.links) fill(q, MARBLE);
+    fill(L.arena, MARBLE); if (L.pocket) fill(L.pocket, MARBLE);
+    if (z === UW_N - 1) fill([54, 30, 56, 33], MARBLE); // bajada al salón del trono
+    else fill([38, 38, 41, 40], MARBLE);                // (relleno: la arena ya incluye la unión)
+    for (const q of L.rooms.slice(1)) { // columnas / bloques de decoración en las esquinas (no tapan pasillos ni puntos de aparición)
+      for (const c of [[q[0] + 1, q[1] + 1], [q[2] - 1, q[1] + 1], [q[0] + 1, q[3] - 1], [q[2] - 1, q[3] - 1]] as Array<[number, number]>) if (r() < 0.7) set(c[0], c[1], HWALL);
+    }
+    // charcos del río dentro de la arena (refugios naturales que obligan a moverse)
+    if (Zd.river && z !== UW_N - 1) for (const c of [[38, 36], [57, 43]] as Array<[number, number]>) { set(c[0], c[1], WATER); set(c[0] + 1, c[1], WATER); }
+    const port = (c: [number, number] | null): void => { if (c) set(c[0], c[1], PORTAL); };
+    port(L.exit); port(L.up); port(L.down); port(L.aExit); port(L.aDown);
+    void get;
+  }
+  m[UW_GATE[1] * MW + UW_GATE[0]] = PORTAL;
+}
+// Puntos de aparición (absolutos): 4 espectros por sala (salvo entrada) — a, a, b, c — y los jefes en su sala
+const UW_SPAWNS: Array<[string, number, number]> = (() => {
+  const out: Array<[string, number, number]> = [];
+  UW_LAYS.forEach((L: UwLay, z: number) => {
+    const u = z + 1; const [ox, oy] = uwOrigin(z);
+    L.rooms.slice(1).forEach((q: UwRect, i: number) => {
+      out.push([`uw${u}a`, ox + q[0] + 3, oy + q[1] + 3], [`uw${u}a`, ox + q[2] - 3, oy + q[3] - 3], [`uw${u}b`, ox + q[2] - 3, oy + q[1] + 3]);
+      if (i % 2 === 0 || z >= 4) out.push([`uw${u}c`, ox + q[0] + 3, oy + q[3] - 3]);
+    });
+    if (z === UW_N - 1) for (const c of [[10, 36], [10, 43], [20, 36], [20, 43]] as Array<[number, number]>) out.push([`uw${u}c`, ox + c[0], oy + c[1]]); // guardias del salón
+    const ids = z === 7 ? [UW_THAN, UW_HYP] : [`uw${u}boss`];
+    ids.forEach((id: string, k: number) => { const b = L.boss[k] ?? L.boss[0]!; out.push([id, ox + b[0], oy + b[1]]); });
+  });
+  return out;
+})();
+// ---------- monstruos ----------
+function uwBase(z: number): { hp: number; atk: number } { const R = UW_REC[z] ?? 80; return { hp: (32 + 2.8 * Math.pow(R, 1.45)) * (UWB.MOB_HP[z] ?? 1.5), atk: UWB.MOB_ATK[z] ?? 330 }; }
+function uwBossHp(z: number): number { return Math.round(uwBase(z).hp * (UWB.BOSS_HP[z] ?? 40) * (z === 7 ? UWB.TWIN_HP : 1)); }
+function uwBossAtk(z: number): number { return UWB.BOSS_ATK[z] ?? 400; }
+const UW_MUL: Array<[number, number, number, number]> = [[1, 1, 1, 520], [0.65, 0.8, 0.65, 360], [1.9, 1.35, 2, 700]];
+function uwDefs(): void {
+  UW_ZONES.forEach((Z: UwZone, z: number) => {
+    const u = z + 1, R = UW_REC[z] ?? 80; const b = uwBase(z);
+    Z.mobs.forEach((ms: [string, string], k: number) => {
+      const mu = UW_MUL[k] ?? [1, 1, 1, 520]; const id = `uw${u}${"abc".charAt(k)}`; const hp = Math.round(b.hp * mu[0]);
+      MONS[id] = { id, name: ms[0], hp, exp: Math.round(hp * mu[2] / mu[0] * 0.45 * (1 + 0.05 * z)), atk: Math.round(b.atk * mu[1]), speed: Math.round(mu[3] * (1 - z * 0.012)), gold: Math.round(6 + R * 1.8 * mu[2]),
+        respawn: 8000, armored: k === 2, drop: uwMobDrop(z) * (k === 2 ? 1.5 : 1), dropN: 1, lootLvl: R + 4, rar: uwMobRar(z), uw: u, afk: R - 2, atkMs: k === 1 ? 1400 : 1800 };
+    });
+    const bhp = uwBossHp(z), batk = uwBossAtk(z);
+    const boss = (id: string, name: string, hp: number, atk: number): MonDef => ({ id, name, hp, exp: Math.round(hp * 0.3), atk, speed: 480 - z * 8, gold: Math.round(400 + R * 30), respawn: 300000, armored: true, drop: 1, dropN: uwBossDropN(z), lootLvl: R + 5,
+      rar: uwBossRar(z), uw: u, atkMs: z === 8 ? 1500 : 1400 - z * 25, boss: { specials: [], phase2: "", clone: "" } });
+    if (z === 7) { MONS[UW_THAN] = boss(UW_THAN, "Thanatos, dios de la Muerte", bhp, batk); MONS[UW_HYP] = boss(UW_HYP, "Hypnos, dios del Sueño", Math.round(bhp * 0.95), Math.round(batk * 0.92)); MONS[UW_HYP]!.dropN = 3; MONS[UW_THAN]!.dropN = 3; }
+    else MONS[`uw${u}boss`] = boss(`uw${u}boss`, Z.boss, bhp, batk);
+  });
+  const h = uwBase(8); const sh: MonDef = { id: "uw9shade", name: "Sombra del Gran Eclipse", hp: Math.round(h.hp * 1.4), exp: 0, atk: Math.round(h.atk * 0.9), speed: 420, gold: 0, respawn: 0, armored: false, drop: 0, dropN: 0, lootLvl: 1, rar: [0, 0, 0], uw: 9 };
+  MONS.uw9shade = sh;
+}
+uwDefs();
+// ---------- técnicas (todas telegrafiadas: casillas rojas que se encienden antes del golpe) ----------
+type UwPat = "nova" | "line" | "cone" | "cross" | "x" | "star" | "ring" | "seek" | "bombs" | "wave" | "safe" | "pull" | "summon";
+type UwFxK = "slow" | "sleep" | "burn" | "drain" | "pull" | "knock";
+interface UwTech { k: UwPat; name: string; cd: number; tele: number; lo: number; hi: number; r?: number; n?: number; w?: number; ph?: number; fx?: UwFxK; elem?: Elem; ult?: boolean; mob?: string; }
+const ut = (k: UwPat, name: string, cd: number, tele: number, lo: number, hi: number, o: Partial<UwTech> = {}): UwTech => ({ k, name, cd, tele, lo, hi, ...o });
+const UW_TECH: Record<string, UwTech[]> = {
+  uw1boss: [ut("nova", "Remo Rodante", 9000, 1300, 0.8, 1.1, { r: 2 }), ut("line", "Golpe de Remo", 6000, 1000, 1, 1.3, { r: 7, w: 1 }), ut("wave", "Corriente del Aqueronte", 14000, 1600, 0.9, 1.2, { n: 2, ph: 2 })],
+  uw2boss: [ut("line", "Látigo de Fuego", 5500, 950, 1, 1.3, { r: 6, w: 1, elem: "fire" }), ut("seek", "Reencarnación", 11000, 1200, 0.9, 1.2, { r: 2, n: 2, fx: "burn", elem: "fire" }), ut("cross", "Juicio de los Pecados", 12000, 1300, 0.9, 1.2, { r: 8, ph: 2, elem: "fire" })],
+  uw3boss: [ut("cone", "Greatest Caution", 12000, 1500, 1.3, 1.7, { r: 9, ult: true }), ut("line", "Garra de Wyvern", 6000, 900, 1, 1.3, { r: 6, w: 3 }), ut("nova", "Rugido de Wyvern", 10000, 1100, 0.8, 1.1, { r: 3, ph: 2 })],
+  uw4boss: [ut("pull", "Cosmic Marionation", 13000, 1300, 0.8, 1.1, { r: 8, fx: "pull", ult: true }), ut("star", "Hilos del Grifo", 9000, 1100, 0.9, 1.2, { r: 7 }), ut("bombs", "Danza de la Marioneta", 12000, 1250, 0.9, 1.2, { n: 6, ph: 2 })],
+  uw5boss: [ut("seek", "Garuda Flap", 11000, 1150, 1.3, 1.7, { r: 2, n: 1, fx: "knock", ult: true }), ut("ring", "Ilusión Galáctica", 10000, 1300, 1, 1.4, { r: 2, n: 5 }), ut("line", "Vuelo de Garuda", 7000, 900, 1, 1.3, { r: 8, w: 1 }),
+    ut("x", "Garras Celestes", 9000, 1000, 0.9, 1.2, { r: 6, ph: 2 })],
+  uw6boss: [ut("cone", "Codicia de la Vida", 9000, 1200, 1.1, 1.5, { r: 6, fx: "drain", ult: true }), ut("bombs", "Dulce Chocolate de la Vida", 11000, 1250, 0.9, 1.2, { n: 7 }), ut("nova", "Garras de Arpía", 8000, 1000, 0.8, 1.1, { r: 2 }),
+    ut("wave", "Ventisca del Cocito", 14000, 1500, 0.9, 1.2, { n: 3, fx: "slow", ph: 2, elem: "ice" })],
+  uw7boss: [ut("line", "Tridente de Pandora", 7000, 900, 1.1, 1.4, { r: 8, w: 1 }), ut("safe", "Sinfonía de la Muerte", 18000, 2200, 1.3, 1.6, { n: 4, ult: true }), ut("summon", "¡Espectros, a mí!", 30000, 0, 0, 0, { n: 1, mob: "uw7a" }),
+    ut("ring", "Melodía del Arpa", 10000, 1200, 0.9, 1.2, { r: 2, n: 4, ph: 2, fx: "slow" })],
+  [UW_THAN]: [ut("bombs", "Terrible Providence", 9000, 1250, 1.1, 1.5, { n: 9, ult: true }), ut("star", "Ejecución Divina", 8000, 1050, 1.1, 1.5, { r: 8 }), ut("seek", "Estrella Oscura", 6500, 900, 1.1, 1.4, { r: 2, n: 2 })],
+  [UW_HYP]: [ut("ring", "Eternal Drowsiness", 12000, 1400, 0.8, 1.1, { r: 1, n: 5, fx: "sleep", ult: true, elem: "holy" }), ut("seek", "Sueño Dorado", 7500, 1000, 1, 1.3, { r: 2, n: 1, fx: "sleep", elem: "holy" }), ut("nova", "Luz del Sueño", 8000, 1100, 1, 1.3, { r: 2, elem: "holy" })],
+  [UW_HADES]: [ut("line", "Espada de Hades", 6500, 1000, 0.95, 1.2, { r: 9, w: 3 }), ut("seek", "Mirada del Rey", 9000, 950, 0.85, 1.1, { r: 2, n: 3 }), ut("summon", "Ejército del Inframundo", 26000, 0, 0, 0, { n: 2, mob: "uw9b" }),
+    ut("nova", "Cosmos del Inframundo", 10000, 1100, 0.85, 1.1, { r: 3 }), ut("safe", "Gran Eclipse", 17000, 2000, 1.35, 1.6, { n: 5, ph: 2, ult: true }), ut("star", "Corte del Inframundo", 9000, 1100, 0.95, 1.2, { r: 10, ph: 2 }),
+    ut("cone", "Juicio del Rey", 9000, 1300, 1.3, 1.6, { r: 10, ph: 3, ult: true }), ut("bombs", "Lluvia de Almas", 11000, 1200, 0.95, 1.2, { n: 10, ph: 3 })],
+};
+// ---------- estado ----------
+interface UwSt { z: number; k: number[]; gate: number; }
+// Aliado PNJ de los Campos Elíseos: Manigoldo de Cáncer (no es un Mon: no se puede atacar, no cuenta para botín, misiones ni guardado)
+interface UwAlly { x: number; y: number; fx: number; fy: number; moveStart: number; moveDur: number; face: Dir; nextMove: number; nextAtk: number; nextHa: number; cast: number;
+  ha: { at: number; cells: Array<[number, number]>; tgt: number } | null; haFl: number; leaving: number; dealt: number; hits: number; has: number; }
+interface UwB { ph: number; cd: Record<string, number>; next: number; cast: number; immune: number; immFl: number; trans: number; transAt: number; }
+interface UwFx { cells: Array<[number, number]>; at: number; fx: UwFxK; mon: number; amt: number; }
+interface UwEcl { until: number; start: number; rainAt: number; boss: number; }
+interface UwF { r: number; b: Record<number, UwB>; fx: UwFx[]; ecl: UwEcl | null; safe: { cells: Array<[number, number]>; at: number; label: string } | null; banner: { text: string; sub: string; at: number; col: string } | null; finale: number; eclFx: { at: number; kind: string } | null; ally?: UwAlly | null; allyDone?: boolean; }
+interface Game { uw?: UwSt; uwF?: UwF | null; }
+function uwS(g: Game): UwSt { if (!g.uw) g.uw = { z: 0, k: Array.from({ length: UW_N }, () => 0), gate: 0 }; return g.uw; }
+function uwOpen(g: Game, z: number): boolean { return g.cleared >= NH && z >= 0 && z < UW_N && (g.uw?.z ?? 0) >= z; }
+function uwF(g: Game, r: number): UwF { if (!g.uwF || g.uwF.r !== r) g.uwF = { r, b: {}, fx: [], ecl: null, safe: null, banner: g.uwF?.banner ?? null, finale: g.uwF?.finale ?? 0, eclFx: null }; return g.uwF; }
+function uwB(F: UwF, m: Mon): UwB { let b = F.b[m.id]; if (!b) { b = { ph: 1, cd: {}, next: 0, cast: 0, immune: 0, immFl: 0, trans: 0, transAt: 0 }; F.b[m.id] = b; } return b; }
+function uwReset(g: Game, r: number): void {
+  if (r < UW_R0 || r > UW_RMAX) return; const F = g.uwF; if (F && F.r === r) { g.uwF = { r: -1, b: {}, fx: [], ecl: null, safe: null, banner: F.banner, finale: F.finale, eclFx: null }; }
+  if (r - UW_R0 === 7) { const tw = (g.byRegion[r] ?? []).filter((m: Mon) => m.def.id === UW_THAN || m.def.id === UW_HYP); if (tw.filter((m: Mon) => m.alive).length === 1) for (const m of tw) if (!m.alive) m.respawnAt = 0; }
+}
+// ---------- guardado ----------
+interface SaveUw { z: number; k: number[]; }
+interface SaveData { uw?: SaveUw; }
+function saveUw(g: Game): SaveUw | undefined { const s = g.uw; if (!s || (s.z === 0 && s.k.every((v: number) => v === 0))) return undefined; return { z: s.z, k: [...s.k] }; }
+function readUw(v: unknown): SaveUw | undefined {
+  if (!isObj(v)) return undefined; const z = intIn(v["z"], 0, UW_N); if (z === null) return undefined; const ka = Array.isArray(v["k"]) ? (v["k"] as unknown[]) : [];
+  const k = Array.from({ length: UW_N }, (_: unknown, i: number) => intIn(ka[i], 0, 1e9) ?? 0); return { z, k };
+}
+function loadUw(g: Game, d: SaveUw | undefined): void { g.uw = d ? { z: d.z, k: [...d.k], gate: 0 } : undefined; g.uwF = null; }
+// ---------- portales: puerta del Santuario, salida al templo, subir / bajar de zona ----------
+function uwBack(g: Game, fx: number, fy: number): void { const p = g.p; const ok = !(p.fx === p.x && p.fy === p.y) && walkable(tileAt(g, p.fx, p.fy)) && tileAt(g, p.fx, p.fy) !== PORTAL; p.x = ok ? p.fx : fx; p.y = ok ? p.fy : fy; p.fx = p.x; p.fy = p.y; p.moveStart = 0; g.walkGoal = null; g.heldDirs = []; }
+function uwGo(g: Game, z: number, now: number, how: string): void {
+  const p = g.p; const r0 = regionOf(p.x, p.y); if (r0 > 0) resetRegion(g, r0); g.returnAt = 0; g.heldDirs = [];
+  const L = UW_LAYS[z]!; const Z = UW_ZONES[z]!; const R = UW_REC[z] ?? 80; const e = uwAbs(z, L.entry); teleport(g, e[0], e[1], now);
+  setStatus(g, `${Z.glyph} ${Z.name} — nivel recomendado ${R}${p.level < R ? " (¡eres de nivel menor!)" : ""}`, now, p.level < R ? "#ff9a5a" : "#d8a0ff");
+  addLog(g, `${how} ${Z.name}. El portal ✦ de la entrada te devuelve al templo de Villa Esmeralda.`);
+  const F = uwF(g, UW_R0 + z); F.banner = { text: `${Z.glyph} ${Z.name}`, sub: `Inframundo · zona ${z + 1}/${UW_N} · ${(g.uw?.z ?? 0) > z ? "superada ✓" : `jefe: ${Z.boss}`}`, at: now, col: "#d8a0ff" };
+}
+function uwPortal(g: Game, now: number): boolean {
+  const p = g.p; const z = uwZoneOf(p.x, p.y);
+  if (z >= 0) {
+    const L = UW_LAYS[z]!; const c = uwRel(z, p.x, p.y); const at = (q: [number, number] | null): boolean => !!q && q[0] === c[0] && q[1] === c[1];
+    const done = (g.uw?.z ?? 0) > z; const Z = UW_ZONES[z]!; const back = (): void => { const e = uwAbs(z, at(L.aExit) || at(L.aDown) ? [c[0] - 1, c[1]] : [c[0] + 2, c[1]]); uwBack(g, e[0], e[1]); };
+    if (at(L.exit) || (at(L.aExit) && done)) { resetRegion(g, UW_R0 + z); g.returnAt = 0; g.heldDirs = []; teleport(g, TEMPLE_X, TEMPLE_Y, now); setStatus(g, `Saliste del Inframundo (${Z.name}): estás en el templo de Villa Esmeralda.`, now, "#7dffb0"); return true; }
+    if (at(L.aDown) && done && uwOpen(g, z + 1)) { uwGo(g, z + 1, now, "↓ Descendiste a"); return true; }
+    if (at(L.aExit) || at(L.aDown)) { back(); setStatus(g, `🔒 El sello de ${Z.boss} cierra este portal: vence al guardián de la zona.`, now, "#ff9a5a"); return true; }
+    if (at(L.up) && z > 0) { uwGo(g, z - 1, now, "↑ Subiste a"); return true; }
+    if (at(L.down)) {
+      if (!uwOpen(g, z + 1)) { back(); setStatus(g, `🔒 El camino hacia ${UW_ZONES[z + 1]?.name ?? "abajo"} está sellado: primero vence a ${Z.boss}.`, now, "#ff9a5a"); return true; }
+      uwGo(g, z + 1, now, "↓ Descendiste a"); return true;
+    }
+    return true;
+  }
+  if (p.x !== UW_GATE[0] || p.y !== UW_GATE[1]) return false;
+  const s = uwS(g);
+  if (g.cleared < NH) { uwBack(g, UW_GATE[0], UW_GATE[1] + 1); setStatus(g, "🔒 Un sello de Atenea cierra la Puerta del Inframundo: primero vence a Saga y Kanon de Géminis.", now, "#ff9a5a"); return true; }
+  if (!s.gate || now - s.gate > 10000 || now - s.gate < 700) {
+    if (s.gate && now - s.gate < 700) { uwBack(g, UW_GATE[0], UW_GATE[1] + 1); return true; }
+    s.gate = now; uwBack(g, UW_GATE[0], UW_GATE[1] + 1);
+    setStatus(g, `⚠ Puerta del Inframundo — Post-juego: zonas de nivel ${UW_REC[0]}–${UW_REC[UW_N - 1]}+ (muy duro, juega activo). Vuelve a pisar la puerta para descender.`, now, "#d8a0ff");
+    addLog(g, "⚠ La Puerta del Inframundo te advierte: los Espectros de Hades son más fuertes que los gemelos de Géminis. Pisa otra vez para entrar."); return true;
+  }
+  s.gate = 0; const deep = Math.min(UW_N - 1, s.z); uwGo(g, deep, now, deep > 0 ? "🌑 Descendiste (zona más profunda abierta) a" : "🌑 Cruzaste la Puerta del Inframundo hacia"); return true;
+}
+function uwZoneName(x: number, y: number): string {
+  const z = uwZoneOf(x, y); const Z = UW_ZONES[z]; if (!Z) return "Inframundo";
+  if (inUwPocket(x, y)) return "🌑 Gran Eclipse — el Hipermundo";
+  return inUwArena(x, y) ? `${Z.glyph} ${Z.room}` : `${Z.glyph} ${Z.name}`;
+}
+function uwMiniCol(x: number, y: number, t: number): string | undefined {
+  if (x === UW_GATE[0] && y === UW_GATE[1]) return "#b060ff";
+  const z = uwZoneOf(x, y); const P = UW_PAL[z]; if (!P) return undefined;
+  return t === MARBLE ? P.mini[0] : t === WATER ? P.mini[2] : t === PORTAL ? "#d090ff" : P.mini[1];
+}
+// ---------- combate ----------
+function uwCells(g: Game, r: number, cells: Array<[number, number]>): Array<[number, number]> { return cells.filter((c: [number, number]) => regionOf(c[0], c[1]) === r && walkable(tileAt(g, c[0], c[1]))); }
+function uwArenaCells(g: Game, z: number): Array<[number, number]> { const L = UW_LAYS[z]!; const out: Array<[number, number]> = []; for (let y = L.arena[1]; y <= L.arena[3]; y++) for (let x = L.arena[0]; x <= L.arena[2]; x++) { const a = uwAbs(z, [x, y]); if (walkable(tileAt(g, a[0], a[1])) && tileAt(g, a[0], a[1]) !== PORTAL) out.push(a); } return out; }
+function uwA(m: Mon, b: UwB | null): number { return m.def.atk * (b ? (b.ph >= 3 ? 1.15 : b.ph === 2 ? 1.06 : 1) : 1) * (m.enraged ? 1.15 : 1); }
+function uwWarn(g: Game, m: Mon, b: UwB | null, now: number, cells: Array<[number, number]>, tele: number, lo: number, hi: number, name: string, elem: Elem, fx?: UwFxK, delay = 0): Warn | null {
+  const r = regionOf(m.x, m.y), z = r - UW_R0; const ok = uwCells(g, r, cells); if (ok.length === 0) return null;
+  const k = (UWB.TELE[z] ?? 1) * (b ? (b.ph >= 3 ? 0.85 : b.ph === 2 ? 0.92 : 1) : 1); const A = uwA(m, b);
+  const w: Warn = { cells: ok, at: now + delay + Math.max(UWB.TELE_MIN, Math.round(tele * k)), born: now + delay, min: Math.round(A * lo), max: Math.round(A * hi), elem, name };
+  g.warns.push(w); if (g.warns.length > 48) g.warns.shift();
+  if (fx) uwF(g, r).fx.push({ cells: ok, at: w.at, fx, mon: m.id, amt: Math.round(A * 0.08) });
+  return w;
+}
+function uwLine(x: number, y: number, dx: number, dy: number, n: number, w: number): Array<[number, number]> {
+  const out: Array<[number, number]> = []; const px = -dy, py = dx; const h = Math.floor(w / 2);
+  for (let k = 1; k <= n; k++) for (let o = -h; o <= h; o++) out.push([x + dx * k + px * o, y + dy * k + py * o]);
+  return out;
+}
+function uwDir(m: Mon, tx: number, ty: number): [number, number] { return [sgn(tx - m.x), sgn(ty - m.y)]; }
+function uwCast(g: Game, m: Mon, b: UwB, T: UwTech, now: number): void {
+  const p = g.p; const r = regionOf(m.x, m.y), z = r - UW_R0; const el: Elem = T.elem ?? "dark"; const [dx, dy] = uwDir(m, p.x, p.y);
+  const W = (cells: Array<[number, number]>, delay = 0, fx = T.fx, tele = T.tele): Warn | null => uwWarn(g, m, b, now, cells, tele, T.lo, T.hi, T.name, el, fx, delay);
+  m.face = dirFrom(p.x - m.x, p.y - m.y);
+  switch (T.k) {
+    case "nova": W(circle(m.x, m.y, (T.r ?? 2) * (T.r ?? 2) + 1).filter((c: [number, number]) => !(c[0] === m.x && c[1] === m.y))); break;
+    case "line": W(uwLine(m.x, m.y, dx || 1, dy, T.r ?? 6, T.w ?? 1)); break;
+    case "cone": { const L = Math.hypot(p.x - m.x, p.y - m.y) || 1; const ux = (p.x - m.x) / L, uy = (p.y - m.y) / L; const R = T.r ?? 8; const out: Array<[number, number]> = [];
+      for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) { const d = Math.hypot(xx, yy); if (d < 0.5 || d > R + 0.5) continue; if ((xx * ux + yy * uy) / d >= 0.82) out.push([m.x + xx, m.y + yy]); }
+      W(out); break; }
+    case "cross": case "x": case "star": { const ds: Array<[number, number]> = T.k === "cross" ? [[1, 0], [-1, 0], [0, 1], [0, -1]] : T.k === "x" ? [[1, 1], [-1, 1], [1, -1], [-1, -1]] : [...DIRS8];
+      const out: Array<[number, number]> = []; for (const d of ds) out.push(...uwLine(m.x, m.y, d[0], d[1], T.r ?? 7, 1)); W(out); break; }
+    case "ring": { const a = T.r ?? 2, bb = T.n ?? 5; const out: Array<[number, number]> = []; for (let yy = -bb; yy <= bb; yy++) for (let xx = -bb; xx <= bb; xx++) { const d = Math.max(Math.abs(xx), Math.abs(yy)); if (d > a && d <= bb) out.push([m.x + xx, m.y + yy]); } W(out); break; }
+    case "seek": { const n = T.n ?? 1; for (let k = 0; k < n; k++) { const ox = k === 0 ? 0 : roll(-2, 2), oy = k === 0 ? 0 : roll(-2, 2); W(circle(p.x + ox, p.y + oy, T.r ?? 2), k * 450); } break; }
+    case "bombs": { const cells = uwArenaCells(g, z); const n = T.n ?? 6; W(circle(p.x, p.y, 2)); for (let k = 1; k < n; k++) { const c = cells[Math.floor(Math.random() * cells.length)]; if (c) W(circle(c[0], c[1], 2), k * 110); } break; }
+    case "wave": { const L = UW_LAYS[z]!; const n = T.n ?? 2; for (let k = 0; k < n; k++) { const y0 = roll(L.arena[1], L.arena[3] - 1); const gap = roll(L.arena[0], L.arena[2] - 3); const out: Array<[number, number]> = [];
+        const yy = k === 0 ? Math.min(L.arena[3] - 1, Math.max(L.arena[1], p.y - uwOrigin(z)[1])) : y0;
+        for (let x = L.arena[0]; x <= L.arena[2]; x++) if (x < gap || x > gap + 2) for (const y of [yy, yy + 1]) out.push(uwAbs(z, [x, y]));
+        W(out, k * 650); } break; }
+    case "pull": { const out: Array<[number, number]> = []; const n = Math.max(1, cheb(m.x, m.y, p.x, p.y)); for (let k = 1; k <= n; k++) out.push([Math.round(m.x + (p.x - m.x) * k / n), Math.round(m.y + (p.y - m.y) * k / n)]);
+      out.push(...circle(p.x, p.y, 1)); W(out); break; }
+    case "safe": { const cells = uwArenaCells(g, z); const n = T.n ?? 4; const safe: Array<[number, number]> = []; const L = UW_LAYS[z]!; const wd = L.arena[2] - L.arena[0];
+      for (let k = 0; k < n; k++) { const sx = L.arena[0] + 1 + Math.floor(((k + 0.5) / n) * (wd - 2)) + roll(-1, 1), sy = roll(L.arena[1] + 1, L.arena[3] - 2); for (const c of [[0, 0], [1, 0], [0, 1], [1, 1]] as Array<[number, number]>) safe.push(uwAbs(z, [sx + c[0], sy + c[1]])); }
+      const key = new Set(safe.map((c: [number, number]) => c[0] * 1000 + c[1])); const w = W(cells.filter((c: [number, number]) => !key.has(c[0] * 1000 + c[1])), 0, T.fx, Math.max(T.tele, UWB.SAFE_MIN));
+      if (w) { w.at = Math.max(w.at, now + UWB.SAFE_MIN); uwF(g, r).safe = { cells: safe, at: w.at, label: `¡${T.name}! Corre a un refugio ✓` }; } break; }
+    case "summon": { const ids = T.mob ?? "uw1a"; for (let k = 0; k < (T.n ?? 2); k++) { const s = spawnTemp(g, MONS[ids], m.x + (k % 2 ? 2 : -2), m.y + (k > 1 ? 2 : 1), now); if (s) { s.angryUntil = now + 60000; s.nextAtk = now + 1200; } } break; }
+  }
+  addFloat(g, m.x * TS + 16, m.y * TS - 40, `«${T.name}»`, T.ult ? "#ff70ff" : "#ffd0ff", now);
+  if (T.ult) setStatus(g, `${m.def.name}: «¡${T.name}!» ${T.k === "safe" ? "Corre a un refugio ✓" : "¡Sal de las casillas rojas!"}`, now, "#ff90ff");
+}
+function uwUsable(g: Game, m: Mon, T: UwTech, d: number, b: UwB): boolean {
+  if ((T.ph ?? 1) > b.ph) return false;
+  switch (T.k) { case "nova": return d <= (T.r ?? 2) + 1; case "line": case "pull": return d <= (T.r ?? 6) && d >= (T.k === "pull" ? 2 : 1); case "cone": return d <= (T.r ?? 8); case "cross": case "x": case "star": return d <= (T.r ?? 7) + 1;
+    case "ring": return d <= (T.n ?? 5); case "summon": return tempCount(g, m, false) < 4; default: return true; }
+}
+// Espectros normales: la variante «a» lanza un zarpazo en línea y la «c» un golpe en área sobre ti (ambos telegrafiados)
+function uwMobThink(g: Game, m: Mon, now: number, d: number): boolean {
+  const k = m.def.id.charAt(m.def.id.length - 1); if (k === "b" || m.temp && m.def.exp === 0) return false; const nx = m.spec[1] ?? 0; const p = g.p;
+  if (nx === 0) { m.spec[1] = now + 2500 + Math.random() * 3000; return false; }
+  if (now < nx || d > 4 || !los(g, m.x, m.y, p.x, p.y)) return false;
+  m.spec[1] = now + (k === "c" ? 8000 : 9500); m.spec[0] = now + 450;
+  if (k === "c") uwWarn(g, m, null, now, circle(p.x, p.y, 2), 1050, 0.8, 1.1, "Golpe de Sapuri", "dark");
+  else { const [dx, dy] = uwDir(m, p.x, p.y); uwWarn(g, m, null, now, uwLine(m.x, m.y, dx || 1, dy, 4, 1), 950, 0.7, 1, "Garra del Espectro", "dark"); }
+  return true;
+}
+function uwThink(g: Game, m: Mon, now: number, d: number): boolean {
+  if (!m.def.boss) return uwMobThink(g, m, now, d);
+  const r = regionOf(m.x, m.y), z = r - UW_R0; const F = uwF(g, r); const b = uwB(F, m); m.spec[2] = b.ph;
+  if (F.ecl || now < b.immune || now < b.cast) return true;
+  const isH = m.def.id === UW_HADES, twin = z === 7;
+  if (!isH && b.ph === 1 && m.hp < m.def.hp * 0.5) { b.ph = 2; addFloat(g, m.x * TS + 16, m.y * TS - 46, "¡COSMOS AL MÁXIMO!", "#ff60ff", now); setStatus(g, `${m.def.name} eleva su cosmos: técnicas más rápidas y nuevas.`, now, "#ff90ff"); }
+  if (!isH && !twin && !m.enraged && m.hp < m.def.hp * 0.25) { m.enraged = true; addFloat(g, m.x * TS + 16, m.y * TS - 30, "¡FURIA!", "#ff4040", now); }
+  if (now < b.next) return false;
+  const list = (UW_TECH[m.def.id] ?? []).filter((T: UwTech) => now >= (b.cd[T.name] ?? (b.cd[T.name] = now + T.cd * 0.35 * (1 + Math.random()))) && uwUsable(g, m, T, d, b));
+  if (list.length === 0) return false;
+  const ults = list.filter((T: UwTech) => !!T.ult); const T = ults.length > 0 && Math.random() < 0.6 ? ults[0]! : list[Math.floor(Math.random() * list.length)]!;
+  const cdk = b.ph >= 3 ? 0.7 : b.ph === 2 ? 0.85 : 1; b.cd[T.name] = now + T.cd * cdk * (0.9 + Math.random() * 0.2);
+  b.next = now + Math.round((UWB.GAP[z] ?? 1400) * (b.ph >= 3 ? 0.75 : b.ph === 2 ? 0.88 : 1) * (0.85 + Math.random() * 0.3)); b.cast = now + 450; m.spec[0] = b.cast;
+  uwCast(g, m, b, T, now); return true;
+}
+// Daño a un jefe del Inframundo: inmune durante las transiciones; Hades no baja de 66% / 33% hasta cambiar de fase
+function uwDmg(g: Game, m: Mon, dmg: number, now: number): number {
+  const r = regionOf(m.x, m.y); if (r < UW_R0) return dmg; const F = uwF(g, r); const b = uwB(F, m);
+  if (now < b.immune || (F.ecl && m.def.id === UW_HADES)) { if (now - b.immFl > 700) { b.immFl = now; addFloat(g, m.x * TS + 16, m.y * TS - 6, "INMUNE", "#c8b0ff", now); } return 0; }
+  if (m.def.id !== UW_HADES || b.ph >= 3 || b.trans > 0) return dmg;
+  const floor = Math.ceil(m.def.hp * (b.ph === 1 ? UWB.HADES_P2 : UWB.HADES_P3));
+  if (m.hp - dmg > floor) return dmg;
+  b.trans = b.ph + 1; b.transAt = now + 1600; b.immune = now + 60000; b.cast = 0; g.warns = []; F.fx = []; F.safe = null;
+  if (b.trans === 2) { F.eclFx = { at: now, kind: "pre" }; addFloat(g, m.x * TS + 16, m.y * TS - 50, "«¡GRAN ECLIPSE!»", "#ff60ff", now); setStatus(g, "Hades: «Mortal… contempla el Gran Eclipse.» Te arrastra al Hipermundo.", now, "#ff90ff"); }
+  else { F.eclFx = { at: now, kind: "end" }; addFloat(g, m.x * TS + 16, m.y * TS - 50, "«¡EL FIN DEL MUNDO!»", "#ff4040", now); setStatus(g, "Hades despliega su Sapuri alada: «¡Este es el fin del mundo!»", now, "#ff6060"); }
+  return Math.max(0, m.hp - floor);
+}
+function uwEnterEcl(g: Game, m: Mon, now: number): void {
+  const r = regionOf(m.x, m.y), z = r - UW_R0; const F = uwF(g, r); const s = uwAbs(z, UW_ECL_START);
+  placePlayer(g, s[0], s[1], now); F.ecl = { until: now + UWB.ECL_MS, start: now, rainAt: now + 2200, boss: m.id }; F.eclFx = { at: now, kind: "in" };
+  for (const c of [[30, 4], [34, 10], [42, 6], [48, 9], [52, 4]] as Array<[number, number]>) { const a = uwAbs(z, c); const sh = spawnTemp(g, MONS.uw9shade, a[0], a[1], now); if (sh) { sh.angryUntil = now + UWB.ECL_MS + 5000; sh.nextAtk = now + 1500; } }
+  specialHit(g, roll(Math.round(m.def.atk * 0.3), Math.round(m.def.atk * 0.5)), now);
+  addLog(g, `🌑 Hades te encerró en el Gran Eclipse: llega a la grieta ✦, vence a las sombras o resiste ${Math.round(UWB.ECL_MS / 1000)} s.`);
+}
+function uwLeaveEcl(g: Game, now: number, why: string): void {
+  const p = g.p; const r = regionOf(p.x, p.y), z = r - UW_R0; const F = uwF(g, r); const e = F.ecl; if (!e) return; F.ecl = null; F.eclFx = { at: now, kind: "out" };
+  for (const m of g.byRegion[r] ?? []) if (m.alive && m.temp && inUwPocket(m.x, m.y)) { m.alive = false; m.respawnAt = Infinity; }
+  g.mons = g.mons.filter((m: Mon) => !m.temp || m.alive); indexMons(g);
+  const h = (g.byRegion[r] ?? []).find((m: Mon) => m.id === e.boss && m.alive); const cells = uwArenaCells(g, z);
+  let spot = cells.find((c: [number, number]) => h ? cheb(c[0], c[1], h.x, h.y) === 4 && canPlayerEnter(g, c[0], c[1]) : true) ?? cells[0] ?? [p.x, p.y];
+  if (!canPlayerEnter(g, spot[0], spot[1])) spot = cells.find((c: [number, number]) => canPlayerEnter(g, c[0], c[1])) ?? spot;
+  placePlayer(g, spot[0], spot[1], now);
+  if (h) { const b = uwB(F, h); b.ph = 2; b.trans = 0; b.immune = now + 1200; b.next = now + 2000; h.spec[2] = 2; h.nextAtk = now + 1500; }
+  F.banner = { text: "Hades despierta su Sapuri alada", sub: why, at: now, col: "#ff90ff" }; setStatus(g, why, now, "#e0a0ff");
+}
+// Cada paso del juego (desde update): efectos de técnicas, Gran Eclipse, transiciones de Hades
+function uwTick(g: Game, now: number): void {
+  const p = g.p; const r = regionOf(p.x, p.y); const F = g.uwF; if (!F) return;
+  if (r !== F.r) { if (now - (F.banner?.at ?? 0) > 6000 && now - F.finale > 9000) g.uwF = null; return; }
+  if (F.safe && now > F.safe.at + 300) F.safe = null;
+  if (F.fx.length > 0) {
+    const keep: UwFx[] = [];
+    for (const e of F.fx) {
+      if (now < e.at) { keep.push(e); continue; }
+      if (!e.cells.some((c: [number, number]) => c[0] === p.x && c[1] === p.y)) continue;
+      const m = (g.byRegion[r] ?? []).find((o: Mon) => o.id === e.mon);
+      switch (e.fx) {
+        case "slow": p.slowUntil = Math.max(p.slowUntil, now + 2200); pfloat(g, "❄ Lento", "#9fd8ff", now, -16); break;
+        case "sleep": { p.slowUntil = Math.max(p.slowUntil, now + 3200); const a = Math.round(maxMana(g) * 0.12); p.mana = Math.max(0, p.mana - a); pfloat(g, "💤 Sueño", "#ffe9a0", now, -16); break; }
+        case "burn": p.poisonUntil = now + 5000; p.poisonNext = now + 1000; p.poisonDmg = Math.max(1, e.amt); pfloat(g, "🔥 Quemadura", "#ff9a40", now, -16); break;
+        case "drain": if (m && m.alive) { const h = Math.round(m.def.hp * 0.015); m.hp = Math.min(m.def.hp, m.hp + h); addFloat(g, m.x * TS + 16, m.y * TS - 10, `+${h}`, "#5cff7a", now); } break;
+        case "pull": if (m && m.alive) { let best: [number, number] | null = null; let bd = 99; for (const [dx, dy] of DIRS8) { const x = m.x + dx, y = m.y + dy; if (!canPlayerEnter(g, x, y) || tileAt(g, x, y) === PORTAL) continue; const dd = cheb(x, y, p.x, p.y); if (dd < bd) { bd = dd; best = [x, y]; } }
+            if (best) { p.x = best[0]; p.y = best[1]; p.fx = p.x; p.fy = p.y; p.moveStart = now; p.moveDur = 1; g.walkGoal = null; } p.slowUntil = Math.max(p.slowUntil, now + 1800); pfloat(g, "🕸 ¡Marioneta!", "#e0c0ff", now, -16); } break;
+        case "knock": p.slowUntil = Math.max(p.slowUntil, now + 1600); pfloat(g, "🪶 ¡Por los aires!", "#ffd0a0", now, -16);
+          if (m && m.alive) uwWarn(g, m, F.b[m.id] ?? null, now, [[p.x, p.y]], 700, 0.5, 0.7, "Caída de Garuda", "dark"); break;
+      }
+    }
+    F.fx = keep;
+  }
+  if (r - UW_R0 === 7) uwAllyTick(g, F, r, now);
+  for (const m of g.byRegion[r] ?? []) { // transiciones pendientes de Hades
+    if (!m.alive || m.def.id !== UW_HADES) continue; const b = F.b[m.id]; if (!b || !b.trans || now < b.transAt) continue;
+    if (b.trans === 2) { b.transAt = Infinity; uwEnterEcl(g, m, now); }
+    else { b.ph = 3; b.trans = 0; b.immune = now + 900; b.next = now + 1500; m.spec[2] = 3; m.enraged = true; F.banner = { text: "☄ ¡EL FIN DEL MUNDO!", sub: "Hades, con su Sapuri alada, lucha con todo su cosmos", at: now, col: "#ff6060" }; }
+  }
+  const e = F.ecl; if (!e) return;
+  const z = r - UW_R0; const rift = uwAbs(z, UW_ECL_RIFT);
+  if (!inUwPocket(p.x, p.y)) { F.ecl = null; return; }
+  if (p.x === rift[0] && p.y === rift[1]) { uwLeaveEcl(g, now, "Cruzaste la grieta ✦: escapas del Gran Eclipse."); return; }
+  const foes = (g.byRegion[r] ?? []).filter((m: Mon) => m.alive && m.temp && inUwPocket(m.x, m.y)).length;
+  if (foes === 0 && now - e.start > 1000) { uwLeaveEcl(g, now, "Venciste a las sombras: el Eclipse se rompe."); return; }
+  if (now >= e.until) { uwLeaveEcl(g, now, "Resististe el Gran Eclipse: la luz vuelve."); return; }
+  if (now >= e.rainAt) { e.rainAt = now + UWB.ECL_RAIN; const h = (g.byRegion[r] ?? []).find((m: Mon) => m.id === e.boss); const A = h ? h.def.atk : 600;
+    g.warns.push({ cells: uwCells(g, r, circle(p.x, p.y, 2)), at: now + 1100, born: now, min: Math.round(A * 0.35), max: Math.round(A * 0.55), elem: "dark", name: "Lluvia de almas" }); }
+}
+// ---------- Manigoldo de Cáncer: aliado en el combate de los gemelos ----------
+const UW_ALLY = { NAME: "Manigoldo de Cáncer", STEP: 330, ATK_MS: 1700, HIT: [0.0026, 0.0036] as [number, number], HA_CD: 15000, HA_FIRST: 6000, HA_TELE: 1000, HA_HIT: 0.008, STUN: 1600, FLOOR: 0.03, LEAVE: 1600 };
+function uwTwins(g: Game, r: number): Mon[] { return (g.byRegion[r] ?? []).filter((m: Mon) => !m.temp && (m.def.id === UW_THAN || m.def.id === UW_HYP)); }
+function uwAllyFree(g: Game, x: number, y: number): boolean { const p = g.p; const t = tileAt(g, x, y); return walkable(t) && t !== PORTAL && inUwArena(x, y) && monAt(g, x, y) === null && !(p.x === x && p.y === y); }
+/** Golpe del aliado: respeta la inmunidad y nunca da el golpe final (el jefe no baja del 3 %: la victoria y el botín son del jugador). */
+function uwAllyHit(g: Game, F: UwF, m: Mon, dmg: number, now: number, col: string): number {
+  const b = uwB(F, m); if (now < b.immune || !m.alive) return 0; const floor = Math.ceil(m.def.hp * UW_ALLY.FLOOR); const d = Math.max(0, Math.min(dmg, m.hp - floor));
+  if (d > 0) { m.hp -= d; addFloat(g, m.x * TS + 16, m.y * TS - 2, `-${d}`, col, now); } return d;
+}
+function uwAllyTick(g: Game, F: UwF, r: number, now: number): void {
+  const p = g.p; const tw = uwTwins(g, r); const alive = tw.filter((m: Mon) => m.alive);
+  let a = F.ally ?? null;
+  if (!a) {
+    if (F.allyDone || alive.length === 0 || !inUwArena(p.x, p.y) || g.p.hp <= 0) return;
+    let spot: [number, number] | null = null; for (const [dx, dy] of [[-1, 0], [0, 1], [0, -1], [-1, 1], [-1, -1], [1, 0], [1, 1], [1, -1]] as Array<[number, number]>) if (uwAllyFree(g, p.x + dx, p.y + dy)) { spot = [p.x + dx, p.y + dy]; break; }
+    if (!spot) return;
+    a = { x: spot[0], y: spot[1], fx: spot[0], fy: spot[1], moveStart: 0, moveDur: UW_ALLY.STEP, face: 2, nextMove: now + 600, nextAtk: now + 1200, nextHa: now + UW_ALLY.HA_FIRST, cast: 0, ha: null, haFl: 0, leaving: 0, dealt: 0, hits: 0, has: 0 };
+    F.ally = a; F.banner = { text: "♋ ¡Manigoldo de Cáncer se une al combate!", sub: "«¡Thanatos! Esta vez no te escaparás.»", at: now, col: "#ffd860" };
+    setStatus(g, "♋ Manigoldo de Cáncer: «¡Thanatos! Esta vez no te escaparás.»", now, "#ffd860"); addLog(g, "♋ Manigoldo de Cáncer, el Santo de Oro, llega en tu ayuda contra Thanatos.");
+    addFloat(g, a.x * TS + 16, a.y * TS - 30, "♋ ¡Ondas Infernales!", "#7fd0ff", now); return;
+  }
+  if (a.leaving > 0) { if (now - a.leaving > UW_ALLY.LEAVE) F.ally = null; return; }
+  if (alive.length === 0 || p.hp <= 0 || !inUwArena(p.x, p.y)) { // los gemelos cayeron (o te fuiste / caíste): se despide
+    a.leaving = now; a.ha = null; F.allyDone = alive.length === 0;
+    if (alive.length === 0) { addFloat(g, a.x * TS + 16, a.y * TS - 30, "«Je… buen trabajo. Hades es todo tuyo.»", "#ffd860", now); addLog(g, "♋ Manigoldo: «Je… buen trabajo. Hades es todo tuyo.» Se desvanece entre llamas azules."); }
+    return;
+  }
+  const tgt = alive.find((m: Mon) => m.def.id === UW_THAN) ?? alive[0]!; // siempre va a por Thanatos
+  // Sekishiki Meikai Ha: telegrafiado (casillas azules) y luego aturde / ralentiza al dios
+  if (a.ha && now >= a.ha.at) {
+    const m = alive.find((o: Mon) => o.id === a!.ha!.tgt); const hit = !!m && a.ha.cells.some((c: [number, number]) => c[0] === m.x && c[1] === m.y); a.ha = null; a.haFl = now;
+    if (m && hit) { const d = uwAllyHit(g, F, m, Math.round(m.def.hp * UW_ALLY.HA_HIT), now, "#7fd0ff"); a.dealt += d; a.has++;
+      const b = uwB(F, m); if (now >= b.immune) { b.cast = Math.max(b.cast, now + UW_ALLY.STUN); m.nextAtk = Math.max(m.nextAtk, now + UW_ALLY.STUN); m.slowUntil = Math.max(m.slowUntil, now + 3000); }
+      addFloat(g, m.x * TS + 16, m.y * TS - 44, "♋ ¡SEKISHIKI MEIKAI HA!", "#7fd0ff", now); }
+  }
+  if (!a.ha && now >= a.nextHa && cheb(a.x, a.y, tgt.x, tgt.y) <= 3) {
+    a.nextHa = now + UW_ALLY.HA_CD; a.cast = now + UW_ALLY.HA_TELE; a.face = dirFrom(tgt.x - a.x, tgt.y - a.y);
+    a.ha = { at: now + UW_ALLY.HA_TELE, cells: circle(tgt.x, tgt.y, 2).filter((c: [number, number]) => inUwArena(c[0], c[1])), tgt: tgt.id };
+    addFloat(g, a.x * TS + 16, a.y * TS - 34, "«¡Sekishiki Meikai Ha!»", "#ffd860", now); return;
+  }
+  const d = cheb(a.x, a.y, tgt.x, tgt.y);
+  if (d <= 1) {
+    if (now >= a.nextAtk && now >= a.cast) { a.nextAtk = now + UW_ALLY.ATK_MS; a.face = dirFrom(tgt.x - a.x, tgt.y - a.y); a.cast = now + 300;
+      const dmg = Math.round(tgt.def.hp * (UW_ALLY.HIT[0] + Math.random() * (UW_ALLY.HIT[1] - UW_ALLY.HIT[0]))); const got = uwAllyHit(g, F, tgt, dmg, now, "#9fd8ff"); a.dealt += got; if (got > 0) a.hits++; }
+    return;
+  }
+  if (now < a.nextMove || now < a.cast) return;
+  let best: [number, number] | null = null; let bd = d;
+  for (const [dx, dy] of DIRS8) { const x = a.x + dx, y = a.y + dy; if (!uwAllyFree(g, x, y)) continue; const nd = cheb(x, y, tgt.x, tgt.y) + (dx !== 0 && dy !== 0 ? 0.01 : 0); if (nd < bd) { bd = nd; best = [x, y]; } }
+  a.nextMove = now + UW_ALLY.STEP;
+  if (best) { a.fx = a.x; a.fy = a.y; a.face = dirFrom(best[0] - a.x, best[1] - a.y); a.x = best[0]; a.y = best[1]; a.moveStart = now; a.moveDur = UW_ALLY.STEP; }
+}
+// Muerte de un jefe: gemelos (ambos deben caer), zona superada, únicos de Hades y el gran final
+function uwKill(g: Game, m: Mon, now: number): void {
+  if (!m.def.uw || !m.def.boss || m.temp) return; const z = m.def.uw - 1; const r = regionOf(m.x, m.y); const F = uwF(g, r);
+  if (z === 7) { const other = (g.byRegion[r] ?? []).find((o: Mon) => o.alive && o !== m && (o.def.id === UW_THAN || o.def.id === UW_HYP));
+    if (other) { other.enraged = true; const b = uwB(F, other); b.ph = 3; b.next = now + 1200; addFloat(g, other.x * TS + 16, other.y * TS - 40, "¡FURIA DIVINA!", "#ff4040", now);
+      setStatus(g, `¡${other.def.name} pierde a su gemelo y desata su FURIA DIVINA!`, now, "#ff6060"); addLog(g, `⚠ ${m.def.name} cayó: ${other.def.name} enfurece.`); return; } }
+  const s = uwS(g); const first = s.z <= z; s.z = Math.max(s.z, z + 1); s.k[z] = (s.k[z] ?? 0) + 1;
+  coinGain(g, first ? 4 + 2 * z : 1 + Math.floor(z / 3), first ? `¡primera victoria en ${UW_ZONES[z]?.name ?? "el Inframundo"}!` : "botín del Inframundo", now);
+  g.warns = []; F.fx = []; F.safe = null;
+  const Z = UW_ZONES[z]!; const nx = UW_ZONES[z + 1];
+  if (m.def.id === UW_HADES) {
+    const voc = (d: ItemDef): boolean => d.voc === null || d.voc.includes(g.cls.id);
+    const pool = HADES_ITEMS.map((id: string) => ITEM[id]).filter((d: ItemDef | undefined): d is ItemDef => !!d && voc(d)); const d = pool[Math.floor(Math.random() * pool.length)];
+    if (d) bossLoot(g, m, [{ uid: g.nextUid++, id: d.id, rar: Math.random() < 0.5 ? "hea" : "epi" }], now);
+    F.finale = now; F.banner = { text: "✦ ¡HADES HA CAÍDO! ✦", sub: "La luz de Atenea disipa el Gran Eclipse: el Inframundo es libre", at: now, col: "#fff2b0" };
+    addLog(g, "🏆 ¡Venciste a Hades, el Rey del Inframundo! El Gran Eclipse se disipa.");
+  } else {
+    F.banner = { text: `${Z.glyph} ¡${Z.name} superado!`, sub: nx ? `Se abrió el portal ↓ hacia ${nx.name}` : "", at: now, col: "#9dff9d" };
+    addLog(g, `🏆 Venciste a ${z === 7 ? "Thanatos y Hypnos" : Z.boss}. ${nx ? `El portal ↓ de la sala lleva a ${nx.name}.` : ""}`);
+  }
+  setStatus(g, `🏆 ${F.banner.text} ${F.banner.sub}`, now, "#9dff9d");
+}
+// ---------- misiones del Inframundo (Pitia, la Oráculo) ----------
+NQUESTS.push(
+  { id: "u1", npc: "pitia", name: "La profecía del Inframundo (1/4)", kind: "kill", mons: ["uw1a", "uw1b", "uw1c"], n: 30, lvl: 80, house: 12, task: "Derrota 30 espectros del Río Aqueronte.",
+    offer: "Las brumas se tiñen de negro: Hades despertó tras la Casa de Géminis. Cruza la Puerta del Inframundo y derrota a 30 espectros del Aqueronte.", thanks: "Las almas del Aqueronte ya no gimen. Pero la profecía sigue…", rw: { coins: 6, item: "epi" } },
+  { id: "u2", npc: "pitia", name: "La profecía del Inframundo (2/4)", kind: "boss", mons: ["uw3boss"], n: 1, lvl: 90, house: 12, prev: "u1", task: "Vence a Radamanthys de Wyvern.",
+    offer: "El primero de los tres Jueces, Radamanthys de Wyvern, guarda el camino. Cuidado con su Greatest Caution: sal del cono.", thanks: "¡Un Juez del Inframundo ha caído! Toma esto.", rw: { coins: 10, item: "epi" } },
+  { id: "u3", npc: "pitia", name: "La profecía del Inframundo (3/4)", kind: "collect", mons: ["uw6a", "uw6b", "uw6c"], n: 6, lvl: 105, house: 12, prev: "u2", item: "Fragmento de sapuri helada", chance: 0.3, task: "Junta 6 Fragmentos de sapuri helada en el Cocito.",
+    offer: "En el Cocito los traidores yacen congelados. Tráeme 6 fragmentos de sapuri helada de sus espectros: con ellos veré el Templo de Hades.", thanks: "Lo veo: un templo de obsidiana y un rey de cabello negro… Prepárate.", rw: { coins: 12, item: "epi" } },
+  { id: "u4", npc: "pitia", name: "La profecía del Inframundo (4/4)", kind: "boss", mons: [UW_HADES], n: 1, lvl: 115, house: 12, prev: "u3", task: "Vence a Hades en su templo.",
+    offer: "Thanatos y Hypnos custodian los Elíseos; tras ellos, Hades. Vence al Rey del Inframundo y la profecía se cumplirá.", thanks: "¡La luz de Atenea brilla de nuevo! Eres leyenda, caballero.", rw: { coins: 30, item: "epi" } },
+);
+// ---------- dibujo: paletas por zona, casillas, puerta, espectros y dioses ----------
+interface UwPal { fl: [string, string, string]; wl: [string, string, string]; wa: [string, string, string]; mini: [string, string, string]; tint: string; part: "ash" | "ember" | "soul" | "snow" | "gold"; }
+const UW_PAL: UwPal[] = [
+  { fl: ["#2a1e2e", "#33243a", "#5a2a3a"], wl: ["#16101c", "#2c2236", "#0a060e"], wa: ["#7a0a12", "#b0161e", "#ff4a3a"], mini: ["#3a2a40", "#120c16", "#a01818"], tint: "rgba(60,0,20,0.16)", part: "ash" },
+  { fl: ["#2c2230", "#3a2c3e", "#8a6a28"], wl: ["#1a1420", "#3a2e44", "#0c0810"], wa: ["#8a1010", "#c02018", "#ff6a30"], mini: ["#46344c", "#16101c", "#b02010"], tint: "rgba(80,20,0,0.14)", part: "ember" },
+  { fl: ["#241a2a", "#2e2034", "#6a2040"], wl: ["#140e18", "#2a1c30", "#08040a"], wa: ["#800c16", "#b8141c", "#ff5040"], mini: ["#3a2440", "#100a14", "#a01020"], tint: "rgba(70,0,30,0.16)", part: "ember" },
+  { fl: ["#22202e", "#2c2a3a", "#4a4a70"], wl: ["#121220", "#262640", "#08080e"], wa: ["#6a0a20", "#a0142c", "#ff4a6a"], mini: ["#34324a", "#101018", "#901830"], tint: "rgba(30,20,70,0.16)", part: "soul" },
+  { fl: ["#1e1a24", "#262030", "#2a4a3a"], wl: ["#141018", "#2a2430", "#06040a"], wa: ["#700a14", "#a8121c", "#ff4a3a"], mini: ["#30283a", "#0e0a12", "#901018"], tint: "rgba(10,40,30,0.16)", part: "soul" },
+  { fl: ["#9ec8e0", "#b8dcf0", "#e8f8ff"], wl: ["#5a7a9a", "#8ab0d0", "#2a3a50"], wa: ["#0a1a2e", "#14304a", "#60a0d0"], mini: ["#a8d0e8", "#4a6a8a", "#123050"], tint: "rgba(120,180,255,0.12)", part: "snow" },
+  { fl: ["#141018", "#1c1622", "#6a3a9a"], wl: ["#2a2232", "#4a3c56", "#100c14"], wa: ["#200a30", "#3a1050", "#b060ff"], mini: ["#241c2c", "#3c3046", "#3a1050"], tint: "rgba(50,0,80,0.16)", part: "soul" },
+  { fl: ["#c8a040", "#d8b450", "#fff0a0"], wl: ["#3a5a2a", "#5a7a3a", "#1e3016"], wa: ["#4a8ab0", "#7ab8d8", "#e0f8ff"], mini: ["#d0b050", "#3a5a2a", "#6aa8d0"], tint: "rgba(255,220,120,0.10)", part: "gold" },
+  { fl: ["#120c18", "#1a1222", "#8a6a20"], wl: ["#20182a", "#3a2c48", "#08040c"], wa: ["#4a0a3a", "#7a1060", "#ff40c0"], mini: ["#22182c", "#0a060e", "#7a1060"], tint: "rgba(60,0,70,0.18)", part: "soul" },
+];
+function uwR(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string): void { c.fillStyle = col; c.fillRect(x, y, w, h); }
+function uwTileAt(wx: number, wy: number): number { const m = MAP_CACHE; if (!m || wx < 0 || wy < 0 || wx >= MW || wy >= MH) return HWALL; return m[wy * MW + wx] ?? HWALL; }
+function drawUwTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number, g?: Game): boolean {
+  const z = uwZoneOf(wx, wy); const P = UW_PAL[z]; if (!P) return false; const h = hash(wx, wy); const c = ctx;
+  if (t === MARBLE || t === PORTAL) {
+    const bridge = t === MARBLE && (uwTileAt(wx - 1, wy) === WATER || uwTileAt(wx + 1, wy) === WATER || uwTileAt(wx, wy - 1) === WATER || uwTileAt(wx, wy + 1) === WATER) && !inUwArena(wx, wy);
+    if (z === 7) { // Elíseos: campo de trigo dorado con flores
+      uwR(c, x, y, TS, TS, (h & 1) ? P.fl[0] : P.fl[1]);
+      for (let k = 0; k < 6; k++) { const bx = x + ((h >> (k * 3)) & 31), by = y + ((h >> (k * 2 + 5)) & 31); const sw = Math.sin(now / 700 + wx + k) * 1.2; c.strokeStyle = k % 2 ? "#e8c860" : "#b08830"; c.beginPath(); c.moveTo(bx, by + 4); c.lineTo(bx + sw, by - 3); c.stroke(); }
+      if ((h & 15) === 3) { uwR(c, x + 10, y + 12, 3, 3, "#ffffff"); uwR(c, x + 11, y + 13, 1, 1, "#ffd040"); }
+      if ((h & 31) === 9) { uwR(c, x + 20, y + 6, 3, 3, "#ff90c0"); }
+    } else if (z === 5) { // Cocito: hielo con grietas y brillo
+      uwR(c, x, y, TS, TS, P.fl[(h & 1)] ?? P.fl[0]); c.strokeStyle = "rgba(255,255,255,0.55)"; c.beginPath(); c.moveTo(x + (h & 15), y + 2); c.lineTo(x + 8 + ((h >> 4) & 15), y + 18); c.lineTo(x + ((h >> 8) & 31), y + 30); c.stroke();
+      if ((h & 7) === 2) { const a = 0.3 + 0.3 * Math.sin(now / 400 + h); uwR(c, x + 6, y + 6, 4, 1, `rgba(255,255,255,${a})`); uwR(c, x + 7.5, y + 4.5, 1, 4, `rgba(255,255,255,${a})`); }
+      if ((h & 63) === 17) { c.fillStyle = "rgba(40,60,90,0.35)"; c.beginPath(); c.ellipse(x + 16, y + 18, 6, 9, 0.3, 0, Math.PI * 2); c.fill(); } // alma congelada bajo el hielo
+    } else {
+      uwR(c, x, y, TS, TS, (h & 1) ? P.fl[0] : P.fl[1]); uwR(c, x, y, TS, 1, "rgba(255,255,255,0.05)"); uwR(c, x, y, 1, TS, "rgba(0,0,0,0.25)");
+      if (z === 6 || z === 8) { c.strokeStyle = P.fl[2]; c.globalAlpha = 0.35; c.beginPath(); c.moveTo(x + (h & 31), y); c.quadraticCurveTo(x + 16, y + 16, x + ((h >> 5) & 31), y + 32); c.stroke(); c.globalAlpha = 1; }
+      else { if ((h & 3) === 1) { c.strokeStyle = P.fl[2]; c.globalAlpha = 0.5; c.beginPath(); c.moveTo(x + 4 + (h & 7), y + 6); c.lineTo(x + 14, y + 16); c.lineTo(x + 12 + ((h >> 3) & 7), y + 27); c.stroke(); c.globalAlpha = 1; }
+        if ((h & 63) === 5) { uwR(c, x + 12, y + 18, 7, 3, "#d8d0c0"); uwR(c, x + 13, y + 14, 5, 5, "#e8e0d0"); uwR(c, x + 14, y + 16, 1, 1, "#000"); uwR(c, x + 16, y + 16, 1, 1, "#000"); } } // calavera
+      if (inUwArena(wx, wy) && ((wx + wy) % 4 === 0)) uwR(c, x + 14, y + 14, 4, 4, z === 8 ? "rgba(200,160,40,0.35)" : "rgba(160,60,200,0.18)");
+    }
+    if (bridge) { uwR(c, x, y, TS, TS, z === 5 ? "#c8e4f4" : z === 7 ? "#c8a060" : "#3a2a24"); for (let k = 0; k < 4; k++) uwR(c, x, y + 2 + k * 8, TS, 5, z === 5 ? "#e0f4ff" : z === 7 ? "#e0bc78" : "#54402e"); uwR(c, x, y, 2, TS, "#1a0e08"); uwR(c, x + 30, y, 2, TS, "#1a0e08"); }
+    if (t === PORTAL) {
+      const gg = g ?? UW_LASTG; const sealed = !!gg && uwPortalSealed(gg, wx, wy); const k = (now / 600) % (Math.PI * 2);
+      const gr = c.createRadialGradient(x + 16, y + 16, 2, x + 16, y + 16, 16); gr.addColorStop(0, sealed ? "rgba(140,140,150,0.9)" : "rgba(255,200,255,0.95)"); gr.addColorStop(0.5, sealed ? "rgba(70,70,80,0.8)" : "rgba(150,40,220,0.8)"); gr.addColorStop(1, "rgba(20,0,30,0)");
+      c.fillStyle = gr; c.fillRect(x, y, TS, TS); c.strokeStyle = sealed ? "#888" : "#f0b0ff"; c.lineWidth = 1.5; c.beginPath(); for (let a = 0; a < 3; a++) c.arc(x + 16, y + 16, 5 + a * 3.5, k + a * 2, k + a * 2 + 2.2); c.stroke(); c.lineWidth = 1;
+      if (sealed) { c.font = "12px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("🔒", x + 16, y + 17); }
+    }
+    return true;
+  }
+  if (t === WATER) {
+    const fl = Math.sin(now / 500 + wx * 0.7 + wy * 0.3);
+    if (z === 5) { uwR(c, x, y, TS, TS, P.wa[0]); uwR(c, x + 3, y + 5, 26, 22, P.wa[1]); if ((h & 3) === 0) { c.fillStyle = "rgba(200,230,255,0.35)"; c.beginPath(); c.arc(x + 16, y + 12, 4, 0, Math.PI * 2); c.fill(); uwR(c, x + 13, y + 16, 6, 8, "rgba(200,230,255,0.3)"); } uwR(c, x + 4, y + 6, 10, 1, "rgba(255,255,255,0.4)"); }
+    else { uwR(c, x, y, TS, TS, P.wa[0]); c.fillStyle = P.wa[1]; for (let k = 0; k < 3; k++) { c.fillRect(x + ((k * 11 + now / 60 + wy * 5) % 32), y + 6 + k * 9 + fl, 9, 2); }
+      c.fillStyle = P.wa[2]; c.globalAlpha = 0.35 + 0.25 * fl; c.fillRect(x + ((h & 15) + now / 90) % 28, y + ((h >> 4) & 15) + 6, 3, 2); c.globalAlpha = 1; }
+    return true;
+  }
+  // muro
+  if (z === 7) { uwR(c, x, y, TS, TS, P.fl[0]); c.fillStyle = P.wl[2]; c.beginPath(); c.ellipse(x + 16, y + 29, 9, 3, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = P.wl[0]; c.beginPath(); c.moveTo(x + 16, y - 6); c.lineTo(x + 25, y + 26); c.lineTo(x + 7, y + 26); c.closePath(); c.fill(); c.fillStyle = P.wl[1]; c.beginPath(); c.moveTo(x + 16, y - 4); c.lineTo(x + 19, y + 24); c.lineTo(x + 11, y + 24); c.closePath(); c.fill(); return true; }
+  uwR(c, x, y, TS, TS, P.wl[0]); uwR(c, x, y, TS, 5, P.wl[1]); uwR(c, x, y + 27, TS, 5, P.wl[2]);
+  if (z === 5) { uwR(c, x + 3, y + 7, 26, 18, "#7aa0c4"); if ((h & 7) === 1) { c.fillStyle = "rgba(30,40,60,0.6)"; c.beginPath(); c.arc(x + 16, y + 12, 3, 0, Math.PI * 2); c.fill(); uwR(c, x + 13, y + 15, 6, 8, "rgba(30,40,60,0.55)"); uwR(c, x + 10, y + 16, 12, 2, "rgba(30,40,60,0.5)"); } uwR(c, x + 5, y + 9, 2, 12, "rgba(255,255,255,0.5)"); }
+  else if (z === 6 || z === 8) { uwR(c, x + 6, y + 5, 20, 22, P.wl[1]); uwR(c, x + 9, y + 5, 3, 22, "rgba(255,255,255,0.12)"); uwR(c, x + 4, y + 3, 24, 3, z === 8 ? "#8a6a20" : "#6a3a9a"); }
+  else { uwR(c, x + 2, y + 8, 13, 8, "rgba(255,255,255,0.04)"); uwR(c, x + 17, y + 17, 12, 8, "rgba(255,255,255,0.04)"); uwR(c, x, y + 16, TS, 1, "rgba(0,0,0,0.4)"); if ((h & 15) === 4) { c.fillStyle = P.wa[2]; c.globalAlpha = 0.5 + 0.3 * Math.sin(now / 300 + h); c.fillRect(x + 14, y + 10, 3, 3); c.globalAlpha = 1; } }
+  return true;
+}
+function uwPortalSealed(g: Game, wx: number, wy: number): boolean {
+  if (wx === UW_GATE[0] && wy === UW_GATE[1]) return g.cleared < NH;
+  const z = uwZoneOf(wx, wy); const L = UW_LAYS[z]; if (!L) return false; const c = uwRel(z, wx, wy); const eq = (q: [number, number] | null): boolean => !!q && q[0] === c[0] && q[1] === c[1];
+  const done = (g.uw?.z ?? 0) > z; if (eq(L.aExit)) return !done; if (eq(L.aDown) || eq(L.down)) return !uwOpen(g, z + 1); return false;
+}
+function uwPortalLabel(g: Game, wx: number, wy: number): string {
+  const z = uwZoneOf(wx, wy); const L = UW_LAYS[z]; if (!L) return ""; const c = uwRel(z, wx, wy); const eq = (q: [number, number] | null): boolean => !!q && q[0] === c[0] && q[1] === c[1];
+  if (eq(L.exit) || eq(L.aExit)) return "✦ Salida al templo"; if (eq(L.up)) return `↑ ${UW_ZONES[z - 1]?.name ?? ""}`; if (eq(L.down) || eq(L.aDown)) return `↓ ${UW_ZONES[z + 1]?.name ?? ""}`; return "";
+}
+// Puerta del Inframundo en el Santuario (pasada la Casa de Géminis)
+function drawUwGate(ctx: CanvasRenderingContext2D, g: Game, x: number, y: number, now: number): void {
+  const open = g.cleared >= NH; const c = ctx; const top = y - 2 * TS + 6;
+  if (open) { const gr = c.createRadialGradient(x + 16, y + 6, 2, x + 16, y + 6, 64); gr.addColorStop(0, `rgba(170,60,255,${0.3 + 0.15 * Math.sin(now / 350)})`); gr.addColorStop(1, "rgba(120,0,200,0)"); c.fillStyle = gr; c.fillRect(x - 56, y - 70, 144, 120); }
+  uwR(c, x - 22, top + 10, 14, y + TS - top - 10, "#1a1420"); uwR(c, x + TS + 8, top + 10, 14, y + TS - top - 10, "#1a1420");
+  uwR(c, x - 20, top + 12, 3, y + TS - top - 14, "#3a2e48"); uwR(c, x + TS + 10, top + 12, 3, y + TS - top - 14, "#3a2e48");
+  c.fillStyle = "#120c18"; c.beginPath(); c.moveTo(x - 26, top + 12); c.quadraticCurveTo(x + 16, top - 18, x + TS + 26, top + 12); c.lineTo(x + TS + 22, top + 20); c.quadraticCurveTo(x + 16, top - 6, x - 22, top + 20); c.closePath(); c.fill();
+  for (const sx of [-24, 2, 30, 56]) { c.fillStyle = "#0a060e"; c.beginPath(); c.moveTo(x + sx - 3, top + 12 - (sx === 2 || sx === 30 ? 12 : 4)); c.lineTo(x + sx, top - 4 - (sx === 2 || sx === 30 ? 12 : 0)); c.lineTo(x + sx + 3, top + 12 - (sx === 2 || sx === 30 ? 12 : 4)); c.fill(); }
+  c.font = "bold 12px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = open ? "#e0a0ff" : "#777"; c.fillText("☠", x + 16, top + 6);
+  if (open) { for (let k = 0; k < 4; k++) { const fy = y + 26 - ((now / 12 + k * 20) % 40); c.fillStyle = `rgba(200,120,255,${0.5 - Math.abs(fy - y - 6) / 60})`; c.fillRect(x + 8 + k * 5, fy, 2, 4); } }
+  outlined(c, `${open ? "" : "🔒 "}☠ Puerta del Inframundo · nv ${UW_REC[0]}+${open ? "" : " (tras Géminis)"}`, x + 16, top - 22, open ? "#e0a0ff" : "#c0c0c0", "bold 10px sans-serif");
+  if (!open) { c.fillStyle = "rgba(20,20,20,0.6)"; c.fillRect(x + 2, y + 2, TS - 4, TS - 4); c.font = "16px sans-serif"; c.fillText("🔒", x + 16, y + 17); }
+}
+// ---------- sprites: espectros (sapuris oscuras), jueces, Pandora y los dioses ----------
+type UwHelm = "none" | "horn" | "wyvern" | "griffon" | "garuda" | "skull" | "crest" | "tiara" | "insect" | "hood" | "frog" | "cyclops" | "cancer";
+type UwWing = "none" | "bat" | "wyvern" | "feather" | "harpy" | "insect" | "god";
+type UwWpn = "none" | "oar" | "whip" | "sword" | "trident" | "claw" | "scythe" | "harp" | "club";
+interface UwLk { arm: string; hi: string; dk: string; acc: string; glow: string; skin: string; hair: string; hairS: "none" | "short" | "long" | "spiky" | "bangs" | "wild"; helm: UwHelm; wing: UwWing; wingC: string; wpn: UwWpn; cape: string; s: number;
+  skel?: boolean; dress?: boolean; robe?: string; eyes?: "open" | "half" | "cold" | "glow"; aura?: string; bulk?: number; grin?: boolean; }
+const SPC = { arm: "#1c1626", hi: "#3e3452", dk: "#0a0810", skin: "#d8b498", cape: "#120c18" };
+function spl(acc: string, helm: UwHelm, wing: UwWing, wpn: UwWpn, o: Partial<UwLk> = {}): UwLk {
+  return { arm: SPC.arm, hi: SPC.hi, dk: SPC.dk, acc, glow: "#ff3a5a", skin: SPC.skin, hair: "#2a2030", hairS: "short", helm, wing, wingC: "#1a1222", wpn, cape: SPC.cape, s: 1.05, eyes: "glow", ...o };
+}
+const UW_LOOK: Record<string, UwLk> = {
+  uw1a: spl("#8a8070", "skull", "none", "sword", { skel: true, s: 1, glow: "#ff4a3a", hairS: "none" }), uw1b: spl("#7a3a5a", "insect", "none", "claw", { s: 0.95 }), uw1c: spl("#5a6a3a", "horn", "none", "club", { s: 1.2, bulk: 1.3 }),
+  uw2a: spl("#4a8a3a", "frog", "none", "claw", { s: 1 }), uw2b: spl("#d070c0", "insect", "insect", "none", { wingC: "#6a2a6a", s: 0.95, hair: "#e0a0d0" }), uw2c: spl("#6a5a4a", "cyclops", "none", "club", { s: 1.25, bulk: 1.35 }),
+  uw3a: spl("#6a3a2a", "crest", "none", "whip", { s: 1, hairS: "long", hair: "#5a2a2a" }), uw3b: spl("#3a7a5a", "horn", "none", "sword", { s: 1 }), uw3c: spl("#8a5a2a", "horn", "none", "club", { s: 1.25, bulk: 1.35 }),
+  uw4a: spl("#3a6a8a", "insect", "none", "claw", { s: 1 }), uw4b: spl("#c8a040", "crest", "feather", "none", { wingC: "#6a5020", s: 1 }), uw4c: spl("#6a6a6a", "crest", "none", "club", { s: 1.3, bulk: 1.4 }),
+  uw5a: spl("#3a8a5a", "tiara", "none", "sword", { s: 0.95, hairS: "long", hair: "#c8b070" }), uw5b: spl("#2a5a8a", "crest", "none", "trident", { s: 1 }), uw5c: spl("#7a3a2a", "horn", "none", "club", { s: 1.3, bulk: 1.4 }),
+  uw6a: spl("#9ab0c8", "hood", "none", "scythe", { s: 1.05, glow: "#9fe0ff" }), uw6b: spl("#a0d0c0", "tiara", "feather", "none", { wingC: "#6a8a9a", s: 1, glow: "#9fe0ff", hairS: "long", hair: "#cfe0e8" }), uw6c: spl("#6a5a8a", "skull", "bat", "scythe", { s: 1.2, glow: "#9fe0ff" }),
+  uw7a: spl("#5a8a5a", "crest", "none", "sword", { s: 1.05, glow: "#c070ff" }), uw7b: spl("#4a4a3a", "insect", "insect", "claw", { wingC: "#3a3a2a", s: 1, glow: "#c070ff" }), uw7c: spl("#8a6a20", "horn", "bat", "trident", { s: 1.25, bulk: 1.3, glow: "#c070ff" }),
+  uw8a: spl("#c8a040", "tiara", "feather", "sword", { arm: "#2a2232", hi: "#5a4c66", s: 1.05, glow: "#ffe080", hair: "#3a2a1a", hairS: "long" }),
+  uw8b: spl("#a080c0", "tiara", "feather", "harp", { arm: "#2a2232", hi: "#5a4c66", s: 1.05, glow: "#ffe080", hair: "#6a4a8a", hairS: "long" }),
+  uw8c: spl("#c06060", "tiara", "god", "sword", { arm: "#2a2232", hi: "#5a4c66", s: 1.25, bulk: 1.2, glow: "#ffe080", wingC: "#3a2a3a", hair: "#8a2a2a", hairS: "wild" }),
+  uw9a: spl("#8a6a20", "horn", "bat", "trident", { s: 1.15, bulk: 1.2, glow: "#ff40c0" }), uw9b: spl("#6a3a9a", "tiara", "god", "sword", { s: 1.2, glow: "#ff40c0", wingC: "#2a1a3a", hair: "#3a2a4a", hairS: "long" }),
+  uw9c: spl("#3a1a5a", "hood", "bat", "scythe", { s: 1.25, bulk: 1.25, glow: "#ff40c0", arm: "#100818" }), uw9shade: spl("#2a0a4a", "hood", "none", "claw", { s: 1.1, glow: "#e070ff", arm: "#0a0010", hi: "#2a1040" }),
+  // jefes
+  uw1boss: spl("#5a4a6a", "hood", "none", "oar", { s: 1.45, hairS: "long", hair: "#1a1424", glow: "#ff6a4a", cape: "#2a1e34", bulk: 1.1 }),
+  uw2boss: spl("#c03020", "crest", "bat", "whip", { s: 1.45, hairS: "long", hair: "#e8e0f0", glow: "#ff8040", wingC: "#2a0a0a" }),
+  uw3boss: spl("#6a2a8a", "wyvern", "wyvern", "none", { s: 1.5, hairS: "short", hair: "#e8c860", glow: "#ffd040", wingC: "#1a0e24", bulk: 1.15, eyes: "open" }),
+  uw4boss: spl("#4a4aa0", "griffon", "feather", "none", { s: 1.5, hairS: "bangs", hair: "#e8e8f0", glow: "#c0c0ff", wingC: "#1a1a30", eyes: "half" }),
+  uw5boss: spl("#2a7a5a", "garuda", "feather", "none", { s: 1.5, hairS: "spiky", hair: "#1a1a24", glow: "#ffb040", wingC: "#141a1c", eyes: "open" }),
+  uw6boss: spl("#c06090", "crest", "harpy", "claw", { s: 1.45, hairS: "spiky", hair: "#e890b0", glow: "#9fe0ff", wingC: "#2a1a2a" }),
+  uw7boss: spl("#6a2a8a", "none", "none", "trident", { s: 1.45, dress: true, hairS: "long", hair: "#1a1020", glow: "#c070ff", arm: "#0e0a14", hi: "#2a2034", skin: "#f0dcd0", eyes: "open" }),
+};
+interface UwGod { arm: string; hi: string; dk: string; trim: string; gem: string; hair: string; hairHi: string; skin: string; wing: string; wingHi: string; energy: string; eyes: "cold" | "half" | "open"; robe?: string; }
+const UW_GODS: Record<string, UwGod> = {
+  [UW_THAN]: { arm: "#2a2a34", hi: "#8a8a9a", dk: "#101016", trim: "#c8c8d8", gem: "#7a2aa0", hair: "#e8e8f4", hairHi: "#ffffff", skin: "#e8d8d0", wing: "#1a1622", wingHi: "#4a4458", energy: "#9a40ff", eyes: "cold" },
+  [UW_HYP]: { arm: "#c8a850", hi: "#fff0c0", dk: "#7a6020", trim: "#fff8e8", gem: "#3a8a5a", hair: "#f0d070", hairHi: "#fff4c0", skin: "#f0e0d0", wing: "#e8e0d0", wingHi: "#ffffff", energy: "#ffe080", eyes: "half" },
+  [UW_HADES]: { arm: "#14101a", hi: "#3a3048", dk: "#050308", trim: "#6a4a9a", gem: "#c03030", hair: "#0a080e", hairHi: "#2a2436", skin: "#f4ece8", wing: "#120c1a", wingHi: "#7a52b0", energy: "#a040ff", eyes: "open", robe: "#0a080c" },
+};
+function drawUwMon(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): boolean {
+  if (!m.def.uw) return false; const face = m.face as Dir; const ph = walkPhase(m, now); const cast = (m.spec[0] ?? 0) > now ? 1 : 0;
+  const G = UW_GODS[m.def.id];
+  if (G) { const s = m.def.id === UW_HADES ? 1.85 : 1.7; const robe = m.def.id === UW_HADES && (m.spec[2] ?? 1) < 2; drawUwGod(ctx, x, y, face, ph, now, cast, m.enraged, G, s, robe, m.def.id === UW_HADES); return true; }
+  const L = UW_LOOK[m.def.id] ?? UW_LOOK[m.def.id.replace(/boss2?$/, "a")] ?? UW_LOOK.uw1a!;
+  ctx.save(); if (m.temp && m.def.exp === 0) ctx.globalAlpha = 0.8 + 0.15 * Math.sin(now / 200);
+  drawUwSpecter(ctx, x, y, face, ph, now, cast, m.enraged, L, !!m.def.boss); ctx.restore(); return true;
+}
+function uwWings(c: CanvasRenderingContext2D, kind: UwWing, col: string, hi: string, flap: number, front: boolean): void {
+  if (kind === "none") return; const up = flap * 2;
+  const side = (sx: number): void => { // sx = -1 izquierda, 1 derecha
+    const bx = 16 + sx * 5; c.fillStyle = col; c.beginPath();
+    if (kind === "feather" || kind === "god" || kind === "harpy") { c.moveTo(bx, 13); c.lineTo(16 + sx * (kind === "god" ? 17 : 14), 3 - up); c.lineTo(16 + sx * (kind === "god" ? 18 : 15), 12 - up); c.lineTo(16 + sx * 16, 20); c.lineTo(16 + sx * 12, 24); c.lineTo(bx, 20); c.closePath(); c.fill();
+      c.fillStyle = hi; for (let k = 0; k < 4; k++) c.fillRect(Math.min(bx, 16 + sx * (8 + k * 2.4)), 7 + k * 3.6 - up * (1 - k / 4), Math.abs(16 + sx * (8 + k * 2.4) - bx) + 2, 1.2); }
+    else if (kind === "insect") { c.globalAlpha = 0.7; c.ellipse(16 + sx * 10, 11 - up, 7, 5, sx * 0.5, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(16 + sx * 9, 19, 5, 3.5, -sx * 0.4, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1; c.strokeStyle = hi; c.stroke(); }
+    else { c.moveTo(bx, 13); c.lineTo(16 + sx * (kind === "wyvern" ? 17 : 14), 2 - up); c.lineTo(16 + sx * (kind === "wyvern" ? 15 : 12), 10); c.lineTo(16 + sx * (kind === "wyvern" ? 18 : 15), 13 - up * 0.5); c.lineTo(16 + sx * 13, 17); c.lineTo(16 + sx * 15, 21); c.lineTo(bx + sx * 2, 20); c.closePath(); c.fill();
+      c.strokeStyle = hi; c.lineWidth = 0.8; c.beginPath(); c.moveTo(bx, 13); c.lineTo(16 + sx * (kind === "wyvern" ? 17 : 14), 2 - up); c.moveTo(bx, 14); c.lineTo(16 + sx * 15, 13 - up * 0.5); c.stroke(); c.lineWidth = 1; }
+  };
+  c.save(); if (front) c.globalAlpha *= 0.95; side(-1); side(1); c.restore();
+}
+function uwHelmet(c: CanvasRenderingContext2D, L: UwLk, face: Dir, hy: number): void {
+  const A = L.arm, H = L.hi, X = L.acc; const back = face === 0;
+  const horn = (sx: number, tall: number, curve: number): void => { c.fillStyle = X; c.beginPath(); c.moveTo(16 + sx * 3, hy + 1); c.quadraticCurveTo(16 + sx * (6 + curve), hy - tall * 0.5, 16 + sx * (4 + curve * 1.5), hy - tall); c.lineTo(16 + sx * 5, hy + 1.5); c.closePath(); c.fill(); };
+  switch (L.helm) {
+    case "horn": horn(-1, 6, 2); horn(1, 6, 2); uwR(c, 11.5, hy - 0.5, 9, 2.5, A); break;
+    case "wyvern": horn(-1, 9, 4); horn(1, 9, 4); uwR(c, 11, hy - 1, 10, 3, A); uwR(c, 15, hy - 4, 2, 4, X); uwR(c, 11, hy + 1, 10, 0.8, H); break;
+    case "griffon": c.fillStyle = X; c.beginPath(); c.moveTo(12, hy + 1); c.lineTo(16, hy - 7); c.lineTo(20, hy + 1); c.closePath(); c.fill(); uwR(c, 11, hy, 10, 2.5, A); if (!back) { c.fillStyle = H; c.beginPath(); c.moveTo(14.5, hy + 2); c.lineTo(16, hy + 5); c.lineTo(17.5, hy + 2); c.fill(); } break;
+    case "garuda": for (const sx of [-1, 1]) { c.fillStyle = X; c.beginPath(); c.moveTo(16 + sx * 2, hy + 1); c.lineTo(16 + sx * 9, hy - 9); c.lineTo(16 + sx * 5, hy + 1); c.fill(); } uwR(c, 11, hy - 0.5, 10, 2.5, A); uwR(c, 15, hy - 2, 2, 2, L.glow); break;
+    case "skull": uwR(c, 11, hy - 2, 10, 4, "#d8d0c0"); if (!back) { uwR(c, 12.5, hy - 0.5, 2.5, 2, "#000"); uwR(c, 17, hy - 0.5, 2.5, 2, "#000"); } break;
+    case "crest": uwR(c, 11, hy - 1, 10, 3, A); c.fillStyle = X; c.beginPath(); c.moveTo(14, hy - 1); c.lineTo(16, hy - 8); c.lineTo(18, hy - 1); c.fill(); uwR(c, 11, hy + 1, 10, 0.8, H); break;
+    case "tiara": uwR(c, 11, hy + 1, 10, 1.5, X); uwR(c, 15, hy - 1, 2, 2.5, L.glow); break;
+    case "insect": uwR(c, 11, hy - 1, 10, 3, A); c.strokeStyle = X; c.beginPath(); c.moveTo(14, hy - 1); c.quadraticCurveTo(11, hy - 7, 8, hy - 8); c.moveTo(18, hy - 1); c.quadraticCurveTo(21, hy - 7, 24, hy - 8); c.stroke(); break;
+    case "hood": c.fillStyle = L.cape; c.beginPath(); c.moveTo(9.5, hy + 9); c.lineTo(10, hy - 1); c.quadraticCurveTo(16, hy - 6, 22, hy - 1); c.lineTo(22.5, hy + 9); c.closePath(); c.fill(); break;
+    case "frog": uwR(c, 11, hy - 1, 10, 3, X); uwR(c, 11, hy - 3, 3, 3, X); uwR(c, 18, hy - 3, 3, 3, X); if (!back) { uwR(c, 12, hy - 2.5, 1.5, 1.5, L.glow); uwR(c, 18.5, hy - 2.5, 1.5, 1.5, L.glow); } break;
+    case "cancer": // Cáncer: diadema de caparazón de cangrejo con pinzas y cuernos (el pelo en punta asoma por encima)
+      uwR(c, 11, hy + 0.2, 10, 2.2, A); uwR(c, 11, hy + 1.8, 10, 0.7, H); uwR(c, 15, hy - 1.2, 2, 2, X); uwR(c, 15.5, hy - 0.8, 1, 1, L.glow);
+      for (const sx of [-1, 1]) { c.fillStyle = X; c.beginPath(); c.moveTo(16 + sx * 3, hy + 0.5); c.quadraticCurveTo(16 + sx * 9.5, hy - 2, 16 + sx * 8.5, hy - 8); c.lineTo(16 + sx * 6.6, hy - 5); c.lineTo(16 + sx * 5.6, hy - 8.6); c.quadraticCurveTo(16 + sx * 4.2, hy - 3.5, 16 + sx * 2.2, hy); c.closePath(); c.fill();
+        c.fillStyle = H; c.fillRect(16 + sx * 8.2 - 0.5, hy - 7.8, 1, 1); c.fillStyle = A; c.beginPath(); c.moveTo(16 + sx * 4.6, hy + 2.4); c.lineTo(16 + sx * 6.4, hy + 6); c.lineTo(16 + sx * 4, hy + 4.6); c.closePath(); c.fill(); }
+      break;
+    case "cyclops": uwR(c, 11, hy - 1, 10, 4, A); if (!back) { uwR(c, 14.5, hy, 3, 2.5, L.glow); } horn(-1, 3, 1); horn(1, 3, 1); break;
+    default: break;
+  }
+}
+function uwWeapon(c: CanvasRenderingContext2D, w: UwWpn, hx: number, hy: number, L: UwLk, now: number, raise: number): void {
+  const metal = "#9aa0b0"; c.save();
+  switch (w) {
+    case "oar": c.strokeStyle = "#5a3a20"; c.lineWidth = 2; c.beginPath(); c.moveTo(hx, hy + 6); c.lineTo(hx + 3, hy - 14 - raise * 3); c.stroke(); c.fillStyle = "#6a4a28"; c.beginPath(); c.ellipse(hx + 3.5, hy - 16 - raise * 3, 2.5, 6, 0.15, 0, Math.PI * 2); c.fill(); break;
+    case "whip": c.strokeStyle = "#ff6a30"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(hx, hy); for (let k = 1; k <= 6; k++) c.lineTo(hx + k * 2.2, hy + Math.sin(now / 120 + k) * 2.5 + k * 0.6 - raise * k); c.stroke(); break;
+    case "sword": uwR(c, hx - 0.5, hy - 12 - raise * 2, 2, 12, metal); uwR(c, hx - 2, hy - 1, 5, 1.2, L.acc); uwR(c, hx, hy - 12 - raise * 2, 0.8, 11, "#e8ecf4"); break;
+    case "trident": c.strokeStyle = "#6a5a40"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(hx, hy + 6); c.lineTo(hx, hy - 14 - raise * 2); c.stroke(); c.strokeStyle = L.acc; c.beginPath(); c.moveTo(hx - 3, hy - 17 - raise * 2); c.lineTo(hx - 3, hy - 13 - raise * 2); c.lineTo(hx + 3, hy - 13 - raise * 2); c.lineTo(hx + 3, hy - 17 - raise * 2); c.moveTo(hx, hy - 13); c.lineTo(hx, hy - 19 - raise * 2); c.stroke(); break;
+    case "claw": c.strokeStyle = "#d8d0e0"; c.lineWidth = 0.9; c.beginPath(); for (let k = 0; k < 3; k++) { c.moveTo(hx - 1 + k, hy); c.lineTo(hx - 2 + k * 2, hy + 4); } c.stroke(); break;
+    case "scythe": c.strokeStyle = "#3a2a2a"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(hx, hy + 6); c.lineTo(hx + 1, hy - 14); c.stroke(); c.fillStyle = "#c8ccd8"; c.beginPath(); c.moveTo(hx + 1, hy - 14); c.quadraticCurveTo(hx - 8, hy - 16, hx - 11, hy - 9); c.quadraticCurveTo(hx - 6, hy - 13, hx + 1, hy - 12); c.fill(); break;
+    case "harp": c.strokeStyle = "#e8c860"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(hx - 2, hy + 3); c.quadraticCurveTo(hx - 5, hy - 6, hx + 2, hy - 8); c.lineTo(hx + 3, hy + 3); c.stroke(); c.strokeStyle = "rgba(255,255,255,0.6)"; c.lineWidth = 0.4; c.beginPath(); for (let k = 0; k < 3; k++) { c.moveTo(hx - 1 + k, hy - 6 + k); c.lineTo(hx - 1 + k, hy + 2); } c.stroke(); break;
+    case "club": uwR(c, hx - 1, hy - 9, 2.5, 12, "#4a3a30"); uwR(c, hx - 2.5, hy - 13, 5.5, 6, L.acc); uwR(c, hx - 3, hy - 12, 1, 1, "#ddd"); uwR(c, hx + 2.5, hy - 10, 1, 1, "#ddd"); break;
+    default: break;
+  }
+  c.restore();
+}
+/** Espectro con sapuri oscura (32×32 lógico, escala L.s), 4 direcciones + pose de lanzamiento. */
+function drawUwSpecter(ctx: CanvasRenderingContext2D, x: number, y: number, face0: Dir, ph: number, now: number, cast: number, rage: boolean, L: UwLk, boss: boolean): void {
+  const c = ctx; let face = face0; const s = L.s; const bk = L.bulk ?? 1;
+  c.save(); c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 11 * s, 3.5, 0, 0, Math.PI * 2); c.fill();
+  if (boss || rage) { const gr = c.createRadialGradient(x + 16, y + 14, 2, x + 16, y + 14, 30 * s); const a = 0.25 + 0.15 * Math.sin(now / 260); gr.addColorStop(0, rage ? `rgba(255,50,40,${a + 0.1})` : `rgba(170,60,255,${a})`); gr.addColorStop(1, "rgba(120,0,200,0)"); c.fillStyle = gr; c.fillRect(x - 30 * s, y - 34 * s, 92 * s, 92 * s); }
+  c.translate(x + 16, y + 30); c.scale(s, s); c.translate(-16, -30);
+  if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const lg = ph === 1 ? 1.6 : ph === 2 ? -1.6 : 0; const bob = ph === 0 ? Math.sin(now / 380) * 0.4 : 0.6; const flap = Math.sin(now / 160); const top = 13 - bob;
+  if (face !== 0) uwWings(c, L.wing, L.wingC, L.hi, flap, false);
+  const A = L.arm, H = L.hi, D = L.dk, X = L.acc;
+  if (face === 2 || face === 0) {
+    if (face === 2 && !L.dress) { c.fillStyle = L.cape; c.beginPath(); c.moveTo(9, top + 1); c.lineTo(23, top + 1); c.lineTo(25 + flap * 0.5, 29); c.lineTo(7 - flap * 0.5, 29); c.closePath(); c.fill(); }
+    if (L.dress || L.robe) { c.fillStyle = L.robe ?? A; c.beginPath(); c.moveTo(10, top + 6); c.lineTo(22, top + 6); c.lineTo(26, 30); c.lineTo(6, 30); c.closePath(); c.fill(); uwR(c, 8, 28.5, 16, 1.5, X); }
+    else { // piernas con grebas
+      uwR(c, 11 - 0.5 * bk + lg, 21, 4 * bk, 8, A); uwR(c, 17 - lg, 21, 4 * bk, 8, A); uwR(c, 11 + lg, 21, 1, 7, H); uwR(c, 17 - lg, 21, 1, 7, H);
+      uwR(c, 10.5 + lg, 27, 5, 2.5, D); uwR(c, 16.5 - lg, 27, 5, 2.5, D); uwR(c, 11 + lg, 23.5, 3.5, 1.2, X); uwR(c, 17 - lg, 23.5, 3.5, 1.2, X);
+      c.fillStyle = A; c.beginPath(); c.moveTo(10, 19.5); c.lineTo(22, 19.5); c.lineTo(21, 23); c.lineTo(16, 24.5); c.lineTo(11, 23); c.closePath(); c.fill(); // faldón
+    }
+    // torso
+    const tw = 7 * bk; c.fillStyle = A; c.beginPath(); c.moveTo(16 - tw, top + 1); c.lineTo(16 + tw, top + 1); c.lineTo(16 + tw * 0.75, 20); c.lineTo(16 - tw * 0.75, 20); c.closePath(); c.fill();
+    if (L.skel) { for (let k = 0; k < 3; k++) uwR(c, 12, top + 3 + k * 2, 8, 1, "#d8d0c0"); uwR(c, 15.5, top + 2, 1, 7, "#d8d0c0"); }
+    else if (face === 2) { uwR(c, 16 - tw + 2, top + 2.5, tw * 2 - 4, 1, H); c.fillStyle = H; c.beginPath(); c.moveTo(12, top + 4); c.lineTo(16, top + 9); c.lineTo(20, top + 4); c.lineTo(19, top + 3); c.lineTo(16, top + 7); c.lineTo(13, top + 3); c.closePath(); c.fill(); uwR(c, 15, top + 7, 2, 2, X); uwR(c, 12, 18.5, 8, 1.2, X); }
+    else { uwR(c, 15.5, top + 2, 1, 16, D); }
+    // hombreras con púas (seña de las sapuris)
+    for (const sx of [-1, 1]) { const px = 16 + sx * (tw + 0.5); c.fillStyle = D; c.beginPath(); c.ellipse(px, top + 2.5, 3.6 * bk, 2.8, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = A; c.beginPath(); c.ellipse(px, top + 2, 3.2 * bk, 2.4, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = X; c.beginPath(); c.moveTo(px - 1.5, top + 0.5); c.lineTo(px + sx * 2.5, top - 4); c.lineTo(px + 1.5, top + 0.5); c.fill(); }
+    // brazos
+    const arm = (sx: number, raise: number): void => { const ax = 16 + sx * (tw + 1); uwR(c, ax - 1.3, top + 3 - raise * 9, 2.6, 8, A); uwR(c, ax - 1.6, top + 8 - raise * 9, 3.2, 2.2, D); uwR(c, ax - 1, top + 10 - raise * 9, 2, 1.8, L.skel ? "#d8d0c0" : L.skin); };
+    const rc = face === 2 ? cast : 0; arm(-1, rc * 0.9); arm(1, 0);
+    if (face === 2) uwWeapon(c, L.wpn, 16 - tw - 1, top + 10 - rc * 8, L, now, rc);
+    if (rc > 0) { const gx = 16 - tw - 1, gy = top + 1 - 8; const gr = c.createRadialGradient(gx, gy, 0.5, gx, gy, 5); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.4, L.glow); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(gx - 5, gy - 5, 10, 10); }
+    // cabeza
+    const hy = 5 - bob;
+    if (face === 2) {
+      if (L.hairS === "long" || L.hairS === "wild") { uwR(c, 10.5, hy + 1, 11, 12, L.hair); }
+      uwR(c, 12, hy + 1.5, 8, 7.5, L.skel ? "#d8d0c0" : L.skin); uwR(c, 12, hy + 7.5, 8, 1.5, "rgba(0,0,0,0.12)");
+      if (L.hairS !== "none") { uwR(c, 11.5, hy, 9, 2.5, L.hair); if (L.hairS === "bangs") uwR(c, 12, hy + 1.5, 8, 3.5, L.hair); if (L.hairS === "spiky") { c.fillStyle = L.hair; c.beginPath(); c.moveTo(11, hy + 2); c.lineTo(10, hy - 3); c.lineTo(13, hy); c.lineTo(15, hy - 4); c.lineTo(17, hy); c.lineTo(20, hy - 3); c.lineTo(21, hy + 2); c.fill(); } }
+      const ey = hy + 4.2; const eg = L.eyes === "glow" || L.skel ? L.glow : "#1a1020";
+      if (L.helm === "cyclops") uwR(c, 15, ey, 2, 1.6, L.glow);
+      else if (L.eyes === "half") { uwR(c, 13, ey + 0.6, 2.2, 0.8, eg); uwR(c, 16.8, ey + 0.6, 2.2, 0.8, eg); }
+      else { uwR(c, 13, ey, 2, 1.6, eg); uwR(c, 17, ey, 2, 1.6, eg); if (L.eyes === "glow") { uwR(c, 13.5, ey + 0.3, 0.8, 0.8, "#fff"); uwR(c, 17.5, ey + 0.3, 0.8, 0.8, "#fff"); } }
+      if (L.grin) { uwR(c, 12.6, ey - 1, 2.6, 0.6, L.hair); uwR(c, 16.8, ey - 1.4, 2.6, 0.6, L.hair); uwR(c, 14, hy + 6.8, 4, 0.9, "#ffffff"); uwR(c, 17.6, hy + 6.1, 0.9, 0.9, "#5a2a20"); uwR(c, 13.6, hy + 6.8, 0.6, 0.6, "#5a2a20"); } // sonrisa ladeada y chulesca
+    } else { uwR(c, 11.5, hy + 0.5, 9, 9, L.hairS === "none" ? (L.skel ? "#d8d0c0" : L.arm) : L.hair); if (L.hairS === "long" || L.hairS === "wild") uwR(c, 11, hy + 6, 10, 9, L.hair); }
+    uwHelmet(c, L, face, hy);
+    if (face === 0) { if (!L.dress) { c.fillStyle = L.cape; c.beginPath(); c.moveTo(8.5, top + 1); c.lineTo(23.5, top + 1); c.lineTo(25 + flap * 0.5, 29); c.lineTo(7 - flap * 0.5, 29); c.closePath(); c.fill(); uwR(c, 9, top + 1, 14, 1, H); } uwWings(c, L.wing, L.wingC, L.hi, flap, true); }
+  } else { // perfil (derecha; izquierda = espejo)
+    if (!L.dress) { c.fillStyle = L.cape; c.beginPath(); c.moveTo(12, top + 1); c.lineTo(15, top + 1); c.lineTo(11 - flap, 29); c.lineTo(6 - flap, 28); c.closePath(); c.fill(); }
+    if (L.dress || L.robe) { c.fillStyle = L.robe ?? A; c.beginPath(); c.moveTo(12, top + 6); c.lineTo(20, top + 6); c.lineTo(23, 30); c.lineTo(9, 30); c.closePath(); c.fill(); uwR(c, 9, 28.5, 14, 1.5, X); }
+    else { uwR(c, 13 + lg, 21, 4, 8, A); uwR(c, 15 - lg, 21, 4, 8, D); uwR(c, 13 + lg, 27, 6, 2.5, D); uwR(c, 13 + lg, 23.5, 4, 1.2, X); }
+    c.fillStyle = A; c.beginPath(); c.moveTo(11.5, top + 1); c.lineTo(20.5, top + 1); c.lineTo(20, 20); c.lineTo(12, 20); c.closePath(); c.fill(); uwR(c, 19, top + 3, 1.2, 14, H); uwR(c, 12, 18.5, 8, 1.2, X);
+    c.fillStyle = A; c.beginPath(); c.ellipse(16, top + 2.5, 4, 2.8, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = X; c.beginPath(); c.moveTo(14.5, top + 1); c.lineTo(13, top - 4); c.lineTo(17, top + 1); c.fill();
+    const hx = 21 + cast * 2, hyy = top + 10 - cast * 7; uwR(c, 15, top + 3, 2.6, 7 - cast * 4, A); c.strokeStyle = A; c.lineWidth = 2.4; c.beginPath(); c.moveTo(16.3, top + 8 - cast * 4); c.lineTo(hx, hyy); c.stroke(); c.lineWidth = 1; uwR(c, hx - 1, hyy - 1, 2, 2, L.skel ? "#d8d0c0" : L.skin);
+    uwWeapon(c, L.wpn, hx, hyy, L, now, cast);
+    if (cast) { const gr = c.createRadialGradient(hx + 3, hyy, 0.5, hx + 3, hyy, 5); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.4, L.glow); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(hx - 2, hyy - 5, 10, 10); }
+    const hy = 5 - bob;
+    if (L.hairS === "long" || L.hairS === "wild") uwR(c, 11.5, hy + 1, 5, 12, L.hair);
+    uwR(c, 14, hy + 1.5, 6.5, 7.5, L.skel ? "#d8d0c0" : L.skin); uwR(c, 12.5, hy, 7.5, 3, L.hair === "" ? A : L.hairS === "none" ? A : L.hair); uwR(c, 12.5, hy + 1, 3, 6, L.hairS === "none" ? A : L.hair);
+    if (L.hairS === "bangs") uwR(c, 16, hy + 1.5, 4.5, 3.5, L.hair);
+    uwR(c, 18, hy + 4.2, 1.6, L.eyes === "half" ? 0.8 : 1.5, L.eyes === "glow" || L.skel ? L.glow : "#1a1020"); if (L.grin) uwR(c, 17.5, hy + 7, 3, 0.8, "#ffffff");
+    uwHelmet(c, L, 1, hy);
+  }
+  c.restore();
+}
+/** Dioses (Thanatos, Hypnos, Hades): figura grande, armadura divina con alas, pelo largo; 4 direcciones y pose de lanzamiento.
+ *  Thanatos e Hypnos comparten silueta y armadura (gemelos) con colores espejo; Hades lleva espada y, en la fase 1, túnica negra. */
+function drawUwGod(ctx: CanvasRenderingContext2D, x: number, y: number, face0: Dir, ph: number, now: number, cast: number, rage: boolean, G: UwGod, s: number, robe: boolean, sword: boolean): void {
+  const c = ctx; let face = face0; const flap = Math.sin(now / 240); const lg = ph === 1 ? 1.4 : ph === 2 ? -1.4 : 0; const bob = ph === 0 ? Math.sin(now / 420) * 0.4 : 0.5;
+  c.save(); c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(x + 16, y + 29, 12 * s, 4, 0, 0, Math.PI * 2); c.fill();
+  const gr = c.createRadialGradient(x + 16, y + 10, 2, x + 16, y + 10, 34 * s); const pa = 0.22 + 0.14 * Math.sin(now / 300) + cast * 0.15;
+  gr.addColorStop(0, rage ? `rgba(255,60,60,${pa + 0.1})` : `${G.energy}${Math.round(Math.min(1, pa) * 255).toString(16).padStart(2, "0")}`); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(x - 40 * s, y - 50 * s, 112 * s, 112 * s);
+  for (let k = 0; k < 6; k++) { const a = now / 900 + k * 1.05; const rr = 14 * s + Math.sin(now / 500 + k) * 3; const px = x + 16 + Math.cos(a) * rr, py = y + 6 - 6 * s + Math.sin(a) * rr * 0.45; c.fillStyle = G.energy; c.globalAlpha = 0.6; c.fillRect(px - 1, py - 1, 2.2, 2.2); c.globalAlpha = 0.25; c.fillRect(px - 2.5, py - 0.4, 5, 0.8); c.fillRect(px - 0.4, py - 2.5, 0.8, 5); } // estrellas / motas de energía
+  c.globalAlpha = 1; c.translate(x + 16, y + 30); c.scale(s, s); c.translate(-16, -30);
+  if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const top = 12.5 - bob, hy = 4 - bob; const showWings = !robe;
+  const wingsDraw = (front: boolean): void => {
+    if (!showWings) return; const up = flap * 1.6;
+    for (const sx of face === 1 ? [-1] : [-1, 1]) {
+      c.fillStyle = G.wing; c.beginPath(); c.moveTo(16 + sx * 4, top + 1); c.lineTo(16 + sx * 13, top - 11 - up); c.lineTo(16 + sx * 19, top - 9 - up); c.lineTo(16 + sx * 17, top - 3 - up * 0.5); c.lineTo(16 + sx * 20, top + 3); c.lineTo(16 + sx * 16, top + 7); c.lineTo(16 + sx * 18, top + 12); c.lineTo(16 + sx * 12, top + 13); c.lineTo(16 + sx * 5, top + 7); c.closePath(); c.fill();
+      c.strokeStyle = G.wingHi; c.lineWidth = 0.7; c.beginPath(); c.moveTo(16 + sx * 5, top + 2); c.lineTo(16 + sx * 13, top - 10 - up); c.moveTo(16 + sx * 6, top + 4); c.lineTo(16 + sx * 18, top - 4 - up * 0.5); c.moveTo(16 + sx * 6, top + 6); c.lineTo(16 + sx * 17, top + 10); c.stroke(); c.lineWidth = 1;
+      uwR(c, 16 + sx * 13 - 0.6, top - 11 - up, 1.2, 1.2, G.trim);
+    }
+    void front;
+  };
+  if (face !== 0) wingsDraw(false);
+  const A = G.arm, H = G.hi, D = G.dk, T = G.trim;
+  if (face === 2 || face === 0) {
+    if (face === 2) { uwR(c, 9.5, hy + 4, 13, 18, G.hair); uwR(c, 10, hy + 4, 1, 16, G.hairHi); } // pelo largo detrás
+    // falda de placas / túnica
+    if (robe) { c.fillStyle = G.robe ?? "#0a080c"; c.beginPath(); c.moveTo(9, top); c.lineTo(23, top); c.lineTo(26, 30); c.lineTo(6, 30); c.closePath(); c.fill(); uwR(c, 15.4, top + 2, 1.2, 27 - top, T); uwR(c, 7, 29, 18, 1, "#2a2034"); }
+    else {
+      uwR(c, 11.5 + lg, 21, 3.6, 8, A); uwR(c, 16.9 - lg, 21, 3.6, 8, A); uwR(c, 11.5 + lg, 21, 1, 7, H); uwR(c, 16.9 - lg, 21, 1, 7, H); uwR(c, 11 + lg, 27, 4.6, 2.5, D); uwR(c, 16.4 - lg, 27, 4.6, 2.5, D); uwR(c, 11.6 + lg, 23.6, 3.4, 1, T); uwR(c, 17 - lg, 23.6, 3.4, 1, T);
+      c.fillStyle = A; c.beginPath(); c.moveTo(9.5, 18.5); c.lineTo(22.5, 18.5); c.lineTo(24, 24); c.lineTo(19, 22.5); c.lineTo(16, 25); c.lineTo(13, 22.5); c.lineTo(8, 24); c.closePath(); c.fill(); uwR(c, 9.5, 18.5, 13, 1, T);
+    }
+    // coraza divina
+    c.fillStyle = robe ? (G.robe ?? "#0a080c") : A; c.beginPath(); c.moveTo(9, top + 1); c.lineTo(23, top + 1); c.lineTo(21.5, 19); c.lineTo(10.5, 19); c.closePath(); c.fill();
+    if (!robe && face === 2) { c.fillStyle = H; c.beginPath(); c.moveTo(11, top + 3); c.lineTo(16, top + 8); c.lineTo(21, top + 3); c.lineTo(20, top + 2); c.lineTo(16, top + 6); c.lineTo(12, top + 2); c.closePath(); c.fill(); uwR(c, 14.8, top + 7, 2.4, 2.4, G.gem); uwR(c, 15.3, top + 7.4, 0.8, 0.8, "#fff");
+      uwR(c, 12, top + 10.5, 8, 0.8, T); uwR(c, 12.5, top + 12.3, 7, 0.8, T); uwR(c, 11, 17.6, 10, 1.2, T); }
+    if (robe && face === 2) { uwR(c, 12, top + 1, 8, 2, "#2a2034"); uwR(c, 14.8, top + 3, 2.4, 2.4, G.gem); }
+    // hombreras aladas
+    for (const sx of [-1, 1]) { const px = 16 + sx * 7.5; c.fillStyle = robe ? "#1a1420" : D; c.beginPath(); c.ellipse(px, top + 2.2, 4, 3, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = robe ? "#241c2c" : A; c.beginPath(); c.ellipse(px, top + 1.8, 3.5, 2.5, 0, 0, Math.PI * 2); c.fill();
+      if (!robe) { c.fillStyle = T; c.beginPath(); c.moveTo(px, top); c.lineTo(px + sx * 5, top - 3); c.lineTo(px + sx * 3, top + 1.5); c.closePath(); c.fill(); } }
+    const arm = (sx: number, raise: number): void => { const ax = 16 + sx * 8; uwR(c, ax - 1.3, top + 3 - raise * 10, 2.6, 8, robe ? (G.robe ?? "#0a080c") : A); uwR(c, ax - 1.6, top + 8 - raise * 10, 3.2, 2, robe ? "#2a2034" : T); uwR(c, ax - 1, top + 10 - raise * 10, 2, 1.8, G.skin); };
+    const rc = face === 2 ? cast : 0; arm(-1, 0); arm(1, rc);
+    if (rc > 0) { const gx = 24, gy = top + 0; const g2 = c.createRadialGradient(gx, gy, 0.5, gx, gy, 7); g2.addColorStop(0, "#ffffff"); g2.addColorStop(0.35, G.energy); g2.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g2; c.fillRect(gx - 7, gy - 7, 14, 14); }
+    if (sword && face === 2) { const sx = 8, sy = top + 11; uwR(c, sx - 0.8, sy - 16, 1.8, 16, "#c8ccd8"); uwR(c, sx - 0.2, sy - 16, 0.6, 15, "#ffffff"); uwR(c, sx - 3, sy - 0.5, 6, 1.4, "#8a6a20"); uwR(c, sx - 0.7, sy + 0.8, 1.4, 3, "#3a2a1a"); uwR(c, sx - 1, sy + 3.6, 2, 1.2, "#c03030"); }
+    // cabeza
+    if (face === 2) {
+      uwR(c, 12, hy + 1.5, 8, 8, G.skin); uwR(c, 12, hy + 8, 8, 1.5, "rgba(0,0,0,0.1)");
+      uwR(c, 11, hy - 0.5, 10, 3, G.hair); uwR(c, 11, hy + 1, 2, 10, G.hair); uwR(c, 19, hy + 1, 2, 10, G.hair); uwR(c, 12.5, hy + 1.5, 3, 2, G.hair); uwR(c, 17, hy + 1.5, 2.5, 1.5, G.hair); uwR(c, 12, hy, 1, 2, G.hairHi); uwR(c, 18, hy, 1, 1.5, G.hairHi);
+      const ey = hy + 4.6;
+      if (G.eyes === "half") { uwR(c, 13, ey + 0.8, 2.3, 0.7, "#5a4a3a"); uwR(c, 16.8, ey + 0.8, 2.3, 0.7, "#5a4a3a"); }
+      else if (G.eyes === "cold") { uwR(c, 13, ey, 2.3, 1.4, "#c8c8e8"); uwR(c, 16.8, ey, 2.3, 1.4, "#c8c8e8"); uwR(c, 13.8, ey + 0.2, 0.9, 1.1, "#4a2a8a"); uwR(c, 17.6, ey + 0.2, 0.9, 1.1, "#4a2a8a"); uwR(c, 12.8, ey - 0.8, 2.6, 0.5, "#3a3a4a"); uwR(c, 16.6, ey - 0.4, 2.6, 0.5, "#3a3a4a"); }
+      else { uwR(c, 13, ey, 2.2, 1.5, "#1a1020"); uwR(c, 16.8, ey, 2.2, 1.5, "#1a1020"); uwR(c, 13.4, ey + 0.2, 0.7, 0.7, rage ? "#ff4040" : "#7a5aa0"); uwR(c, 17.2, ey + 0.2, 0.7, 0.7, rage ? "#ff4040" : "#7a5aa0"); }
+      uwR(c, 15, hy + 7.4, 2, 0.6, G.eyes === "cold" ? "#8a6a6a" : "#b07a6a");
+      if (!robe) { uwR(c, 11.5, hy + 0.6, 9, 1.2, T); uwR(c, 15.2, hy - 0.6, 1.6, 1.8, G.gem); for (const sx of [-1, 1]) { c.fillStyle = T; c.beginPath(); c.moveTo(16 + sx * 4.5, hy + 1); c.lineTo(16 + sx * 8, hy - 3); c.lineTo(16 + sx * 5.5, hy + 2); c.fill(); } }
+    } else { // espalda: pelo largo hasta la cintura
+      uwR(c, 11, hy - 0.5, 10, 10, G.hair); uwR(c, 10.5, hy + 8, 11, 12, G.hair); uwR(c, 12, hy + 1, 1, 18, G.hairHi); uwR(c, 18.5, hy + 2, 1, 16, G.hairHi);
+      if (!robe) uwR(c, 11.5, hy + 0.6, 9, 1.2, T);
+      wingsDraw(true); if (sword) { uwR(c, 23.5, top - 6, 1.8, 16, "#c8ccd8"); uwR(c, 21.5, top + 9.5, 6, 1.4, "#8a6a20"); }
+    }
+  } else { // perfil
+    uwR(c, 11, hy + 3, 4, 17, G.hair); uwR(c, 11.5, hy + 3, 1, 15, G.hairHi);
+    if (robe) { c.fillStyle = G.robe ?? "#0a080c"; c.beginPath(); c.moveTo(11, top); c.lineTo(20, top); c.lineTo(23, 30); c.lineTo(8, 30); c.closePath(); c.fill(); }
+    else { uwR(c, 13 + lg, 21, 3.6, 8, A); uwR(c, 15 - lg, 21, 3.6, 8, D); uwR(c, 13 + lg, 27, 5.5, 2.5, D); uwR(c, 13 + lg, 23.6, 3.4, 1, T); c.fillStyle = A; c.beginPath(); c.moveTo(11, 18.5); c.lineTo(20.5, 18.5); c.lineTo(21.5, 24); c.lineTo(10, 24); c.closePath(); c.fill(); }
+    c.fillStyle = robe ? (G.robe ?? "#0a080c") : A; c.beginPath(); c.moveTo(11.5, top + 1); c.lineTo(20.5, top + 1); c.lineTo(20.5, 19); c.lineTo(12, 19); c.closePath(); c.fill(); if (!robe) { uwR(c, 19.5, top + 3, 1.2, 14, H); uwR(c, 12, 17.6, 8.5, 1.2, T); }
+    c.fillStyle = robe ? "#241c2c" : A; c.beginPath(); c.ellipse(16, top + 2, 4, 2.8, 0, 0, Math.PI * 2); c.fill(); if (!robe) { c.fillStyle = T; c.beginPath(); c.moveTo(15, top); c.lineTo(11, top - 3); c.lineTo(13, top + 1.5); c.fill(); }
+    const hx = 22 + cast * 2, hyy = top + 10 - cast * 8; uwR(c, 15, top + 3, 2.6, 6 - cast * 3, robe ? (G.robe ?? "#0a080c") : A); c.strokeStyle = robe ? (G.robe ?? "#0a080c") : A; c.lineWidth = 2.4; c.beginPath(); c.moveTo(16.3, top + 8 - cast * 4); c.lineTo(hx, hyy); c.stroke(); c.lineWidth = 1; uwR(c, hx - 1, hyy - 1, 2, 2, G.skin);
+    if (sword) { uwR(c, hx + 1, hyy - 15, 1.8, 15, "#c8ccd8"); uwR(c, hx + 1.6, hyy - 15, 0.6, 14, "#fff"); uwR(c, hx - 1.5, hyy - 0.5, 6, 1.3, "#8a6a20"); }
+    if (cast) { const g2 = c.createRadialGradient(hx + 3, hyy - 2, 0.5, hx + 3, hyy - 2, 7); g2.addColorStop(0, "#ffffff"); g2.addColorStop(0.35, G.energy); g2.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g2; c.fillRect(hx - 4, hyy - 9, 14, 14); }
+    uwR(c, 14, hy + 1.5, 6.5, 8, G.skin); uwR(c, 12.5, hy - 0.5, 8, 3, G.hair); uwR(c, 12, hy + 1, 3.5, 10, G.hair);
+    uwR(c, 18.2, hy + 4.6, 1.6, G.eyes === "half" ? 0.7 : 1.4, G.eyes === "cold" ? "#4a2a8a" : G.eyes === "half" ? "#5a4a3a" : "#1a1020");
+    if (!robe) { uwR(c, 12.5, hy + 0.6, 8, 1.2, T); c.fillStyle = T; c.beginPath(); c.moveTo(13, hy + 1); c.lineTo(10, hy - 3); c.lineTo(14.5, hy + 2); c.fill(); }
+  }
+  c.restore();
+}
+// ---------- Manigoldo de Cáncer (aliado): armadura de oro de Cáncer, pelo índigo en punta, sonrisa chulesca, fuegos fatuos azules ----------
+const UW_MANI: UwLk = { arm: "#d8a830", hi: "#fff0a8", dk: "#8a6418", acc: "#f4cc48", glow: "#7fd0ff", skin: "#e8c8a8", hair: "#2a2c7a", hairS: "spiky", helm: "cancer", wing: "none", wingC: "#000000", wpn: "none",
+  cape: "#ecebf4", s: 1.3, eyes: "open", grin: true, bulk: 1.1 };
+function uwWisp(c: CanvasRenderingContext2D, x: number, y: number, r: number, now: number, k: number): void {
+  const fl = Math.sin(now / 90 + k * 1.7); const g2 = c.createRadialGradient(x, y, 0.5, x, y, r * 2.2); g2.addColorStop(0, "rgba(235,250,255,0.95)"); g2.addColorStop(0.35, "rgba(110,200,255,0.75)"); g2.addColorStop(1, "rgba(40,90,255,0)");
+  c.fillStyle = g2; c.fillRect(x - r * 2.2, y - r * 2.2, r * 4.4, r * 4.4);
+  c.fillStyle = "rgba(150,220,255,0.85)"; c.beginPath(); c.moveTo(x - r * 0.8, y); c.quadraticCurveTo(x - r * 0.4 + fl, y - r * 1.6, x + fl * 0.8, y - r * 2.4); c.quadraticCurveTo(x + r * 0.5, y - r * 1.4, x + r * 0.8, y); c.arc(x, y, r * 0.8, 0, Math.PI); c.fill();
+}
+function drawUwAlly(c: CanvasRenderingContext2D, g: Game, a: UwAlly, now: number): void {
+  const k = Math.min(1, Math.max(0, (now - a.moveStart) / Math.max(1, a.moveDur))); const x = (a.fx + (a.x - a.fx) * k) * TS - g.camX, y = (a.fy + (a.y - a.fy) * k) * TS - g.camY;
+  if (x < -90 || x > viewW(g) + 90 || y < -90 || y > VH + 90) return;
+  const ph = k < 1 ? (k < 0.5 ? 1 : 2) : 0; const cast = now < a.cast ? 1 : 0;
+  c.save(); if (a.leaving) c.globalAlpha = Math.max(0, 1 - (now - a.leaving) / UW_ALLY.LEAVE);
+  const au = c.createRadialGradient(x + 16, y + 12, 2, x + 16, y + 12, 34); au.addColorStop(0, `rgba(255,215,90,${0.28 + 0.1 * Math.sin(now / 280) + cast * 0.2})`); au.addColorStop(1, "rgba(255,200,60,0)"); c.fillStyle = au; c.fillRect(x - 20, y - 24, 72, 72);
+  for (let i = 0; i < 4; i++) { const an = now / 650 + i * Math.PI / 2; if (Math.sin(an) < 0) uwWisp(c, x + 16 + Math.cos(an) * 19, y + 6 + Math.sin(an) * 7, 2.6, now, i); } // fuegos fatuos detrás
+  drawUwSpecter(c, x, y, a.face, ph, now, cast, false, UW_MANI, false);
+  for (let i = 0; i < 4; i++) { const an = now / 650 + i * Math.PI / 2; if (Math.sin(an) >= 0) uwWisp(c, x + 16 + Math.cos(an) * 19, y + 6 + Math.sin(an) * 7, 2.6, now, i); }   // y delante
+  if (cast) uwWisp(c, x + 16 + (a.face === 1 ? 14 : a.face === 3 ? -14 : 0), y - 10, 4.2, now, 9);
+  outlined(c, "♋ Manigoldo", x + 16, y - 30, "#ffd860", "bold 10px sans-serif"); c.restore();
+}
+function drawUwAllyFx(c: CanvasRenderingContext2D, g: Game, a: UwAlly, now: number): void {
+  const cx = g.camX, cy = g.camY;
+  if (a.ha) { const left = Math.max(0, a.ha.at - now); for (const q of a.ha.cells) { const sx = q[0] * TS - cx, sy = q[1] * TS - cy; c.fillStyle = `rgba(90,180,255,${0.22 + 0.25 * (1 - left / UW_ALLY.HA_TELE) + 0.1 * Math.sin(now / 70)})`; c.fillRect(sx + 2, sy + 2, TS - 4, TS - 4); c.strokeStyle = "#9fd8ff"; c.strokeRect(sx + 2.5, sy + 2.5, TS - 5, TS - 5); }
+    const q0 = a.ha.cells[Math.floor(a.ha.cells.length / 2)]; if (q0) outlined(c, "♋ Sekishiki Meikai Ha", q0[0] * TS + 16 - cx, q0[1] * TS - 22 - cy, "#bfe8ff", "bold 11px sans-serif"); }
+  const t = now - a.haFl; if (a.haFl && t < 700) { const m = (g.byRegion[regionOf(g.p.x, g.p.y)] ?? []).find((o: Mon) => o.def.id === UW_THAN && o.alive) ?? null; const px = (m ? m.x : a.x) * TS + 16 - cx, py = (m ? m.y : a.y) * TS + 10 - cy;
+    for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2 + t / 200; const rr = 8 + t / 18; uwWisp(c, px + Math.cos(an) * rr, py + Math.sin(an) * rr * 0.6 - t / 40, 3, now, i); } }
+}
+// ---------- capa superior: ambiente de la zona, refugios, carteles de portales, Gran Eclipse y el gran final ----------
+let UW_LASTG: Game | null = null; // último juego dibujado (los portales sellados se pintan con candado)
+function drawUwOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  UW_LASTG = g;
+  const p = g.p; const z = uwZoneOf(p.x, p.y); const W = viewW(g); const c = ctx; const F = g.uwF;
+  if (z >= 0) {
+    const P = UW_PAL[z]!; c.fillStyle = P.tint; c.fillRect(0, 0, W, VH);
+    const vg = c.createRadialGradient(W / 2, VH / 2, VH * 0.3, W / 2, VH / 2, VH * 0.85); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, z === 7 ? "rgba(80,60,0,0.25)" : z === 5 ? "rgba(10,30,60,0.35)" : "rgba(0,0,0,0.5)"); c.fillStyle = vg; c.fillRect(0, 0, W, VH);
+    for (let k = 0; k < 26; k++) { const sp = 20 + (k * 37) % 30; const px = (k * 97 + now / (P.part === "snow" ? 40 : 70) * (k % 3 + 1)) % W, py = P.part === "ember" || P.part === "gold" ? VH - ((k * 53 + now / sp) % VH) : (k * 61 + now / sp) % VH;
+      c.fillStyle = P.part === "snow" ? "rgba(255,255,255,0.8)" : P.part === "gold" ? "rgba(255,230,140,0.75)" : P.part === "ember" ? "rgba(255,120,40,0.7)" : P.part === "ash" ? "rgba(160,150,160,0.5)" : "rgba(190,140,255,0.45)"; c.fillRect(px, py, P.part === "snow" ? 2.5 : 2, P.part === "snow" ? 2.5 : 2); }
+    const cx = g.camX, cy = g.camY;
+    if (F && F.ally && F.r === regionOf(p.x, p.y)) { drawUwAllyFx(c, g, F.ally, now); drawUwAlly(c, g, F.ally, now); }
+    for (const q of uwPortalCells(z)) { const sx = q[0] * TS + 16 - cx, sy = q[1] * TS - cy; if (sx < -60 || sx > W + 60 || sy < -40 || sy > VH + 40) continue; const lab = uwPortalLabel(g, q[0], q[1]); if (lab) outlined(c, `${uwPortalSealed(g, q[0], q[1]) ? "🔒 " : ""}${lab}`, sx, sy - 6, uwPortalSealed(g, q[0], q[1]) ? "#b0b0b0" : "#f0c0ff", "bold 10px sans-serif"); }
+    if (F && F.r === regionOf(p.x, p.y)) {
+      if (F.safe) { for (const s of F.safe.cells) { const sx = s[0] * TS - cx, sy = s[1] * TS - cy; c.fillStyle = `rgba(120,255,160,${0.35 + 0.2 * Math.sin(now / 90)})`; c.fillRect(sx + 3, sy + 3, TS - 6, TS - 6); c.strokeStyle = "#9dff9d"; c.strokeRect(sx + 3.5, sy + 3.5, TS - 7, TS - 7); outlined(c, "✓", sx + 16, sy + 16, "#ffffff", "bold 14px sans-serif"); }
+        outlined(c, F.safe.label, W / 2, 96, "#9dff9d", "bold 13px sans-serif"); }
+      if (F.ecl) { // Gran Eclipse: el Hipermundo
+        c.fillStyle = "rgba(20,0,30,0.45)"; c.fillRect(0, 0, W, VH); const ex = W - 70, ey = 70; c.fillStyle = "#000"; c.beginPath(); c.arc(ex, ey, 26, 0, Math.PI * 2); c.fill(); c.strokeStyle = `rgba(255,200,255,${0.6 + 0.3 * Math.sin(now / 200)})`; c.lineWidth = 3; c.beginPath(); c.arc(ex, ey, 27, 0, Math.PI * 2); c.stroke(); c.lineWidth = 1;
+        const rift = uwAbs(z, UW_ECL_RIFT); const rx = rift[0] * TS + 16 - cx, ry = rift[1] * TS + 16 - cy; const g2 = c.createRadialGradient(rx, ry, 2, rx, ry, 24); g2.addColorStop(0, "rgba(255,255,255,0.95)"); g2.addColorStop(0.5, "rgba(220,120,255,0.6)"); g2.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g2; c.fillRect(rx - 24, ry - 24, 48, 48); outlined(c, "✦ GRIETA", rx, ry - 28, "#ffffff", "bold 11px sans-serif");
+        const left = Math.max(0, Math.ceil((F.ecl.until - now) / 1000)); const foes = (g.byRegion[regionOf(p.x, p.y)] ?? []).filter((m: Mon) => m.alive && m.temp && inUwPocket(m.x, m.y)).length;
+        c.fillStyle = "rgba(10,0,16,0.85)"; const bw = Math.min(W - 16, 460); c.fillRect(W / 2 - bw / 2, 30, bw, 34); c.strokeStyle = "#b060ff"; c.strokeRect(W / 2 - bw / 2 + 0.5, 30.5, bw - 1, 33);
+        outlined(c, "🌑 GRAN ECLIPSE — el Hipermundo de Hades", W / 2, 38, "#e0a0ff", "bold 13px sans-serif"); outlined(c, `Llega a la grieta ✦, vence a las sombras (${foes}) o resiste ${left} s`, W / 2, 54, "#ffffff", "bold 11px sans-serif");
+      }
+      const fx = F.eclFx; if (fx) { const t = now - fx.at, dur = fx.kind === "in" ? 2200 : fx.kind === "pre" ? 1600 : 1800; if (t > dur) F.eclFx = null; else { const k = t / dur;
+        if (fx.kind === "pre" || fx.kind === "end") { c.strokeStyle = fx.kind === "end" ? `rgba(255,60,60,${0.6 * (1 - k)})` : `rgba(180,60,255,${0.6 * (1 - k)})`; c.lineWidth = 16; c.strokeRect(8, 8, W - 16, VH - 16); c.lineWidth = 1; }
+        else { c.fillStyle = `rgba(0,0,0,${0.8 * (1 - k)})`; c.fillRect(0, 0, W, VH); c.strokeStyle = `rgba(255,200,255,${1 - k})`; c.lineWidth = 4; c.beginPath(); c.arc(W / 2, VH / 2, VH * (0.1 + 0.5 * k), 0, Math.PI * 2); c.stroke(); c.lineWidth = 1;
+          outlined(c, fx.kind === "in" ? "¡GRAN ECLIPSE!" : "La luz regresa", W / 2, VH * 0.42, "#ffffff", `bold ${fx.kind === "in" ? 32 : 20}px sans-serif`); } } }
+    }
+  }
+  if (F && F.banner) { const t = now - F.banner.at; if (t < 4200) { const a = t < 300 ? t / 300 : t > 3500 ? (4200 - t) / 700 : 1; c.save(); c.globalAlpha = Math.max(0, a); c.fillStyle = "rgba(10,4,16,0.7)"; c.fillRect(0, VH * 0.2 - 26, W, 54); outlined(c, F.banner.text, W / 2, VH * 0.2 - 6, F.banner.col, "bold 20px sans-serif"); if (F.banner.sub) outlined(c, F.banner.sub, W / 2, VH * 0.2 + 16, "#ffffff", "bold 11px sans-serif"); c.restore(); } }
+  if (F && F.finale && now - F.finale < 7000) { // el gran final: la luz de Atenea rompe el eclipse
+    const t = now - F.finale, k = t / 7000; c.save(); c.globalAlpha = Math.min(1, t / 400) * (1 - Math.max(0, (t - 5500) / 1500));
+    const gx = W / 2, gy = VH * 0.45; for (let r = 0; r < 14; r++) { const a = r / 14 * Math.PI * 2 + now / 2500; c.fillStyle = r % 2 ? "rgba(255,240,180,0.18)" : "rgba(255,255,255,0.12)"; c.beginPath(); c.moveTo(gx, gy); c.lineTo(gx + Math.cos(a) * W, gy + Math.sin(a) * W); c.lineTo(gx + Math.cos(a + 0.12) * W, gy + Math.sin(a + 0.12) * W); c.closePath(); c.fill(); }
+    const g3 = c.createRadialGradient(gx, gy, 4, gx, gy, VH * (0.2 + 0.4 * k)); g3.addColorStop(0, "rgba(255,255,255,0.9)"); g3.addColorStop(1, "rgba(255,230,150,0)"); c.fillStyle = g3; c.fillRect(0, 0, W, VH);
+    outlined(c, "✦ ¡HADES HA CAÍDO! ✦", gx, VH * 0.36, "#fff2b0", "bold 30px sans-serif"); outlined(c, "La luz de Atenea disipa el Gran Eclipse", gx, VH * 0.36 + 28, "#ffffff", "bold 13px sans-serif"); c.restore();
+  }
 }
 
 // ===================== Torre de Croqui: overworld entrance south of Villa Esmeralda =====================
@@ -3073,7 +3970,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined, uw: saveUw(g) };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -3125,7 +4022,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]), dm: raw["dm"] === 1 ? 1 : undefined } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]), dm: raw["dm"] === 1 ? 1 : undefined, uw: readUw(raw["uw"]) } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -3146,7 +4043,7 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; loadUw(g, d.uw); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -3290,7 +4187,7 @@ function update(g: Game, now: number): void {
   g.ground = g.ground.filter((gi: Ground) => now < gi.until);
   if (g.ground.length > 80) { const bg = g.ground.filter((gi: Ground) => !!gi.boss), rest = g.ground.filter((gi: Ground) => !gi.boss); g.ground = [...rest.slice(Math.max(0, rest.length - 80)), ...bg]; }
   if (g.shopOpen && cheb(p.x, p.y, NPC_X, NPC_Y) > 6) g.shopOpen = false;
-  coinTick(g, now); depotTick(g); nqTick(g); buffTick(g, now, Date.now()); gemTick(g, now);
+  coinTick(g, now); depotTick(g); nqTick(g); buffTick(g, now, Date.now()); gemTick(g, now); uwTick(g, now);
   const [px, py] = drawPos(p, now);
   const rr = viewRect(p.x, p.y);
   const vw = viewW(g); g.camX = clamp(px * TS + TS / 2 - vw / 2, rr[0] * TS, (rr[0] + rr[2]) * TS - vw); g.camY = clamp(py * TS + TS / 2 - VH / 2, rr[1] * TS, (rr[1] + rr[3]) * TS - VH);
@@ -3300,6 +4197,7 @@ function update(g: Game, now: number): void {
 const TILE_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#2f6f2c", 2: "#2a5fa8", 3: "#6b6158", 4: "#8a6f4e", 5: "#cfc6b8", 6: "#4a4038", 7: "#5a4b3c", 8: "#d8c48a", 9: "#a88a5a", 10: "#d8c48a", 11: "#2a1440", 12: "#d8d2c4", 13: "#8a6a2a" };
 function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
   if (drawCroqTile(ctx, t, x, y, wx, wy, now)) return;
+  if (wx >= UW_X0 && drawUwTile(ctx, t, x, y, wx, wy, now)) return;
   if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
@@ -3404,6 +4302,7 @@ function drawBrute(ctx: CanvasRenderingContext2D, x: number, y: number, body: st
 }
 function drawMonster(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): void {
   if (drawCroqMon(ctx, m, x, y, now)) return;
+  if (drawUwMon(ctx, m, x, y, now)) return;
   const ph = walkPhase(m, now); const id = m.def.id;
   if (m.def.look) { drawLook(ctx, m.def.look, x, y, now, ph, !!m.def.boss, m.enraged); return; }
   if (id === "rat") {
@@ -3676,6 +4575,22 @@ Object.assign(ICO_DEF, {
   croq_boots: "ft_wing teal dleather sapph", croq_ring: "rg_band sapph silver ice", croq_amulet: "am_gem teal dleather amethyst", croq_orb: "orb_b obsid purple ice",
   croq_blade: "swd_c fire crimson teal", croq_bow: "bow_c iron crimson fire", croq_dag: "dag_c fire black teal", croq_shield: "shd_c teal purple fire", croq_mail: "bd_cuirass fire crimson teal",
 });
+// Iconos del Inframundo: capas `${base}_u${z}` (z = 1..9, una por zona) y los 10 únicos de Hades. Mismo sistema de sprites 16×16.
+Object.assign(ICO_MAT, { surplice: "0a0810 1c1626 34283e 56466e 8a76aa", hades: "08040c 1e0e2c 3e1c5a 6e34a6 b47aee", spectre: "100a14 2a1430 4a1e4e 7a2a6a b0508a" });
+(function icoInitUw(): void {
+  const MAT = ["obsid", "surplice", "surplice", "surplice", "surplice", "ice", "void", "gold", "hades"];
+  const GEM = ["ruby", "fire", "amethyst", "sapph", "emerald", "moon", "amethyst", "holy", "ruby"];
+  const CLO = ["black", "crimson", "purple", "night", "night", "blue", "purple", "white", "black"];
+  for (const base of Object.keys(ICO_TIER)) {
+    const spec = (ICO_TIER[base] ?? "").split(" ");
+    for (let z = 0; z < 9; z++) { const sub = (m: string): string => (m === "T" ? MAT[z]! : m === "G" ? GEM[z]! : m === "K" ? CLO[z]! : m === "iron" || m === "leather" ? "surplice" : m);
+      ICO_DEF[`${base}_u${z + 1}`] = `${spec[1] ?? spec[0] ?? "unknown"} ${sub(spec[2] ?? "iron")} ${sub(spec[3] ?? "iron")} ${sub(spec[4] ?? "iron")}`; }
+  }
+})();
+Object.assign(ICO_DEF, {
+  hds_sword: "swd_c hades black ruby", hds_bow: "bow_c hades black amethyst", hds_dag: "dag_c hades black ruby", hds_staff: "stf_c hades black amethyst", hds_armor: "bd_cuirass hades black ruby",
+  hds_robe: "bd_mantle black hades amethyst", hds_helm: "hd_tiara hades hades ruby", hds_boots: "ft_wing hades black amethyst", hds_ring: "rg_band ruby hades amethyst", hds_amulet: "am_gem hades black ruby",
+});
 const ICON_KEYS: string[] = Object.keys(ICO_DEF);
 // ===================== /Edisar item icons =====================
 
@@ -3879,6 +4794,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   for (const f of g.fields) if (vis(f.x, f.y)) { const x = f.x * TS - cx, y = f.y * TS - cy; const fl = Math.sin(now / 90 + f.x * 3 + f.y) * 3; ctx.fillStyle = "rgba(255,120,20,0.45)"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "rgba(255,220,80,0.7)"; ctx.beginPath(); ctx.moveTo(x + 8, y + 26); ctx.lineTo(x + 16, y + 6 + fl); ctx.lineTo(x + 24, y + 26); ctx.fill(); }
   const reg = regionOf(p.x, p.y);
   if (reg === 0) for (const H of HOUSES) { const d = DOORS[H.n - 1]; if (d && vis(d.x, d.y + 2)) drawFacade(ctx, H, d.x * TS - cx, d.y * TS - cy, houseOpen(g, H.n), g.cleared >= H.n, now); }
+  if (reg === 0 && vis(UW_GATE[0], UW_GATE[1] + 2)) drawUwGate(ctx, g, UW_GATE[0] * TS - cx, UW_GATE[1] * TS - cy, now);
   else { const rt = HRT[reg - 1]; if (rt && vis(rt.exit[0], rt.exit[1])) outlined(ctx, "↩ Salida", rt.exit[0] * TS - cx + 16, rt.exit[1] * TS - cy - 2, "#e0b0ff", "bold 10px sans-serif"); }
   for (const w of g.warns) { const k = clamp((now - w.born) / Math.max(1, w.at - w.born), 0, 1); ctx.fillStyle = `rgba(255,${Math.round(60 - 50 * k)},30,${0.18 + 0.35 * k + 0.1 * Math.sin(now / 60)})`; for (const [wx, wy] of w.cells) if (vis(wx, wy)) ctx.fillRect(wx * TS - cx + 1, wy * TS - cy + 1, TS - 2, TS - 2); }
   for (const gi of g.ground) if (vis(gi.x, gi.y)) drawGroundItem(ctx, gi, gi.x * TS - cx, gi.y * TS - cy, now);
@@ -3959,7 +4875,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (lt.note) { ctx.fillStyle = "#c8c8c8"; ctx.fillText(lt.note, 10, y0 + 21 + n * 14, w - 12); }
     ctx.globalAlpha = 1;
   }
-  drawCroqOverlay(ctx, g, now); drawDimOverlay(ctx, g, now);
+  drawCroqOverlay(ctx, g, now); drawDimOverlay(ctx, g, now); drawUwOverlay(ctx, g, now);
   if (now - g.statusAt < 4500 && g.status) { ctx.globalAlpha = clamp((4500 - (now - g.statusAt)) / 600, 0, 1); outlined(ctx, g.status, viewW(g) / 2, BAR_Y - 20, g.statusColor, "bold 12px sans-serif"); ctx.globalAlpha = 1; }
   drawPowerBar(ctx, g, now, binds);
   if (g.bigMap) drawBigMap(ctx, g, now, "sans-serif");
@@ -3982,7 +4898,7 @@ function buildMini(tiles: Uint8Array): HTMLCanvasElement | null {
   const x2 = c.getContext("2d"); if (!x2) return null;
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const t = tiles[y * MW + x] ?? 6; const H = t === MARBLE ? HOUSES[regionOf(x, y) - 1] : undefined;
-    x2.fillStyle = H ? H.tint : (croqMiniCol(x, y, t) ?? MINI_COL[t] ?? "#000"); x2.fillRect(x * MINI_PX, y * MINI_PX, MINI_PX, MINI_PX);
+    x2.fillStyle = H ? H.tint : (uwMiniCol(x, y, t) ?? croqMiniCol(x, y, t) ?? MINI_COL[t] ?? "#000"); x2.fillRect(x * MINI_PX, y * MINI_PX, MINI_PX, MINI_PX);
   }
   MINI_CACHE = c; return c;
 }
@@ -3993,6 +4909,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   if (reg === 0) {
     dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R); dot(STABLE_X + 0.5, STABLE_Y + 0.5, "#a8d060", R); for (const qn of QNPCS) dot(qn.x + 0.5, qn.y + 0.5, "#8ac8ff", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
+    dot(UW_GATE[0] + 0.5, UW_GATE[1] + 0.5, g.cleared >= NH ? "#b060ff" : "#5a4a6a", R);
     for (const H of HOUSES) {
       const d = DOORS[H.n - 1]; if (!d) continue; dot(d.x + 0.5, d.y + 0.5, doorColor(g, H.n), R);
       if (labels) { ctx.font = "bold 10px sans-serif"; ctx.textAlign = d.x < 48 ? "right" : "left"; ctx.textBaseline = "middle"; const tx = ox + (d.x + 0.5) * s + (d.x < 48 ? -R - 4 : R + 4); ctx.lineWidth = 3; ctx.strokeStyle = "#000"; const txt = `${houseOpen(g, H.n) ? "" : "🔒"}${H.glyph} ${H.name} (nv ${H.rec})`; ctx.strokeText(txt, tx, oy + (d.y + 0.5) * s); ctx.fillStyle = doorColor(g, H.n); ctx.fillText(txt, tx, oy + (d.y + 0.5) * s); ctx.lineWidth = 1; }
@@ -4000,6 +4917,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   } else {
     const rt = HRT[reg - 1];
     if (rt) dot(rt.exit[0] + 0.5, rt.exit[1] + 0.5, "#d090ff", R);
+    if (reg >= UW_R0) for (const q of uwPortalCells(reg - UW_R0)) dot(q[0] + 0.5, q[1] + 0.5, "#d090ff", R);
     for (const m of g.byRegion[reg] ?? []) if (m.alive && m.def.boss) dot(m.x + 0.5, m.y + 0.5, "#ff3030", R);
   }
   const t = curTarget(g); if (t) dot(t.x + 0.5, t.y + 0.5, "#ff9a9a", Math.max(1, s * 0.6));

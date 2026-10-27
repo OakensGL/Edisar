@@ -34,7 +34,7 @@ const c0 = await croq(); check("Croqui spawned in region 13", !!c0 && c0.alive, 
 check("v2 balance: solo HP ≥ 1.3M (v1 795k) and atk ≥ 2× Saga (v1 1.7×)", !!c0 && c0.max >= 1300000 && c0.atk >= 700, `${c0 && c0.max} PV · atk ${c0 && c0.atk}`);
 // --- Torre de Croqui (overworld, south of Villa Esmeralda) ---
 const OYv = 32, DOOR = [65, OYv + 48], GATE = [53, OYv + 48];
-const map = await ev(([door, gate]) => { const g = globalThis.__edisarG.current; const W = 352, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 11, 12]);
+const map = await ev(([door, gate]) => { const g = globalThis.__edisarG.current; const W = g.tiles.length / 144, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 11, 12]);
   const bfs = (sx, sy) => { const seen = new Uint8Array(W * 144); const q = [[sx, sy]]; seen[sy * W + sx] = 1; while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= 96 || ny >= 104) continue; const k = ny * W + nx; if (seen[k] || !walk.has(T[k])) continue; seen[k] = 1; if (T[k] !== 11 || (nx === door[0] && ny === door[1])) q.push([nx, ny]); } } return seen; };
   const seen = bfs(44, 63); // temple of Villa Esmeralda
   let road = true; for (let y = 73; y <= 101; y++) if (T[y * W + 48] !== 9) road = false;
@@ -112,7 +112,7 @@ check("<5%: LLAMA FINAL", !!fin && /LLAMA FINAL/.test(fin), fin || "");
 check("combo: an aimed Bola de Fuego lands during an area attack", combo);
 check("every telegraph stays ≥ 0.55 s even in LLAMA FINAL", minTele >= 550, `min ${minTele} ms`);
 const bag0 = await ev(() => globalThis.__edisarG.current.p.bag.length), gold0 = await ev(() => globalThis.__edisarG.current.p.gold);
-const killOnce = () => ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; g.st.arm = 1e5; if (g.croq) g.croq.siphonUntil = 0; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); if (!m.alive) return; m.hp = 1; const p = g.p; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]) { const x = m.x + dx, y = m.y + dy; if (g.tiles[y * 352 + x] === 12 && !g.byRegion[13].some((o) => o.alive && o.x === x && o.y === y)) { p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = 0; break; } } g.target = m.id; });
+const killOnce = () => ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; g.st.arm = 1e5; if (g.croq) g.croq.siphonUntil = 0; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); if (!m.alive) return; m.hp = 1; const p = g.p; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]) { const x = m.x + dx, y = m.y + dy; if (g.tiles[y * (g.tiles.length / 144) + x] === 12 && !g.byRegion[13].some((o) => o.alive && o.x === x && o.y === y)) { p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = 0; break; } } g.target = m.id; });
 await ev(() => { globalThis.__edisarG.current.p.bag = []; });
 let dead = false; const t3 = Date.now(); while (!dead && Date.now() - t3 < 15000) { await killOnce(); await page.keyboard.press("Digit1"); await sleep(250); dead = await ev(() => !globalThis.__edisarG.current.byRegion[13].find((x) => x.def.id === "croqui").alive); }
 check("Croqui can be killed", dead);
