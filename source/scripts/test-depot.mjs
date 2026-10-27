@@ -1,17 +1,18 @@
 // Headless check: depot chest next to the temple (open, drag bag ↔ depot, tooltip, buttons, persistence). Screenshot: shots/depot.png
 import puppeteer from "puppeteer-core"; import path from "node:path";
+import { activeShim } from "./active-shim.mjs";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const browser = await puppeteer.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true, args: ["--no-sandbox", "--allow-file-access-from-files"], defaultViewport: { width: 1366, height: 900 } });
-const page = await browser.newPage(); const errs = [];
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true, args: ["--no-sandbox", "--allow-file-access-from-files"], defaultViewport: { width: 1366, height: 1250 } });
+const page = await browser.newPage(); await page.evaluateOnNewDocument(activeShim); const errs = [];
 page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); }); page.on("pageerror", (e) => errs.push(String(e)));
 const res = []; const check = (n, ok, x = "") => { res.push(ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${x ? "  — " + x : ""}`); };
 await page.goto("file://" + path.join(root, "dist/index.html")); await page.evaluate(() => localStorage.clear()); await page.reload(); await sleep(600);
-await page.type("input", "Guardian"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Comenzar aventura")).click()); await sleep(1200);
+await page.type("input", "Guardian"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Crear personaje")).click()); await sleep(1200);
 await page.reload(); await sleep(500);
 // seed the backpack with copies of the equipped items (various rarities) via the save
 await page.evaluate(() => {
-  const k = "edisar.autosave.v1"; const c = localStorage.getItem(k); const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(c.split("-")[2]), (ch) => ch.charCodeAt(0))));
+  const k = "@active"; const c = localStorage.getItem(k); const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(c.split("-")[2]), (ch) => ch.charCodeAt(0))));
   let u = d.nextUid; const rs = ["com", "rar", "epi", "hea"]; d.bag = []; for (let r = 0; r < 2; r++) for (const i of Object.values(d.eq).filter(Boolean)) d.bag.push({ ...i, uid: u++, rar: rs[(d.bag.length) % 4], st: {} }); d.bag = d.bag.slice(0, 10); d.nextUid = u;
   const by = new TextEncoder().encode(JSON.stringify(d)); let bin = ""; for (const x of by) bin += String.fromCharCode(x); const body = btoa(bin);
   let h = 0x811c9dc5; for (let i = 0; i < body.length; i++) { h ^= body.charCodeAt(i); h = Math.imul(h, 0x01000193); }
@@ -28,7 +29,7 @@ await page.evaluate(() => document.querySelector("[data-depbtn]").click());
 let ok = false; for (let i = 0; i < 50 && !ok; i++) { await sleep(150); ok = await has("[data-depot]"); }
 check("📦 Depósito button walks to the chest and opens it", ok);
 check("depot has 80 slots", await page.evaluate(() => document.querySelectorAll('[data-depot] [data-drop^="dep:"]').length) >= 80);
-const center = async (sel) => { const el = await page.$(sel); const b = await el.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+const center = async (sel) => { const el = await page.$(sel); await page.evaluate((x) => document.querySelector(x).scrollIntoView({ block: "nearest" }), sel); await sleep(60); const b = await el.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
 const drag = async (from, to) => { const [x0, y0] = await center(from); const [x1, y1] = await center(to); await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x0 + 12, y0 + 4, { steps: 3 }); await page.mouse.move(x1, y1, { steps: 10 }); await page.mouse.up(); await sleep(250); };
 await drag('[data-drop="bag:0"]', '[data-drop="dep:0"]'); await drag('[data-drop="bag:0"]', '[data-drop="dep:1"]'); await drag('[data-drop="bag:0"]', '[data-drop="dep:2"]');
 check("drag backpack → depot (3 items)", (await depCount()) === 3 && (await bagCount()) === b0 - 3, `${await depCount()} / ${await bagCount()}`);

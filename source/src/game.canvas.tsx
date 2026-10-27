@@ -9,7 +9,7 @@ type HatStyle = "hood" | "pointy" | "horns" | "cap" | "mask" | "helm";
 type Look = "staff" | "bow" | "sword" | "axe" | "club" | "dagger" | "none";
 type MonId = string;
 type MoveAct = "up" | "down" | "left" | "right" | "ul" | "ur" | "dl" | "dr";
-type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins" | "mount";
+type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins" | "mount" | "qlog";
 type Binds = Record<Action, string[]>;
 type Slot = "head" | "body" | "legs" | "feet" | "weapon" | "off" | "amulet" | "ring";
 type WType = "sword" | "axe" | "club" | "dagger" | "rod" | "wand" | "staff" | "bow" | "shield" | "quiver" | "orb" | "armor" | "jewel";
@@ -62,6 +62,8 @@ interface Game {
 // ===================== Constantes =====================
 const TS = 32; let VW_T = 21; let VH_T = 13; let VW = TS * VW_T; let VH = TS * VH_T; // la vista cambia en pantalla completa (setView)
 const OY = 32; const OW_W = 96; const OW_H = 72 + OY; const HW = 64, HH = 48, NH = 12;
+const DIM_X0 = 4, DIM_Y0 = OW_H + 4, DIM_W = 34, DIM_H = 22; // Otra Dimensión: arena aparte (cuenta como Casa de Géminis)
+const GEM_BHP = 1.2, GEM_BATK = 1.0, GEM_KHP = 0.8, GEM_KATK = 1.1; // Saga y Kanon (sobre la curva de las Casas)
 const MW = OW_W + 4 * HW; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 5; const DIAG_MUL = 1.4; const BAG_MAX = 20;
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
 const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
@@ -99,14 +101,14 @@ const ACTIONS: Array<{ id: Action; label: string }> = [
   { id: "power1", label: "Poder 1" }, { id: "power2", label: "Poder 2" }, { id: "power3", label: "Poder 3" }, { id: "power4", label: "Poder 4" },
   { id: "hpPot", label: "Poción de vida" }, { id: "manaPot", label: "Poción de maná" },
   { id: "attack", label: "Atacar al más cercano" }, { id: "nextTarget", label: "Siguiente objetivo" }, { id: "clearTarget", label: "Quitar objetivo / cerrar" },
-  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" }, { id: "mount", label: "Montar / desmontar" },
+  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" }, { id: "mount", label: "Montar / desmontar" }, { id: "qlog", label: "Diario de misiones" },
 ];
 const DEFAULT_BINDS: Binds = {
   up: ["KeyW", "ArrowUp", "Numpad8"], down: ["KeyS", "ArrowDown", "Numpad2"], left: ["KeyA", "ArrowLeft", "Numpad4"], right: ["KeyD", "ArrowRight", "Numpad6"],
   ul: ["KeyQ", "Numpad7"], ur: ["KeyE", "Numpad9"], dl: ["KeyZ", "Numpad1"], dr: ["KeyC", "Numpad3"],
   power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"],
   hpPot: ["F5", "Digit5"], manaPot: ["F6", "Digit6"], attack: ["Space"], nextTarget: ["Tab"], clearTarget: ["Escape"],
-  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"],
+  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"], qlog: ["KeyJ"],
 };
 const MOVE_VEC: Record<MoveAct, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0], ul: [-1, -1], ur: [1, -1], dl: [-1, 1], dr: [1, 1] };
 const DIRS8: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]];
@@ -243,8 +245,8 @@ const CLASSES: Record<ClassId, ClassDef> = {
     skMul: { magic: 1, melee: 2.5, dist: 2.5, shield: 2 }, starter: ["wand1", "orb1", ...ARMOR_START], offName: "Orbe",
     powers: [
       pw("Golpe de fuego", "exori flam", "strike", "fire", 20, 2000, 20, 36, 4, "magic"),
-      pw("Explosión ígnea", "adori gran flam", "area", "fire", 60, 2000, 26, 46, 5, "magic"),
-      pw("Ola de fuego", "exevo flam hur", "wave", "fire", 70, 4000, 30, 52, 0, "magic"),
+      pw("Explosión ígnea", "adori gran flam", "area", "fire", 60, 2000, 24, 42, 5, "magic"),
+      pw("Ola de fuego", "exevo flam hur", "wave", "fire", 70, 4000, 28, 48, 0, "magic"),
       pw("Campo de fuego", "adevo grav flam", "field", "fire", 40, 6000, 8, 14, 5, "magic", { dur: 6000 }),
     ],
   },
@@ -330,7 +332,7 @@ function monDef(id: string): MonDef | undefined { return MONS[id]; }
 type Body = "quad" | "crab" | "scorp" | "fish" | "ghost" | "golem" | "plant" | "centaur" | "crystal" | "warrior" | "saint" | "shadow";
 type Horn = "curl" | "bull" | "goat" | "mane" | "none";
 interface MonLook { body: Body; c1: string; c2: string; c3: string; s: number; horn: Horn; glyph: string; alpha: number; }
-type SpecKind = "nova" | "line" | "pull" | "freeze" | "poison" | "blink" | "summon" | "ranged" | "clones" | "banish";
+type SpecKind = "nova" | "line" | "pull" | "freeze" | "poison" | "blink" | "summon" | "ranged" | "clones" | "banish" | "galaxy";
 interface Special { kind: SpecKind; name: string; cd: number; r: number; tele: number; }
 interface BossDef { specials: Special[]; phase2: string; clone: string; }
 interface MonDef { house?: number; look?: MonLook; boss?: BossDef; afk?: number; atkMs?: number; }
@@ -376,10 +378,12 @@ const HOUSES: HouseDef[] = [
     specials: [sp("poison", "Rosas Diabólicas", 6000, 5), sp("ranged", "Rosa Piraña", 3000, 5), sp("summon", "Jardín de rosas", 14000), sp("nova", "Rosa Sangrienta", 10000, 2)], quest: hq("item", 13, "Rosas negras") },
   { n: 12, name: "Géminis", glyph: "♊", tint: "#9a7aff", elem: "dark", rec: 60, boss: "Saga de Géminis", look: saint("#3a5aff", "♊"),
     mons: [["Sombra gemela", lk("shadow", "#3a2a5a", "#140a24", "#b070ff")], ["Reflejo del espejo", lk("shadow", "#d8e0ff", "#7a80a0", "#ffffff", 1, "none", 0.75)], ["Coloso de otra dimensión", lk("ghost", "#4a1a6a", "#1a0a2a", "#ff60ff", 1.35)]],
-    specials: [sp("clones", "Ilusión gemela", 14000), sp("nova", "Explosión de Galaxias", 8000, 3), sp("ranged", "Satán Imperial", 4000, 5)], quest: hq("kill", 40) },
+    specials: [sp("galaxy", "Explosión de Galaxias", 9000, 3, 2000), sp("ranged", "Satán Imperial", 3500, 6), sp("clones", "Ilusión gemela", 14000), sp("nova", "Puño del Caos", 6000, 2, 800)], quest: hq("kill", 40) },
 ];
 const KANON = "Kanon de Géminis";
-const HSTAT = HOUSES.map((H: HouseDef) => ({ hp: Math.round(32 + 2.8 * Math.pow(H.rec, 1.45)), atk: Math.round(13 + 3.4 * H.rec) }));
+// Casas 9–12 un poco más duras para que la curva suba hacia Géminis (1–8 sin cambios)
+const HUP: Record<number, [number, number]> = { 9: [1.12, 1.06], 10: [1.24, 1.12], 11: [1.36, 1.18], 12: [1.45, 1.22] };
+const HSTAT = HOUSES.map((H: HouseDef) => ({ hp: Math.round((32 + 2.8 * Math.pow(H.rec, 1.45)) * (HUP[H.n]?.[0] ?? 1)), atk: Math.round((13 + 3.4 * H.rec) * (HUP[H.n]?.[1] ?? 1)) }));
 for (const H of HOUSES) {
   const i = H.n - 1, R = H.rec; const st = HSTAT[i] ?? { hp: 50, atk: 20 };
   const MUL: Array<[number, number, number, number]> = [[1, 1, 1, 560], [0.6, 0.75, 0.6, 380], [1.8, 1.3, 1.9, 760]];
@@ -389,16 +393,18 @@ for (const H of HOUSES) {
       respawn: 7000, armored: b === "golem" || b === "crystal" || b === "crab" || b === "scorp", drop: (0.06 + i * 0.004) * (k === 2 ? 1.5 : 1), dropN: 1, lootLvl: R + 8,
       rar: [0.12 + i * 0.012, 0.025 + i * 0.006, 0.002 + i * 0.0012], house: H.n, look: ms[1], afk: Math.max(1, R - 2) };
   });
-  const bhp = Math.round(st.hp * (30 + 1.5 * i)), batk = Math.round(st.atk * 1.35);
+  const gm = H.n === NH; const bhp = Math.round(st.hp * (30 + 1.5 * i) * (gm ? GEM_BHP : 1)), batk = Math.round(st.atk * 1.35 * (gm ? GEM_BATK : 1));
   MONS[`h${H.n}boss`] = { id: `h${H.n}boss`, name: H.boss, hp: bhp, exp: Math.round(bhp * 0.25), atk: batk, speed: 520, gold: Math.round(150 + R * 25), respawn: 240000, armored: true, drop: 1, dropN: 2 + Math.floor(i / 4), lootLvl: R + 12,
-    rar: [0.4, 0.22 + 0.02 * i, 0.03 + 0.025 * i], house: H.n, look: H.look, atkMs: 1500, boss: { specials: H.specials, phase2: H.n === NH ? "h12boss2" : "", clone: H.n === NH ? "h12clone1" : "" } };
+    rar: [0.4, 0.22 + 0.02 * i, 0.03 + 0.025 * i], house: H.n, look: H.look, atkMs: 1500, boss: { specials: H.specials, phase2: "", clone: H.n === NH ? "h12clone1" : "" } };
   if (H.n === NH) {
-    const k2hp = Math.round(bhp * 0.65), k2atk = Math.round(batk * 1.15); const kl = saint("#7a0a3a", "♊", "none", "#c8a030", "#5a3a0a");
-    MONS.h12boss2 = { id: "h12boss2", name: KANON, hp: k2hp, exp: Math.round(k2hp * 0.4), atk: k2atk, speed: 500, gold: 1200, respawn: 240000, armored: true, drop: 1, dropN: 4, lootLvl: R + 12, rar: [0.35, 0.3, 0.33], house: H.n, look: kl, atkMs: 1400,
-      boss: { specials: [sp("banish", "Otra Dimensión", 11000, 6), sp("nova", "Explosión de Galaxias", 7000, 4), sp("clones", "Ilusión gemela", 12000)], phase2: "", clone: "h12clone2" } };
-    const c1: MonDef = { id: "h12clone1", name: H.boss, hp: Math.round(st.hp * 0.6), exp: 0, atk: Math.round(batk * 0.45), speed: 520, gold: 0, respawn: 0, armored: false, drop: 0, dropN: 0, lootLvl: 1, rar: [0, 0, 0], house: H.n, look: { ...H.look, alpha: 0.93 } };
+    const k2hp = Math.round(bhp * GEM_KHP), k2atk = Math.round(batk * GEM_KATK); const kl = saint("#7a0a3a", "♊", "none", "#c8a030", "#5a3a0a");
+    MONS.h12boss2 = { id: "h12boss2", name: KANON, hp: k2hp, exp: Math.round(k2hp * 0.4), atk: k2atk, speed: 500, gold: 1800, respawn: 240000, armored: true, drop: 1, dropN: 5, lootLvl: R + 12, rar: [0.35, 0.3, 0.33], house: H.n, look: kl, atkMs: 1400,
+      boss: { specials: [sp("galaxy", "Explosión de Galaxias", 8500, 3, 2000), sp("pull", "Triángulo Dorado", 10000, 6), sp("clones", "Ilusión gemela", 12000), sp("nova", "Golpe de Poseidón", 6500, 2, 800)], phase2: "", clone: "h12clone2" } };
+    const c1: MonDef = { id: "h12clone1", name: H.boss, hp: Math.round(st.hp * 0.6), exp: 0, atk: Math.round(batk * 0.3), speed: 520, gold: 0, respawn: 0, armored: false, drop: 0, dropN: 0, lootLvl: 1, rar: [0, 0, 0], house: H.n, look: { ...H.look, alpha: 0.93 } };
     MONS.h12clone1 = c1;
-    MONS.h12clone2 = { ...c1, id: "h12clone2", name: KANON, hp: Math.round(st.hp * 0.7), atk: Math.round(k2atk * 0.45), look: { ...kl, alpha: 0.93 } };
+    MONS.h12clone2 = { ...c1, id: "h12clone2", name: KANON, hp: Math.round(st.hp * 0.7), atk: Math.round(k2atk * 0.3), look: { ...kl, alpha: 0.93 } };
+    MONS.h12shade = { ...c1, id: "h12shade", name: "Sombra dimensional", hp: Math.round(st.hp * 1.6), atk: Math.round(st.atk * 0.95), speed: 430, look: lk("shadow", "#2a0a4a", "#0a0014", "#e070ff", 1, "none", 0.85) };
+    MONS.h12echo = { ...c1, id: "h12echo", name: "Eco de Kanon", hp: Math.round(st.hp * 5), atk: Math.round(k2atk * 0.5), speed: 520, look: { ...kl, alpha: 0.6 } };
   }
 }
 const ROWS = [28, 23, 18, 13, 8, 3];
@@ -443,7 +449,7 @@ function expFor(L: number): number { return Math.round((50 / 3) * (L * L * L - 6
 function levelFor(exp: number): number { let L = 1; while (L < 500 && expFor(L + 1) <= exp) L++; return L; }
 function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL; }
 function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL; }
-function regionOf(x: number, y: number): number { if (x < OW_W) return 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
+function regionOf(x: number, y: number): number { if (x < OW_W) return inDim(x, y) ? NH : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
 function regionRect(r: number): [number, number, number, number] { if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
 function inRect(q: [number, number, number, number], x: number, y: number): boolean { return x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]; }
 function isSafe(x: number, y: number): boolean { return x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1; }
@@ -502,7 +508,7 @@ let MAP_CACHE: Uint8Array | null = null;
 function buildMap(): Uint8Array {
   if (MAP_CACHE) return MAP_CACHE;
   const big = new Uint8Array(MW * MH).fill(ROCK);
-  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n);
+  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big);
   MAP_CACHE = big; return big;
 }
 // Mundo exterior: se genera con las coordenadas de siempre (96×72) y se desplaza OY casillas al sur
@@ -535,6 +541,7 @@ function buildOverworld(big: Uint8Array): Uint8Array {
 function tileAt(g: Game, x: number, y: number): number { if (x < 0 || y < 0 || x >= MW || y >= MH) return ROCK; return g.tiles[y * MW + x] ?? ROCK; }
 function zoneName(g: Game, x: number, y: number): string {
   const r = regionOf(x, y);
+  if (inDim(x, y)) return "✦ ??? — Otra Dimensión";
   if (r > 0) { const H = HOUSES[r - 1], rt = HRT[r - 1]; if (!H) return "Santuario"; return rt && inRect(rt.room, x, y) ? `${H.glyph} Templo de ${H.boss.split(" de ")[0] ?? H.boss}` : `${H.glyph} Casa de ${H.name}`; }
   if (y < OY) return "Santuario: camino de las 12 Casas";
   const oy = y - OY;
@@ -571,7 +578,7 @@ function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) =
   if (goal(sx, sy)) return null;
   BFS_PREV.fill(-1); OCC.fill(0);
   for (const m of regionMons(g, sx, sy)) if (m.alive) OCC[m.y * MW + m.x] = 1;
-  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1; OCC[STABLE_Y * MW + STABLE_X] = 1;
+  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1; OCC[STABLE_Y * MW + STABLE_X] = 1; for (const qn of QNPCS) OCC[qn.y * MW + qn.x] = 1;
   const start = sy * MW + sx; BFS_PREV[start] = start;
   let head = 0, tail = 0, found = -1; BFS_Q[tail++] = start;
   while (head < tail && head < maxNodes && found < 0) {
@@ -869,11 +876,12 @@ function killMon(g: Game, m: Mon, now: number): void {
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
   if (m.def.house) houseKill(g, m, now);
+  nqKill(g, m, now);
 }
 // ===================== Las Casas: misiones y guardianes =====================
 function questReward(n: number): { exp: number; gold: number; item: string } {
   const H = HOUSES[n - 1]; const R = H ? H.rec : 1;
-  return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.5), gold: Math.round(150 * Math.pow(n, 1.5)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
+  return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.5), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
 }
 function rewardItem(g: Game, maxLvl: number, rar: Rarity): Inst | null {
   const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
@@ -924,6 +932,7 @@ function houseKill(g: Game, m: Mon, now: number): void {
     }
     return;
   }
+  if (n === NH && gemKill(g, m, now)) return;
   for (const o of g.byRegion[n] ?? []) if (o.temp && o.alive && o !== m) { o.alive = false; o.respawnAt = Infinity; }
   if (bd.phase2) {
     const k = spawnTemp(g, MONS[bd.phase2], m.x, m.y, now);
@@ -950,7 +959,7 @@ function die(g: Game, now: number): void {
   p.exp = Math.max(0, p.exp - loss); p.level = levelFor(p.exp); p.hp = maxHp(g); p.mana = maxMana(g);
   resetRegion(g, reg); p.slowUntil = 0; p.poisonUntil = 0; g.returnAt = 0;
   p.x = TEMPLE_X; p.y = TEMPLE_Y; p.fx = TEMPLE_X; p.fy = TEMPLE_Y; p.moveStart = 0; p.face = 2;
-  g.target = -1; g.projs = []; g.heldDirs = []; g.pending = null; g.walkGoal = null; g.minion = null; g.deaths++; g.zone = "Villa Esmeralda (zona segura)"; g.chase = false; g.warns = [];
+  g.target = -1; g.projs = []; g.heldDirs = []; g.pending = null; g.walkGoal = null; g.minion = null; g.deaths++; g.zone = "Villa Esmeralda (zona segura)"; g.chase = false; g.warns = []; g.dim = null; g.gem = undefined; g.dimFx = null;
   if (g.afk) { g.afk = false; addLog(g, "El modo AFK se apagó al morir."); }
   setStatus(g, `¡Has muerto! Perdiste ${loss} de experiencia. Despiertas en el templo.`, now, "#ff8080"); addLog(g, `Moriste y perdiste ${loss} exp.`);
   dropCarry(g, TEMPLE_X, TEMPLE_Y, now);
@@ -1039,7 +1048,7 @@ type DragSrc = { kind: "bag"; uid: number } | { kind: "eq"; slot: Slot; uid: num
 type DropDst = { kind: "bag"; k: number } | { kind: "eq"; slot: Slot } | { kind: "tile"; x: number; y: number } | { kind: "feet" };
 function dropTileOk(g: Game, x: number, y: number): boolean {
   const p = g.p; const t = tileAt(g, x, y);
-  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1)) && !(x === DARIO_X && (y === DARIO_Y || y === DARIO_Y - 1)) && !(x === DEPOT_X && y === DEPOT_Y) && !(x === STABLE_X && (y === STABLE_Y || y === STABLE_Y - 1));
+  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1)) && !(x === DARIO_X && (y === DARIO_Y || y === DARIO_Y - 1)) && !(x === DEPOT_X && y === DEPOT_Y) && !(x === STABLE_X && (y === STABLE_Y || y === STABLE_Y - 1)) && !qnpcAt(x, y) && !qnpcAt(x, y + 1);
 }
 // Tira un objeto de la mochila (número = índice) o del equipo (ranura). Si la casilla no sirve o está lejos, cae a tus pies.
 function dropItem(g: Game, from: number | Slot, x: number | null, y: number | null, now: number): boolean {
@@ -1198,20 +1207,20 @@ function castPower(g: Game, i: number, now: number): boolean {
     }
     case "area": {
       const c: [number, number] = t && inReach(g, t, pw.range) ? [t.x, t.y] : [p.x, p.y];
-      const self = c[0] === p.x && c[1] === p.y; // Avalancha (aoe): 5×5 sobre el objetivo / radio 3 a tu alrededor
-      hitCells(g, circle(c[0], c[1], self ? (pw.aoe > 0 ? 10 : 5) : (pw.aoe > 0 ? 8 : 2)), lo, hi, pw.elem, now, pw.school !== "magic");
+      const self = c[0] === p.x && c[1] === p.y; // todas las áreas como Avalancha: 5×5 sobre el objetivo / radio 3 a tu alrededor
+      hitCells(g, circle(c[0], c[1], self ? AOE_R2.self : AOE_R2.target), lo, hi, pw.elem, now, pw.school !== "magic");
       if (pw.school === "dist") trainSkill(g, "dist", 2, now); break;
     }
     case "wave": {
       if (t) p.face = dirFrom(t.x - p.x, t.y - p.y);
       const dx = dxOf(p.face), dy = dyOf(p.face); const cells: Array<[number, number]> = [];
-      for (let k = 1; k <= 4; k++) { const w = k === 1 ? 0 : 1; for (let j = -w; j <= w; j++) cells.push([p.x + dx * k + dy * j, p.y + dy * k + dx * j]); }
+      for (let k = 1; k <= WAVE_LEN; k++) { const w = k === 1 ? 0 : k === 2 ? 1 : 2; for (let j = -w; j <= w; j++) cells.push([p.x + dx * k + dy * j, p.y + dy * k + dx * j]); }
       hitCells(g, cells, lo, hi, pw.elem, now, false); break;
     }
-    case "spin": hitCells(g, circle(p.x, p.y, 2).filter((c: [number, number]) => c[0] !== p.x || c[1] !== p.y), lo, hi, pw.elem, now, true); trainSkill(g, "melee", 2, now); break;
+    case "spin": hitCells(g, circle(p.x, p.y, AOE_R2.spin).filter((c: [number, number]) => c[0] !== p.x || c[1] !== p.y), lo, hi, pw.elem, now, true); trainSkill(g, "melee", 2, now); break;
     case "field": {
       const c: [number, number] = t && inReach(g, t, pw.range) ? [t.x, t.y] : [p.x + dxOf(p.face) * 2, p.y + dyOf(p.face) * 2];
-      for (const [x, y] of circle(c[0], c[1], 2)) {
+      for (const [x, y] of circle(c[0], c[1], AOE_R2.field)) {
         if (!walkable(tileAt(g, x, y)) || isSafe(x, y)) continue;
         g.fields = g.fields.filter((f: Field) => f.x !== x || f.y !== y);
         g.fields.push({ x, y, until: now + pw.dur, next: now, min: lo, max: hi, elem: pw.elem });
@@ -1280,7 +1289,7 @@ function tryStep(g: Game, dx: number, dy: number, now: number): boolean {
 function walkStep(g: Game, now: number): void {
   const wg = g.walkGoal; if (!wg) return; const p = g.p;
   const goal = (x: number, y: number): boolean => wg.open ? cheb(x, y, wg.x, wg.y) <= (wg.x === DEPOT_X && wg.y === DEPOT_Y ? 1 : 2) : x === wg.x && y === wg.y;
-  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (wg.x === STABLE_X && wg.y === STABLE_Y) { mt(g).open = true; mt(g).msg = ""; if (g.dep) g.dep.open = false; } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
+  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (wg.x === STABLE_X && wg.y === STABLE_Y) { mt(g).open = true; mt(g).msg = ""; if (g.dep) g.dep.open = false; } else if (qnpcAt(wg.x, wg.y)) { openTalk(g, qnpcAt(wg.x, wg.y)!.id); } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
   const st = bfsStep(g, p.x, p.y, goal, 20000);
   if (!st || !tryStep(g, st[0], st[1], now)) { g.walkGoal = null; setStatus(g, "No hay camino hasta allí.", now); }
 }
@@ -1289,6 +1298,7 @@ function clickTile(g: Game, x: number, y: number, now: number): void {
   if (x === DARIO_X && y === DARIO_Y) { requestExchange(g, now); return; }
   if (x === DEPOT_X && y === DEPOT_Y) { requestDepot(g, now); return; }
   if (x === STABLE_X && y === STABLE_Y) { requestStable(g, now); return; }
+  const qn = qnpcAt(x, y); if (qn) { talkTo(g, qn.id, now); return; }
   const m = monAt(g, x, y); if (m) { g.target = m.id; g.chase = true; return; }
   if (walkable(tileAt(g, x, y))) { g.walkGoal = { x, y, open: false }; g.pending = null; g.chase = false; }
 }
@@ -1314,12 +1324,14 @@ function stepMon(g: Game, m: Mon, now: number): void {
     }
     return;
   }
+  if (g.dim && !inDim(m.x, m.y)) return; // en Otra Dimensión el resto de la Casa espera
   if (m.dotUntil > now && now >= m.dotNext) { m.dotNext = now + 1000; damageMon(g, m, roll(m.dotMin, m.dotMax), now, "dark"); if (!m.alive) return; }
   const d = cheb(m.x, m.y, p.x, p.y); const calm = now < m.calmUntil;
   const aggro = !calm && !isSafe(p.x, p.y) && (d <= 6 || now < m.angryUntil);
   if (m.def.boss && aggro && d <= 10 && bossThink(g, m, now, d)) return;
+  if (aggro && d > 1 && highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) { if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); hurtMinion(g, roll(Math.round(m.def.atk * 0.6), Math.round(m.def.atk * 1.0)), now, m.def.name); } return; }
   if (aggro && d <= 1) {
-    if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); }
+    if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); if (highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) hurtMinion(g, roll(Math.round(m.def.atk * 0.5), Math.round(m.def.atk * 0.9)), now, m.def.name); }
     return;
   }
   if (now < m.nextMove || now < m.moveStart + m.moveDur) return;
@@ -1363,6 +1375,7 @@ function specUsable(g: Game, m: Mon, s: Special, d: number): boolean {
     case "ranged": return d >= 2 && d <= s.r && los(g, m.x, m.y, g.p.x, g.p.y);
     case "clones": return tempCount(g, m, true) < 4;
     case "banish": return d <= 3;
+    case "galaxy": return d <= s.r + 1;
   }
   return false;
 }
@@ -1408,6 +1421,7 @@ function doSpecial(g: Game, m: Mon, s: Special, now: number, d: number): void {
       if (g.target === m.id && Math.random() < 0.5) { g.target = -1; setStatus(g, "¡Ilusión! Ya no sabes cuál es el verdadero…", now, "#c8b0ff"); }
       break;
     }
+    case "galaxy": warn(circle(m.x, m.y, s.r * s.r + s.r).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), s.tele, 1.2, 1.8); g.fx.push({ cells: [[m.x, m.y]], elem: "dark", born: now }); break;
     case "banish": {
       const rt = HRT[(m.def.house ?? 1) - 1]; let spot: [number, number] | null = null;
       if (rt) for (let t = 0; t < 40 && !spot; t++) { const x = rt.room[0] + Math.floor(Math.random() * (rt.room[2] - rt.room[0] + 1)), y = rt.room[1] + Math.floor(Math.random() * (rt.room[3] - rt.room[1] + 1)); if (pOk(x, y) && cheb(x, y, m.x, m.y) >= 4) spot = [x, y]; }
@@ -1496,7 +1510,7 @@ function afkThink(g: Game, now: number): void {
     // 5) Acercarse o alejarse
     if (w.range >= 3 && d <= 1 && p.hp < mhp * 0.6) {
       let bx = 0, by = 0, bs = 0;
-      for (const [dx, dy] of DIRS8) { const x = p.x + dx, y = p.y + dy; if (!canPlayerEnter(g, x, y) || isSafe(x, y)) continue; const s = cheb(x, y, t.x, t.y); if (s > bs) { bs = s; bx = dx; by = dy; } }
+      for (const [dx, dy] of DIRS8) { const x = p.x + dx, y = p.y + dy; if (!canPlayerEnter(g, x, y) || isSafe(x, y) || tileAt(g, x, y) === PORTAL) continue; const s = cheb(x, y, t.x, t.y); if (s > bs) { bs = s; bx = dx; by = dy; } }
       if (bs > 1) { tryStep(g, bx, by, now); return; }
     }
     if (!inReach(g, t, w.range)) {
@@ -1521,12 +1535,13 @@ function runAction(g: Game, a: Action, now: number): void {
     case "power3": castPower(g, 2, now); break; case "power4": castPower(g, 3, now); break;
     case "hpPot": usePotion(g, "hp", now); break; case "manaPot": usePotion(g, "mana", now); break;
     case "attack": case "nextTarget": targetNearest(g, now); g.chase = true; break;
-    case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open) || (!!g.mt && g.mt.open)) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; if (g.mt) g.mt.open = false; } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
+    case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open) || (!!g.mt && g.mt.open) || (!!g.nq && (g.nq.log || !!g.nq.talk))) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; if (g.mt) g.mt.open = false; if (g.nq) { g.nq.log = false; replyBye(g); } } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
     case "shop": if (g.shopOpen) g.shopOpen = false; else requestShop(g, now); break;
     case "afk": toggleAfk(g, now); break;
     case "map": g.bigMap = !g.bigMap; break;
     case "coins": { const c = cs(g); c.open = !c.open; c.msg = ""; break; }
     case "mount": toggleMount(g, now); break;
+    case "qlog": { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); break; }
     default: break;
   }
 }
@@ -1553,7 +1568,8 @@ interface Outfit { id: string; n: string; robe: string; trim: string; price: num
 interface Aura { id: string; n: string; c: [number, number, number]; price: number; }
 interface NameCol { id: string; n: string; c: string; price: number; }
 type MountKind = "donkey" | "horse" | "wolf" | "dragon" | "boar" | "bull" | "lion" | "pegasus";
-interface MountDef { id: string; n: string; price: number; speed: number; src: "gold" | "coins" | "boss"; kind: MountKind; body: string; dark: string; mane: string; mon?: string; chance?: number; } // speed = % más rápido montado
+interface MountDef { id: string; n: string; price: number; speed: number; src: "gold" | "coins" | "boss" | "quest"; kind: MountKind; body: string; dark: string; mane: string; mon?: string; chance?: number; } // speed = % más rápido montado
+const CLOUD_ROBE = "#121014"; // marca del atuendo «Túnica de Nubes Rojas» (drawHuman lo dibuja con nubes y cuello alto)
 const OUTFITS: Outfit[] = [
   { id: "o_carmesi", n: "Túnica carmesí", robe: "#8a1c2a", trim: "#ffd34d", price: 40 },
   { id: "o_noche", n: "Manto de medianoche", robe: "#1c2a5a", trim: "#9be8ff", price: 40 },
@@ -1561,6 +1577,7 @@ const OUTFITS: Outfit[] = [
   { id: "o_nieve", n: "Atuendo de nieve", robe: "#e8eef4", trim: "#4aa3ff", price: 60 },
   { id: "o_sombra", n: "Vestidura de sombra", robe: "#24182e", trim: "#c07bff", price: 60 },
   { id: "o_dorado", n: "Atavío dorado", robe: "#b8862a", trim: "#fff0a8", price: 90 },
+  { id: "o_nubes", n: "Túnica de Nubes Rojas", robe: CLOUD_ROBE, trim: "#d01828", price: 90 },
 ];
 const AURAS: Aura[] = [
   { id: "a_oro", n: "Aura dorada", c: [255, 211, 77], price: 80 },
@@ -1583,6 +1600,7 @@ const MOUNTS: MountDef[] = [
   { id: "m_toro", n: "Toro de Tauro", price: 0, speed: 30, src: "boss", mon: "h2boss", chance: 0.12, kind: "bull", body: "#6a4426", dark: "#3a2414", mane: "#d8a93a" },
   { id: "m_leon", n: "León de Nemea", price: 0, speed: 35, src: "boss", mon: "h4boss", chance: 0.08, kind: "lion", body: "#d8a040", dark: "#8a5a1a", mane: "#8a3a10" },
   { id: "m_corcel", n: "Corcel de Sagitario", price: 0, speed: 40, src: "boss", mon: "h8boss", chance: 0.06, kind: "pegasus", body: "#f4f0e8", dark: "#a8a090", mane: "#ffd34d" },
+  { id: "m_unicornio", n: "Unicornio de bronce", price: 0, speed: 35, src: "quest", kind: "horse", body: "#c89a5a", dark: "#6a4a26", mane: "#f4e8c8" },
 ];
 type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename";
 const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string }> = {
@@ -1601,7 +1619,7 @@ interface Game { cs?: CoinState; }
 function newCS(): CoinState { return { coins: 0, owned: [], outfit: "", aura: "", ncol: "", premUntil: 0, xpLeft: 0, xpT: 0, bagX: 0, scrolls: 0, afkMin: "com", open: false, exOpen: false, exWalk: false, msg: "", msgBad: false, earned: 0 }; }
 function cs(g: Game): CoinState { if (!g.cs) g.cs = newCS(); return g.cs; }
 function bagMax(g: Game): number { return BAG_MAX + (g.cs ? g.cs.bagX : 0); }
-function isNpcAt(x: number, y: number): boolean { return (x === NPC_X && y === NPC_Y) || (x === DARIO_X && y === DARIO_Y) || (x === DEPOT_X && y === DEPOT_Y) || (x === STABLE_X && y === STABLE_Y); }
+function isNpcAt(x: number, y: number): boolean { return (x === NPC_X && y === NPC_Y) || (x === DARIO_X && y === DARIO_Y) || (x === DEPOT_X && y === DEPOT_Y) || (x === STABLE_X && y === STABLE_Y) || !!qnpcAt(x, y); }
 function premOn(g: Game, wall?: number): boolean { return !!g.cs && g.cs.premUntil > (wall ?? Date.now()); }
 function expMul(g: Game): number { const c = g.cs; if (!c) return 1; return 1 + (premOn(g) ? PREM_EXP : 0) + (c.xpLeft > 0 ? XP_BOOST : 0); }
 const RAR_RANK: Record<Rarity, number> = { com: 0, rar: 1, epi: 2, hea: 3 };
@@ -1677,7 +1695,7 @@ function requestExchange(g: Game, now: number): void {
 }
 function coinTick(g: Game, now: number): void {
   const c = g.cs; if (!c) return;
-  if (c.xpLeft > 0) { const dt = c.xpT > 0 ? clamp(now - c.xpT, 0, 1000) : 0; c.xpLeft = Math.max(0, c.xpLeft - dt); if (c.xpLeft === 0) setStatus(g, "Se acabó la poción de experiencia.", now); }
+  if (c.xpLeft > 0) { const dt = c.xpT > 0 ? clamp(now - c.xpT, 0, 1000) : 0; c.xpLeft = Math.max(0, c.xpLeft - dt); if (c.xpLeft === 0) { setStatus(g, "⚗️ Se acabó la poción de experiencia.", now); addLog(g, "⚗️ Se acabó la poción de experiencia."); } }
   c.xpT = now;
   if (c.exOpen && (g.shopOpen || cheb(g.p.x, g.p.y, DARIO_X, DARIO_Y) > 6)) c.exOpen = false; // una ventana de NPC a la vez
 }
@@ -1726,6 +1744,7 @@ function mtMsg(g: Game, text: string, bad?: boolean): void { const s = mt(g); s.
 function mountHow(d: MountDef): string {
   if (d.src === "coins") return `Tienda de Edisar Coins: 🪙 ${d.price}`;
   if (d.src === "gold") return `${STABLE_NAME}: 💰 ${d.price.toLocaleString("es-MX")} de oro`;
+  if (d.src === "quest") return "Premio de la profecía de Pitia, la Oráculo (misiones del pueblo)";
   const m = MONS[d.mon ?? ""]; return `Se doma al vencer a ${m ? m.name : "un jefe"} (${Math.round((d.chance ?? 0) * 100)}% por victoria)`;
 }
 function toggleMount(g: Game, now: number): void {
@@ -1821,6 +1840,370 @@ function drawRider(ctx: CanvasRenderingContext2D, g: Game, d: MountDef, x: numbe
   ctx.save(); ctx.beginPath(); ctx.rect(flip ? x - 6 : x + 22, y - 2, 16, 20); ctx.clip(); drawMount(ctx, d, x, y - bob, flip, phase, now); ctx.restore(); // cabeza y cuello por delante del jinete
 }
 
+// ===================== Misiones de los vecinos de Villa Esmeralda (estilo Tibia) =====================
+// Hablas con ellos (clic o caminando hasta su lado): «misión», «aceptar», «entregar», «adiós». «!» = misión disponible, «?» = lista para entregar.
+interface QNpc { id: string; name: string; x: number; y: number; robe: string; trim: string; hat: HatStyle; look: Look; greet: string; none: string; bye: string; }
+const QNPCS: QNpc[] = [
+  { id: "kiki", name: "Kiki de Jamir", x: 43, y: 29 + OY, robe: "#a8603a", trim: "#f0d080", hat: "cap", look: "none",
+    greet: "¡Hola! Soy Kiki, aprendiz del maestro Mu. ¡Puedo mover cosas con la mente! Bueno… cosas pequeñas. ¿Buscas una misión?", none: "¡Ya me ayudaste con todo! El maestro Mu estaría orgulloso de ti.", bye: "¡Adiós! Que el cosmos te acompañe." },
+  { id: "marin", name: "Marin del Águila", x: 46, y: 29 + OY, robe: "#b03a3a", trim: "#e8e0d0", hat: "mask", look: "none",
+    greet: "Detrás de esta máscara entrené a más de un caballero. La fuerza nace del cosmos, no de los músculos. ¿Quieres entrenar?", none: "Ya no tengo nada que enseñarte. Ahora te toca a ti enseñar a otros.", bye: "No bajes la guardia." },
+  { id: "shaina", name: "Shaina de Ofiuco", x: 50, y: 29 + OY, robe: "#4a7a3a", trim: "#c0e0a0", hat: "mask", look: "dagger",
+    greet: "Hmph. Otro aspirante. Las Casas altas no perdonan a los débiles. Si de verdad quieres pelear, pide una misión.", none: "Está bien… lo admito: eres fuerte. Ahora vete, que tengo que entrenar.", bye: "Lárgate ya." },
+  { id: "pitia", name: "Pitia, la Oráculo", x: 50, y: 32 + OY, robe: "#e8e0f0", trim: "#c8a030", hat: "hood", look: "staff",
+    greet: "Las brumas de Delfos me mostraron tu rostro, viajero. Una profecía te espera en tres pasos. ¿Escucharás la misión?", none: "La profecía se cumplió. El unicornio de bronce es tuyo; que te lleve lejos.", bye: "Que Atenea guíe tus pasos." },
+];
+type NQKind = "kill" | "collect" | "boss";
+interface NQDef { id: string; npc: string; name: string; kind: NQKind; mons: string[]; n: number; lvl: number; house: number; prev?: string; item?: string; chance?: number;
+  offer: string; task: string; thanks: string; rw: { coins?: number; item?: "rar" | "epi"; mount?: string } }
+const hm = (n: number): string[] => ["a", "b", "c"].map((s: string) => `h${n}${s}`);
+const NQUESTS: NQDef[] = [
+  { id: "k1", npc: "kiki", name: "Ratas en el taller", kind: "kill", mons: ["rat"], n: 10, lvl: 1, house: 0, task: "Mata 10 ratas alrededor del pueblo.",
+    offer: "¡Unas ratas se comen las herramientas del taller! ¿Podrías ahuyentar a 10 ratas de las afueras?", thanks: "¡Ya no se oyen ratas! Toma, es poco, pero lo hice yo… con la mente.", rw: {} },
+  { id: "k2", npc: "kiki", name: "Polvo de estrellas", kind: "collect", mons: hm(1), n: 6, lvl: 3, house: 1, item: "Polvo de estrellas", chance: 0.35, task: "Junta 6 Polvo de estrellas de los monstruos de la Casa de Aries.",
+    offer: "El maestro Mu repara armaduras con polvo de estrellas. Las criaturas de la Casa de Aries lo llevan encima. ¿Me traes 6?", thanks: "¡Brilla muchísimo! Con esto el maestro arreglará una armadura… y a ti te toca esta.", rw: { item: "rar" } },
+  { id: "k3", npc: "kiki", name: "Cuernos para la forja", kind: "collect", mons: hm(2), n: 6, lvl: 7, house: 2, item: "Cuerno de toro", chance: 0.3, task: "Junta 6 Cuernos de toro en la Casa de Tauro.",
+    offer: "Para la forja necesito cuernos de los toros de la Casa de Tauro. ¡Cuidado con sus embestidas! ¿Me traes 6?", thanks: "¡Qué cuernos tan duros! Toma tus monedas, ¡te las ganaste!", rw: { coins: 2 } },
+  { id: "m1", npc: "marin", name: "Entrenamiento del Águila", kind: "kill", mons: ["troll", "wasp"], n: 15, lvl: 5, house: 0, task: "Derrota 15 trolls o avispas.",
+    offer: "Primera lección: la constancia. Derrota a 15 trolls o avispas fuera del pueblo, sin quejarte.", thanks: "Bien. No te quejaste… al menos no en voz alta. Toma tu recompensa.", rw: {} },
+  { id: "m2", npc: "marin", name: "Las sombras de Cáncer", kind: "kill", mons: hm(3), n: 25, lvl: 11, house: 3, task: "Derrota 25 monstruos de la Casa de Cáncer.",
+    offer: "En la Casa de Cáncer las almas no descansan. Derrota a 25 de sus criaturas y libera a las almas atrapadas.", thanks: "Siento el cosmos de las almas en paz. Lo hiciste bien.", rw: { item: "rar" } },
+  { id: "m3", npc: "marin", name: "El rugido de Leo", kind: "boss", mons: ["h4boss"], n: 1, lvl: 15, house: 4, task: "Vence a Aioria de Leo en su Casa.",
+    offer: "Aioria de Leo fue mi amigo… y ahora está confundido. Véncelo en la Casa de Leo para que despierte.", thanks: "¿Aioria despertó? Gracias. Toma esto, y también estas monedas.", rw: { coins: 3, item: "rar" } },
+  { id: "s1", npc: "shaina", name: "Veneno escarlata", kind: "collect", mons: hm(7), n: 8, lvl: 30, house: 7, item: "Aguijón escarlata", chance: 0.3, task: "Junta 8 Aguijones escarlata en la Casa de Escorpio.",
+    offer: "Quiero un antídoto contra la Aguja Escarlata. Tráeme 8 aguijones de las criaturas de la Casa de Escorpio. Si sobrevives.", thanks: "Vaya, sobreviviste. Toma, no te acostumbres a mis regalos.", rw: { coins: 5, item: "epi" } },
+  { id: "s2", npc: "shaina", name: "La espada de Capricornio", kind: "boss", mons: ["h9boss"], n: 1, lvl: 40, house: 9, task: "Vence a Shura de Capricornio.",
+    offer: "Dicen que la Excalibur de Shura lo corta todo. Demuéstrame que no te corta a ti: vence a Shura en su Casa.", thanks: "Sigues entero. Impresionante… para ser tú.", rw: { coins: 5, item: "epi" } },
+  { id: "s3", npc: "shaina", name: "Rosas de Piscis", kind: "kill", mons: hm(11), n: 40, lvl: 52, house: 11, task: "Derrota 40 criaturas de la Casa de Piscis.",
+    offer: "El jardín de Afrodita está lleno de rosas venenosas y de sus guardianes. Derrota a 40. Sin flores para mí, gracias.", thanks: "Hueles a rosas. Qué asco. Pero cumpliste: toma.", rw: { coins: 10, item: "epi" } },
+  { id: "p1", npc: "pitia", name: "La profecía de Delfos (1/3)", kind: "kill", mons: ["mino", "guard"], n: 12, lvl: 10, house: 0, task: "Derrota 12 minotauros o guardias minotauro.",
+    offer: "Primer paso de la profecía: el laberinto del minotauro esconde una señal. Derrota a 12 minotauros y la verás.", thanks: "La señal brilla en tu frente. El primer paso está cumplido.", rw: {} },
+  { id: "p2", npc: "pitia", name: "La profecía de Delfos (2/3)", kind: "boss", mons: ["h5boss"], n: 1, lvl: 20, house: 5, prev: "p1", task: "Vence a Shaka de Virgo.",
+    offer: "Segundo paso: el hombre más cercano a los dioses debe abrir los ojos ante ti. Vence a Shaka de Virgo.", thanks: "Shaka abrió los ojos… y vio tu cosmos. Falta un último paso.", rw: { coins: 3 } },
+  { id: "p3", npc: "pitia", name: "La profecía de Delfos (3/3)", kind: "collect", mons: hm(8), n: 5, lvl: 35, house: 8, prev: "p2", item: "Pluma dorada", chance: 0.25, task: "Junta 5 Plumas doradas en la Casa de Sagitario.",
+    offer: "Último paso: las plumas doradas del arquero de Sagitario. Con 5 de ellas despertaré al unicornio de bronce para ti.", thanks: "¡La profecía se cumple! El unicornio de bronce despierta y es tuyo, junto con este tesoro.", rw: { coins: 10, item: "epi", mount: "m_unicornio" } },
+];
+interface NQSt { s: "a" | "r" | "d"; k: number; }
+interface NQState { q: Record<string, NQSt>; talk: string; say: string; offer: string; log: boolean; }
+interface Game { nq?: NQState; }
+function nq(g: Game): NQState { if (!g.nq) g.nq = { q: {}, talk: "", say: "", offer: "", log: false }; return g.nq; }
+function qnpc(id: string): QNpc | undefined { return QNPCS.find((n: QNpc) => n.id === id); }
+function qdef(id: string): NQDef | undefined { return NQUESTS.find((q: NQDef) => q.id === id); }
+function qnpcAt(x: number, y: number): QNpc | undefined { return QNPCS.find((n: QNpc) => n.x === x && n.y === y); }
+function nqReward(q: NQDef): { exp: number; gold: number } { return { exp: Math.round((expFor(q.lvl + 3) - expFor(q.lvl)) * 0.35) + 150, gold: Math.round(60 + q.lvl * q.lvl * 4) }; }
+type NQStatus = "done" | "ready" | "active" | "avail" | "prev" | "lvl" | "house";
+function nqStatus(g: Game, q: NQDef): NQStatus {
+  const st = g.nq ? g.nq.q[q.id] : undefined;
+  if (st) return st.s === "d" ? "done" : st.s === "r" ? "ready" : "active";
+  if (q.prev && !(g.nq && g.nq.q[q.prev] && g.nq.q[q.prev]!.s === "d")) return "prev";
+  if (g.p.level < q.lvl) return "lvl";
+  if (q.house > 0 && g.cleared < q.house - 1) return "house";
+  return "avail";
+}
+function npcQuests(id: string): NQDef[] { return NQUESTS.filter((q: NQDef) => q.npc === id); }
+// «?» si hay algo que entregar; «!» si hay una misión que puedes aceptar
+function npcMark(g: Game, id: string): "" | "!" | "?" {
+  const qs = npcQuests(id); if (qs.some((q: NQDef) => nqStatus(g, q) === "ready")) return "?";
+  return qs.some((q: NQDef) => nqStatus(g, q) === "avail") ? "!" : "";
+}
+function nqWhy(g: Game, q: NQDef, s: NQStatus): string {
+  if (s === "lvl") return `Aún eres muy débil para lo que tengo en mente. Vuelve cuando seas nivel ${q.lvl}.`;
+  if (s === "house") { const H = HOUSES[q.house - 1]; return `Primero tienes que llegar a la Casa de ${H ? H.name : "?"}. Vuelve cuando la hayas abierto.`; }
+  return "Ahora no tengo nada para ti. Vuelve más tarde.";
+}
+function nqNear(g: Game, n: QNpc): boolean { return regionOf(g.p.x, g.p.y) === 0 && cheb(g.p.x, g.p.y, n.x, n.y) <= 2; }
+function openTalk(g: Game, id: string): void {
+  const n = qnpc(id); if (!n) return; const s = nq(g); s.talk = id; s.offer = ""; s.say = n.greet; s.log = false;
+  g.shopOpen = false; if (g.dep) g.dep.open = false; if (g.mt) g.mt.open = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; }
+}
+function talkTo(g: Game, id: string, now: number): void {
+  const n = qnpc(id); if (!n) return;
+  if (nqNear(g, n)) { g.walkGoal = null; openTalk(g, id); return; }
+  if (regionOf(g.p.x, g.p.y) !== 0) { setStatus(g, `${n.name} está en Villa Esmeralda.`, now); return; }
+  g.walkGoal = { x: n.x, y: n.y, open: true }; if (g.cs) g.cs.exWalk = false; g.chase = false; setStatus(g, `Caminando hacia ${n.name}...`, now);
+}
+// Respuestas del diálogo
+function replyMission(g: Game): void {
+  const s = nq(g); const n = qnpc(s.talk); if (!n) return; s.offer = "";
+  const qs = npcQuests(n.id); const ready = qs.find((q: NQDef) => nqStatus(g, q) === "ready");
+  if (ready) { s.say = `¡Lo lograste! Dime «entregar» y te daré tu premio por «${ready.name}».`; return; }
+  const act = qs.find((q: NQDef) => nqStatus(g, q) === "active");
+  if (act) { const st = s.q[act.id]!; s.say = `Todavía no terminas «${act.name}»: ${act.task} (${st.k}/${act.n})`; return; }
+  const av = qs.find((q: NQDef) => nqStatus(g, q) === "avail");
+  if (av) { s.offer = av.id; const rw = nqReward(av); s.say = `${av.offer} Premio: ${rw.exp.toLocaleString("es-MX")} exp, ${rw.gold.toLocaleString("es-MX")} oro${av.rw.coins ? `, ${av.rw.coins} Edisar Coins` : ""}${av.rw.item ? `, un objeto ${av.rw.item === "epi" ? "épico" : "raro"}` : ""}${av.rw.mount ? ", ¡y una montura!" : ""}. ¿Aceptas?`; return; }
+  const lock = qs.find((q: NQDef) => nqStatus(g, q) !== "done");
+  s.say = lock ? nqWhy(g, lock, nqStatus(g, lock)) : n.none;
+}
+function acceptQuest(g: Game, id: string, now: number): boolean {
+  const q = qdef(id); if (!q || nqStatus(g, q) !== "avail") return false; const s = nq(g);
+  s.q[id] = { s: "a", k: 0 }; s.offer = ""; s.say = `Bien. ${q.task} Vuelve conmigo cuando termines.`;
+  addLog(g, `🗒️ Misión aceptada: ${q.name}. ${q.task}`); setStatus(g, `🗒️ Nueva misión: ${q.name}`, now, "#ffe08a"); return true;
+}
+function replyAccept(g: Game, now: number): void { const s = nq(g); if (s.offer) acceptQuest(g, s.offer, now); }
+function turnIn(g: Game, id: string, now: number): boolean {
+  const q = qdef(id); const s = nq(g); const st = s.q[id]; if (!q || !st || st.s !== "r") return false;
+  st.s = "d"; const rw = nqReward(q); g.p.gold += rw.gold;
+  const lines: Array<[string, string]> = [[`+${rw.exp.toLocaleString("es-MX")} exp · +${rw.gold.toLocaleString("es-MX")} oro`, "#ffd34d"]]; let inBag = true;
+  if (q.rw.item) { const inst = rewardItem(g, q.lvl + 6, q.rw.item); if (inst) { inBag = giveItem(g, inst, g.p.x, g.p.y, now); lines.unshift([`${inBag ? "🎒" : "⬇"} ${itemName(inst)}`, RAR[inst.rar].c]); } }
+  if (q.rw.coins) { coinGain(g, q.rw.coins, `misión «${q.name}»`, now); lines.push([`+${q.rw.coins} Edisar Coins`, "#ffd34d"]); }
+  if (q.rw.mount) { const d = mountDef(q.rw.mount); if (grantMount(g, q.rw.mount, `premio de «${q.name}»`, now) && d) lines.push([`🐎 Montura: ${d.n}`, "#ffe08a"]); }
+  pushToast(g, `🗒️ Misión cumplida: ${q.name}`, lines, inBag ? "" : "Mochila llena: el objeto quedó a tus pies.", now);
+  addLog(g, `🗒️ Misión cumplida: ${q.name} (+${rw.exp} exp, +${rw.gold} oro).`); setStatus(g, `🗒️ ¡Misión cumplida: ${q.name}!`, now, "#7dffb0");
+  addExp(g, rw.exp, now); return true;
+}
+function replyTurnIn(g: Game, now: number): void {
+  const s = nq(g); const q = npcQuests(s.talk).find((x: NQDef) => nqStatus(g, x) === "ready"); if (!q) return;
+  if (turnIn(g, q.id, now)) { s.offer = ""; s.say = q.thanks; }
+}
+function replyBye(g: Game): void { const s = nq(g); s.talk = ""; s.offer = ""; s.say = ""; }
+// Progreso: cada muerte cuenta para las misiones activas (las ilusiones sin experiencia no cuentan)
+function nqKill(g: Game, m: Mon, now: number, r?: number): void {
+  const s = g.nq; if (!s || m.def.exp <= 0) return;
+  for (const q of NQUESTS) {
+    const st = s.q[q.id]; if (!st || st.s !== "a" || !q.mons.includes(m.def.id)) continue;
+    if (q.kind === "collect") { if ((r ?? Math.random()) >= (q.chance ?? 0.3)) continue; st.k++; addFloat(g, m.x * TS + 16, m.y * TS - 20, `${q.item ?? "Objeto"} ${Math.min(st.k, q.n)}/${q.n}`, "#ffe9a8", now); addLog(g, `🗒️ Encontraste: ${q.item ?? "objeto"} (${Math.min(st.k, q.n)}/${q.n}).`); }
+    else st.k++;
+    if (st.k >= q.n) { st.k = q.n; st.s = "r"; const n = qnpc(q.npc); setStatus(g, `🗒️ «${q.name}» lista: vuelve con ${n ? n.name : "quien te la dio"}.`, now, "#7dffb0"); addLog(g, `🗒️ Misión lista para entregar: ${q.name}.`); }
+  }
+}
+function nqTick(g: Game): void { const s = g.nq; if (!s || !s.talk) return; const n = qnpc(s.talk); if (!n || regionOf(g.p.x, g.p.y) !== 0 || cheb(g.p.x, g.p.y, n.x, n.y) > 3) replyBye(g); }
+function nqActive(g: Game): NQDef[] { const s = g.nq; if (!s) return []; return NQUESTS.filter((q: NQDef) => { const st = s.q[q.id]; return !!st && st.s !== "d"; }); }
+type SaveNQ = Record<string, NQSt>;
+interface SaveData { nq?: SaveNQ; }
+function saveNq(g: Game): SaveNQ | undefined { const s = g.nq; if (!s) return undefined; const out: SaveNQ = {}; let any = false; for (const q of NQUESTS) { const st = s.q[q.id]; if (st) { out[q.id] = { s: st.s, k: st.k }; any = true; } } return any ? out : undefined; }
+function readNq(v: unknown): SaveNQ | undefined {
+  if (!isObj(v)) return undefined; const out: SaveNQ = {}; let any = false;
+  for (const q of NQUESTS) { const st = v[q.id]; if (!isObj(st)) continue; const sv = st["s"]; if (sv !== "a" && sv !== "r" && sv !== "d") continue;
+    const k = intIn(st["k"], 0, q.n) ?? 0; out[q.id] = { s: sv === "a" && k >= q.n ? "r" : sv, k: sv === "d" ? q.n : k }; any = true; }
+  return any ? out : undefined;
+}
+function loadNq(g: Game, s: SaveNQ | undefined): void { if (!s) return; const t = nq(g); for (const id of Object.keys(s)) { const st = s[id]; if (st) t.q[id] = { s: st.s, k: st.k }; } }
+function drawMark(ctx: CanvasRenderingContext2D, mk: "" | "!" | "?", x: number, y: number, now: number): void {
+  if (!mk) return; const b = Math.round(Math.sin(now / 250) * 2);
+  ctx.fillStyle = mk === "!" ? "#ffd34d" : "#7dffb0"; ctx.strokeStyle = "#2a1a0a"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x + 16, y - 20 + b, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#2a1a0a"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(mk, x + 16, y - 16 + b);
+}
+
+// ===================== Barra de efectos (estilo Tibia): poción de exp y Premium con cuenta atrás =====================
+// La poción cuenta solo el tiempo jugado (se guarda lo que queda, xpLeft); el Premium son días de calendario (premUntil, fecha real).
+interface Buff { id: "xp" | "prem"; icon: string; name: string; left: number; txt: string; tip: string; }
+const p2 = (n: number): string => String(n).padStart(2, "0");
+function fmtMMSS(ms: number): string { const s = Math.max(0, Math.ceil(ms / 1000)); return `${p2(Math.floor(s / 60))}:${p2(s % 60)}`; }
+function fmtDH(ms: number): string { const m = Math.max(0, Math.ceil(ms / 60000)); const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mi = m % 60; return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${mi}m` : `${mi}m`; }
+function buffs(g: Game, wall?: number): Buff[] {
+  const c = g.cs; if (!c) return []; const out: Buff[] = []; const w = wall ?? Date.now();
+  if (c.xpLeft > 0) out.push({ id: "xp", icon: "⚗️", name: "Poción de experiencia", left: c.xpLeft, txt: fmtMMSS(c.xpLeft), tip: `Poción de experiencia: +${Math.round(XP_BOOST * 100)}% de experiencia. Quedan ${fmtMMSS(c.xpLeft)} (solo cuenta mientras juegas).` });
+  if (c.premUntil > w) { const l = c.premUntil - w; out.push({ id: "prem", icon: "👑", name: "Premium", left: l, txt: fmtDH(l), tip: `Premium: +${Math.round(PREM_EXP * 100)}% de experiencia y el botín raro brilla. Quedan ${fmtDH(l)} (hasta el ${new Date(c.premUntil).toLocaleDateString("es-MX")}).` }); }
+  return out;
+}
+// Premium vencido (también si venció con el juego cerrado): aviso una sola vez y se limpia la fecha
+function buffTick(g: Game, now: number, wall: number): void {
+  const c = g.cs; if (!c || c.premUntil <= 0 || c.premUntil > wall) return;
+  c.premUntil = 0; setStatus(g, "👑 Tu Premium terminó. Puedes renovarlo en la tienda de coins (K).", now); addLog(g, "👑 Tu Premium terminó.");
+}
+
+// ===================== Géminis: dos gemelos, Explosión de Galaxias y Otra Dimensión =====================
+// Fase 1: Saga solo. Al 50% de Saga, Kanon se une y lanza «Otra Dimensión»: el jugador va a una arena aparte (DIM_*),
+// cuenta como Casa de Géminis (regionOf = NH). Se vuelve por la grieta ✦, aguantando DIM_MS o venciendo a las sombras.
+// Cuando cae un gemelo, el otro entra en FURIA GEMELA y vuelve a lanzar «Otra Dimensión».
+const DIM_MS = 25000, GEM_JOIN = 0.5, DIM_RAIN_MS = 2200;
+const DIM_START: [number, number] = [DIM_X0 + 4, DIM_Y0 + 11];
+const DIM_RIFT: [number, number] = [DIM_X0 + 29, DIM_Y0 + 6];
+const DIM_RECT: [number, number, number, number] = [DIM_X0, DIM_Y0, DIM_W, DIM_H];
+function inDim(x: number, y: number): boolean { return x >= DIM_X0 && x < DIM_X0 + DIM_W && y >= DIM_Y0 && y < DIM_Y0 + DIM_H; }
+function viewRect(x: number, y: number): [number, number, number, number] { return inDim(x, y) ? DIM_RECT : regionRect(regionOf(x, y)); }
+// Plataformas flotantes sobre el vacío (WATER = vacío intransitable que no tapa los hechizos)
+function buildDim(m: Uint8Array): void {
+  const set = (x: number, y: number, t: number): void => { m[(DIM_Y0 + y) * MW + DIM_X0 + x] = t; };
+  for (let y = 0; y < DIM_H; y++) for (let x = 0; x < DIM_W; x++) set(x, y, WATER);
+  const rect = (x0: number, y0: number, x1: number, y1: number): void => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, MARBLE); };
+  rect(2, 8, 7, 13); rect(8, 10, 11, 11); rect(12, 6, 19, 15); rect(20, 7, 24, 8); rect(25, 4, 31, 10); rect(20, 13, 23, 14); rect(24, 13, 29, 17);
+  rect(2, 2, 3, 3); rect(15, 1, 16, 2); rect(9, 17, 10, 18); rect(31, 14, 32, 15); rect(20, 19, 22, 19); rect(6, 4, 6, 5);
+}
+interface DimSt { until: number; start: number; ret: [number, number]; n: number; rainAt: number; by: string; }
+interface GemSt { joined: boolean; banAt: number; ban: number; fury: boolean; }
+interface DimFx { at: number; kind: "pre" | "in" | "out"; }
+interface Game { dim?: DimSt | null; gem?: GemSt; dimFx?: DimFx | null; }
+interface Minion { hp?: number; mhp?: number; }
+function gem(g: Game): GemSt { if (!g.gem) g.gem = { joined: false, banAt: 0, ban: 0, fury: false }; return g.gem; }
+function gemBosses(g: Game): Mon[] { return (g.byRegion[NH] ?? []).filter((m: Mon) => m.alive && (m.def.id === "h12boss" || m.def.id === "h12boss2")); }
+// Los guardianes de las Casas altas también golpean al esbirro del brujo (no puede tanquear)
+function hurtMinion(g: Game, dmg: number, now: number, by: string): void {
+  const mi = g.minion; if (!mi || !(dmg > 0)) return;
+  if (mi.mhp === undefined || mi.hp === undefined) { mi.mhp = Math.max(60, Math.round(maxHp(g) * 0.3)); mi.hp = mi.mhp; }
+  mi.hp -= dmg; addFloat(g, mi.x * TS + 16, mi.y * TS + 4, String(Math.round(dmg)), "#ff9a40", now);
+  if (mi.hp <= 0) { g.minion = null; addLog(g, `Tu esbirro fue destruido por ${by}.`); setStatus(g, `☠ ${by} destruyó a tu esbirro.`, now, "#ff9a9a"); }
+}
+function highBoss(m: Mon): boolean { return !!m.def.boss && (m.def.house ?? 0) >= 9; }
+function moveMinionNear(g: Game, x: number, y: number): void {
+  const mi = g.minion; if (!mi) return;
+  for (const [dx, dy] of DIRS8) { const nx = x + dx, ny = y + dy; if (walkable(tileAt(g, nx, ny)) && monAt(g, nx, ny) === null) { mi.x = nx; mi.y = ny; mi.fx = nx; mi.fy = ny; mi.moveStart = 0; return; } }
+}
+function placePlayer(g: Game, x: number, y: number, now: number): void {
+  const p = g.p; p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = now; p.moveDur = 1;
+  g.walkGoal = null; g.pending = null; g.target = -1; g.chase = false; g.projs = []; g.warns = []; g.fields = []; g.zone = zoneName(g, x, y); moveMinionNear(g, x, y);
+}
+function enterDim(g: Game, now: number, by: string): void {
+  const p = g.p; if (g.dim || regionOf(p.x, p.y) !== NH || inDim(p.x, p.y)) return;
+  const ret: [number, number] = [p.x, p.y]; placePlayer(g, DIM_START[0], DIM_START[1], now);
+  const st = gem(g); st.ban++;
+  g.dim = { until: now + DIM_MS, start: now, ret, n: st.ban, rainAt: now + 2500, by };
+  g.dimFx = { at: now, kind: "in" };
+  const sh = MONS.h12shade, ec = MONS.h12echo;
+  for (const [x, y] of [[14, 8], [17, 13], [15, 11], [18, 9]] as Array<[number, number]>) { const m = spawnTemp(g, sh, DIM_X0 + x, DIM_Y0 + y, now); if (m) { m.angryUntil = now + DIM_MS + 5000; m.nextAtk = now + 1500; } }
+  const e = spawnTemp(g, ec, DIM_X0 + 27, DIM_Y0 + 8, now); if (e) { e.angryUntil = now + DIM_MS + 5000; e.nextAtk = now + 2000; }
+  const A = MONS.h12boss2?.atk ?? 300; specialHit(g, roll(Math.round(A * 0.25), Math.round(A * 0.45)), now);
+  setStatus(g, `¡${by}: «Otra Dimensión»! Llega a la grieta ✦ o resiste ${Math.round(DIM_MS / 1000)} s.`, now, "#e0a0ff");
+  addLog(g, `🌀 ${by} te mandó a Otra Dimensión. Llega a la grieta ✦, vence a las sombras o resiste ${Math.round(DIM_MS / 1000)} s.`);
+}
+function leaveDim(g: Game, now: number, why: string): void {
+  const d = g.dim; if (!d) return; const rt = HRT[NH - 1];
+  for (const m of g.byRegion[NH] ?? []) if (m.alive && m.temp && inDim(m.x, m.y)) { m.alive = false; m.respawnAt = Infinity; }
+  g.mons = g.mons.filter((m: Mon) => !m.temp || m.alive); indexMons(g);
+  const bs = gemBosses(g); let spot: [number, number] | null = null;
+  if (rt) for (let t = 0; t < 60 && !spot; t++) { const x = rt.room[0] + Math.floor(Math.random() * (rt.room[2] - rt.room[0] + 1)), y = rt.room[1] + Math.floor(Math.random() * (rt.room[3] - rt.room[1] + 1)); if (canPlayerEnter(g, x, y) && tileAt(g, x, y) !== PORTAL && bs.every((b: Mon) => cheb(b.x, b.y, x, y) >= 3)) spot = [x, y]; }
+  if (!spot) spot = canPlayerEnter(g, d.ret[0], d.ret[1]) ? d.ret : rt ? rt.entry : [TEMPLE_X, TEMPLE_Y];
+  const ep = g.exitPortal && inDim(g.exitPortal[0], g.exitPortal[1]); if (ep) closeExitPortal(g);
+  placePlayer(g, spot[0], spot[1], now); g.dim = null; g.dimFx = { at: now, kind: "out" };
+  const lost = now - d.start;
+  for (const b of bs) { b.nextAtk = Math.max(b.nextAtk, now + 1500); b.spec = b.spec.map((t: number) => t + lost); }
+  if (ep) openExitPortal(g, NH);
+  setStatus(g, why, now, "#e0a0ff"); addLog(g, `🌀 Saliste de Otra Dimensión (${why})`);
+}
+function dimTick(g: Game, now: number): void {
+  const d = g.dim; if (!d) return; const p = g.p;
+  if (!inDim(p.x, p.y)) { g.dim = null; return; }
+  if (p.x === DIM_RIFT[0] && p.y === DIM_RIFT[1]) { leaveDim(g, now, "Cruzaste la grieta ✦ y vuelves a la Casa de Géminis."); return; }
+  const foes = (g.byRegion[NH] ?? []).filter((m: Mon) => m.alive && inDim(m.x, m.y));
+  if (foes.length === 0 && now - d.start > 1000) { leaveDim(g, now, "Venciste a las sombras: la dimensión se derrumba."); return; }
+  if (now >= d.until) { leaveDim(g, now, "Resististe: Otra Dimensión se cierra y vuelves."); return; }
+  if (now >= d.rainAt) { // lluvia de estrellas sobre ti: hay que moverse
+    d.rainAt = now + DIM_RAIN_MS; const A = MONS.h12boss2?.atk ?? 300;
+    g.warns.push({ cells: circle(p.x, p.y, 2).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), at: now + 1200, born: now, min: Math.round(A * 0.35), max: Math.round(A * 0.6), elem: "dark", name: "Lluvia de estrellas" });
+  }
+}
+// Cada paso: une a Kanon al 50% de Saga, lanza las Otras Dimensiones pendientes y reinicia el estado si los gemelos se recuperan
+function gemTick(g: Game, now: number): void {
+  const p = g.p; if (regionOf(p.x, p.y) !== NH) { if (g.gem && !g.dim) g.gem = undefined; return; }
+  dimTick(g, now); if (g.dim) return;
+  const bs = gemBosses(g); const saga = bs.find((m: Mon) => m.def.id === "h12boss"), kanon = bs.find((m: Mon) => m.def.id === "h12boss2");
+  const st = gem(g);
+  if (saga && !kanon && saga.hp >= saga.def.hp && st.joined) { g.gem = undefined; return; }
+  if (saga && !st.joined && saga.hp <= saga.def.hp * GEM_JOIN) gemJoin(g, saga.x, saga.y, now);
+  if (st.banAt > 0 && now >= st.banAt) { st.banAt = 0; const c = gemBosses(g); const by = c.find((m: Mon) => m.def.id === "h12boss2") ?? c[0]; if (by) enterDim(g, now, by.def.name); }
+}
+function gemJoin(g: Game, x: number, y: number, now: number): void {
+  const st = gem(g); st.joined = true;
+  const k = spawnTemp(g, MONS.h12boss2, x, y, now); if (!k) return;
+  k.angryUntil = now + 600000; k.nextAtk = now + 2500;
+  addFloat(g, k.x * TS + 16, k.y * TS - 30, "¡KANON!", "#ff6ad0", now);
+  setStatus(g, `¡${KANON} se une al combate! «¡Otra Dimensión!»`, now, "#ff6ad0"); addLog(g, `⚠ ${KANON} se une a Saga.`);
+  st.banAt = now + 1300; g.dimFx = { at: now, kind: "pre" };
+}
+// Muerte de un gemelo: true = el combate sigue (no se supera la Casa todavía)
+function gemKill(g: Game, m: Mon, now: number): boolean {
+  if (m.def.id !== "h12boss" && m.def.id !== "h12boss2") return false;
+  const st = gem(g);
+  if (m.def.id === "h12boss" && !st.joined) { gemJoin(g, m.x, m.y, now); return true; }
+  const other = gemBosses(g).find((o: Mon) => o !== m);
+  if (!other) return false;
+  other.enraged = true; st.fury = true; other.angryUntil = now + 600000;
+  for (const o of g.byRegion[NH] ?? []) if (o.alive && o.temp && o.def.exp === 0 && !o.def.boss) { o.alive = false; o.respawnAt = Infinity; }
+  addFloat(g, other.x * TS + 16, other.y * TS - 30, "¡FURIA GEMELA!", "#ff4040", now);
+  setStatus(g, `¡${other.def.name} pierde a su gemelo y entra en FURIA GEMELA!`, now, "#ff6060"); addLog(g, `⚠ ${m.def.name} cayó: ${other.def.name} enfurece.`);
+  st.banAt = now + 3000; g.dimFx = { at: now + 1700, kind: "pre" };
+  return true;
+}
+// --- Dibujo ---
+function drawDimTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
+  const h = hash(wx, wy);
+  if (t === MARBLE) {
+    ctx.fillStyle = "#3a2458"; ctx.fillRect(x, y, TS, TS);
+    ctx.fillStyle = "#5a3a82"; ctx.fillRect(x + (h % 12), y + ((h >> 4) % 12), 12, 8);
+    ctx.fillStyle = "#2a1640"; ctx.fillRect(x + 16 + ((h >> 7) % 10), y + 18, 8, 6);
+    ctx.strokeStyle = "rgba(200,150,255,0.25)"; ctx.strokeRect(x + 0.5, y + 0.5, TS - 1, TS - 1);
+    return;
+  }
+  ctx.fillStyle = "#0c0418"; ctx.fillRect(x, y, TS, TS);
+  ctx.fillStyle = "rgba(90,30,140,0.35)"; ctx.fillRect(x, y, TS, TS);
+  for (let k = 0; k < 3; k++) { const sx = (h >> (k * 7)) % 30, sy = (h >> (k * 7 + 3)) % 30; const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 500 + ((h >> k) % 50))); ctx.globalAlpha = tw; ctx.fillStyle = k === 0 ? "#ffffff" : k === 1 ? "#e0b0ff" : "#9a7aff"; ctx.fillRect(x + sx, y + sy, k === 0 ? 2 : 1, k === 0 ? 2 : 1); }
+  ctx.globalAlpha = 1;
+}
+function drawVortex(ctx: CanvasRenderingContext2D, x: number, y: number, R: number, now: number, a: number): void {
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y);
+  for (let k = 0; k < 4; k++) { ctx.rotate(now / 500 + (k * Math.PI) / 2); ctx.strokeStyle = k % 2 === 0 ? "#e0a0ff" : "#8a40ff"; ctx.lineWidth = 3; ctx.beginPath(); for (let s = 0; s <= 30; s++) { const r = (R * s) / 30, an = s * 0.35; if (s === 0) ctx.moveTo(Math.cos(an) * r, Math.sin(an) * r); else ctx.lineTo(Math.cos(an) * r, Math.sin(an) * r); } ctx.stroke(); }
+  ctx.restore(); ctx.lineWidth = 1;
+}
+function drawDimOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  const W = viewW(g), cx = Math.round(g.camX), cy = Math.round(g.camY);
+  for (const w of g.warns) if (w.name === "Explosión de Galaxias" && w.cells.length > 0) { // telegrafiado grande: anillo de estrellas y «¡ESQUIVA!»
+    let sx = 0, sy = 0; for (const c of w.cells) { sx += c[0]; sy += c[1]; } const mx = (sx / w.cells.length) * TS + 16 - cx, my = (sy / w.cells.length) * TS + 16 - cy;
+    const k = clamp((now - w.born) / Math.max(1, w.at - w.born), 0, 1); const R = Math.sqrt(w.cells.length / Math.PI) * TS;
+    ctx.strokeStyle = `rgba(200,120,255,${0.5 + 0.4 * k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(mx, my, R, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
+    for (let s = 0; s < 10; s++) { const an = now / 300 + (s * Math.PI) / 5; ctx.fillStyle = s % 2 ? "#ffffff" : "#e0a0ff"; ctx.fillRect(mx + Math.cos(an) * R * k - 2, my + Math.sin(an) * R * k - 2, 4, 4); }
+    outlined(ctx, `¡ESQUIVA! ${((w.at - now) / 1000).toFixed(1)} s`, mx, my - R - 10, "#ffb0ff", "bold 13px sans-serif");
+  }
+  const d = g.dim;
+  if (d) {
+    ctx.fillStyle = "rgba(70,0,110,0.22)"; ctx.fillRect(0, 0, W, VH);
+    const vg = ctx.createRadialGradient(W / 2, VH / 2, VH * 0.3, W / 2, VH / 2, VH * 0.85); vg.addColorStop(0, "rgba(40,0,70,0)"); vg.addColorStop(1, "rgba(40,0,70,0.65)"); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, VH);
+    const rx = DIM_RIFT[0] * TS + 16 - cx, ry = DIM_RIFT[1] * TS + 16 - cy;
+    drawVortex(ctx, rx, ry, 22, now, 0.95); outlined(ctx, "✦ GRIETA", rx, ry - 30, "#ffffff", "bold 11px sans-serif");
+    if (rx < 0 || rx > W || ry < 0 || ry > VH) { const an = Math.atan2(ry - VH / 2, rx - W / 2); const ax = W / 2 + Math.cos(an) * (W / 2 - 30), ay = VH / 2 + Math.sin(an) * (VH / 2 - 40); outlined(ctx, "✦ ➜", ax, ay, "#ffe0ff", "bold 16px sans-serif"); }
+    const left = Math.max(0, Math.ceil((d.until - now) / 1000)); const foes = (g.byRegion[NH] ?? []).filter((m: Mon) => m.alive && inDim(m.x, m.y)).length;
+    ctx.fillStyle = "rgba(20,0,40,0.8)"; const bw = Math.min(W - 16, 440); ctx.fillRect(W / 2 - bw / 2, 30, bw, 34); ctx.strokeStyle = "#c070ff"; ctx.strokeRect(W / 2 - bw / 2 + 0.5, 30.5, bw - 1, 33);
+    outlined(ctx, "✦ OTRA DIMENSIÓN ✦", W / 2, 38, "#f0c0ff", "bold 13px sans-serif");
+    outlined(ctx, `Llega a la grieta ✦, vence a las sombras (${foes}) o resiste ${left} s`, W / 2, 54, "#ffffff", "bold 11px sans-serif");
+  }
+  const fx = g.dimFx; if (!fx) return; const t = now - fx.at; if (t < 0) return;
+  if (fx.kind === "pre") { if (t > 1500) { g.dimFx = null; return; } const a = 0.25 + 0.25 * Math.sin(t / 60); ctx.strokeStyle = `rgba(190,80,255,${a + 0.3})`; ctx.lineWidth = 14; ctx.strokeRect(7, 7, W - 14, VH - 14); ctx.lineWidth = 1; outlined(ctx, "«¡Otra Dimensión!»", W / 2, VH * 0.3, "#f0b0ff", "bold 18px sans-serif"); return; }
+  const dur = fx.kind === "in" ? 2600 : 1200; if (t > dur) { g.dimFx = null; return; }
+  const k = t / dur; const flash = fx.kind === "in" ? Math.max(0, 1 - t / 500) : Math.max(0, 1 - t / 450);
+  ctx.fillStyle = `rgba(150,60,230,${(fx.kind === "in" ? 0.75 : 0.55) * (1 - k)})`; ctx.fillRect(0, 0, W, VH);
+  if (flash > 0) { ctx.fillStyle = `rgba(245,225,255,${flash * 0.85})`; ctx.fillRect(0, 0, W, VH); }
+  drawVortex(ctx, W / 2, VH / 2, VH * (0.25 + 0.4 * k), now, 1 - k);
+  for (let s = 0; s < 40; s++) { const an = s * 2.4 + now / 700, r = ((s * 37) % 100) / 100 * VH * (0.2 + k); ctx.fillStyle = s % 3 ? "#ffffff" : "#e0a0ff"; ctx.globalAlpha = 1 - k; ctx.fillRect(W / 2 + Math.cos(an) * r, VH / 2 + Math.sin(an) * r, 3, 3); }
+  ctx.globalAlpha = 1;
+  if (fx.kind === "in") { ctx.globalAlpha = Math.min(1, (1 - k) * 2); outlined(ctx, "¡OTRA DIMENSIÓN!", W / 2, VH * 0.42, "#ffffff", "bold 34px sans-serif"); ctx.globalAlpha = 1; }
+  else outlined(ctx, "¡De vuelta en Géminis!", W / 2, VH * 0.42, "#ffffff", "bold 20px sans-serif");
+}
+function drawDimMini(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, now: number): void {
+  ctx.fillStyle = "#12051f"; ctx.fillRect(x, y, w, h);
+  for (let s = 0; s < 40; s++) { const hh = hash(s, 7); ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(now / 600 + s)); ctx.fillStyle = s % 3 ? "#e0b0ff" : "#ffffff"; ctx.fillRect(x + (hh % 1000) / 1000 * w, y + ((hh >> 10) % 1000) / 1000 * h, 1.5, 1.5); }
+  ctx.globalAlpha = 1; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `bold ${Math.max(14, Math.round(h / 4))}px sans-serif`; ctx.fillStyle = "#c070ff"; ctx.fillText("???", x + w / 2, y + h / 2);
+}
+
+// ===================== Estados sobre monstruos: iconos de maldición, lentitud, humo y quemadura =====================
+interface Debuff { k: "curse" | "slow" | "calm" | "burn"; glyph: string; col: string; left: number; frac: number; }
+const maxPowDur = (k: PKind, def: number): number => { let m = def; for (const id of CLASS_ORDER) for (const pw of CLASSES[id].powers) if (pw.kind === k) m = Math.max(m, pw.dur); return m; };
+const DEBUFF_REF = { curse: maxPowDur("dot", 8000), slow: maxPowDur("slow", 5000), calm: maxPowDur("smoke", 4000), burn: maxPowDur("field", 6000) };
+// Máximo 3 iconos; null si el monstruo no tiene nada (lo normal: no reserva memoria)
+function monDebuffs(g: Game, m: Mon, now: number): Debuff[] | null {
+  let out: Debuff[] | null = null;
+  const add = (k: Debuff["k"], glyph: string, col: string, left: number, ref: number): void => { if (!out) out = []; if (out.length < 3) out.push({ k, glyph, col, left, frac: clamp(left / Math.max(ref, left), 0, 1) }); };
+  if (m.dotUntil > now) add("curse", "☠", "#a040ff", m.dotUntil - now, DEBUFF_REF.curse);
+  if (m.slowUntil > now) add("slow", "❄", "#4ac8f0", m.slowUntil - now, DEBUFF_REF.slow);
+  if (m.calmUntil > now) add("calm", "z", "#9a9a9a", m.calmUntil - now, DEBUFF_REF.calm);
+  if (g.fields.length > 0) { let fl = 0; for (const f of g.fields) if (f.x === m.x && f.y === m.y && f.until > now) fl = Math.max(fl, f.until - now); if (fl > 0) add("burn", "♨", "#ff6a1a", fl, DEBUFF_REF.burn); }
+  return out;
+}
+// Fila centrada en (cx, cy): círculo de color, símbolo y anillo con el tiempo que queda (+ segundos)
+function drawDebuffs(ctx: CanvasRenderingContext2D, ds: Debuff[], cx: number, cy: number): void {
+  const R = 7, gap = 17; const x0 = cx - ((ds.length - 1) * gap) / 2;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ds.forEach((d: Debuff, i: number) => {
+    const x = x0 + i * gap;
+    ctx.fillStyle = "rgba(10,6,20,0.85)"; ctx.beginPath(); ctx.arc(x, cy, R + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(x, cy, R - 1, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, cy, R + 1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * d.frac); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.font = "bold 9px sans-serif"; ctx.fillStyle = "#ffffff"; ctx.fillText(d.glyph, x, cy + 0.5);
+    ctx.font = "bold 8px sans-serif"; ctx.lineWidth = 2; ctx.strokeStyle = "rgba(0,0,0,0.9)"; const s = String(Math.ceil(d.left / 1000)); ctx.strokeText(s, x + R, cy + R - 1); ctx.fillStyle = "#ffffff"; ctx.fillText(s, x + R, cy + R - 1); ctx.lineWidth = 1;
+  });
+}
+// Tamaño de los poderes de área (todas las vocaciones al nivel de Avalancha): radio² para circle()
+const AOE_R2 = { target: 8, self: 10, spin: 8, field: 8 }; const WAVE_LEN = 5;
+
 // ===================== Depósito (estilo Tibia): baúl junto al templo =====================
 const DEPOT_X = 41, DEPOT_Y = 29 + OY; const DEPOT_MAX = 80;
 interface DepotState { items: Inst[]; open: boolean; msg: string; msgBad: boolean; }
@@ -1908,7 +2291,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g) };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g) };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -1948,6 +2331,7 @@ function validateSave(raw: unknown): DecodeResult {
   if (isObj(bRaw) && !Array.isArray(bRaw["keys"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "keys" && binds[a.id].includes("KeyH"))) binds.keys = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["coins"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "coins" && binds[a.id].includes("KeyK"))) binds.coins = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["mount"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "mount" && binds[a.id].includes("KeyR"))) binds.mount = [];
+  if (isObj(bRaw) && !Array.isArray(bRaw["qlog"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "qlog" && binds[a.id].includes("KeyJ"))) binds.qlog = [];
   const x = intIn(raw["x"], 0, MW - 1), y0 = intIn(raw["y"], 0, MH - 1); if (x === null || y0 === null) return bad("la posición");
   const y = ver === 1 ? Math.min(MH - 1, y0 + OY) : y0; // las partidas v1 usaban el mapa sin el Santuario
   const hpPot2 = intIn(raw["hpPot2"], 0, 1e6) ?? 0, manaPot2 = intIn(raw["manaPot2"], 0, 1e6) ?? 0, cleared = intIn(raw["cleared"], 0, NH) ?? 0;
@@ -1959,7 +2343,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]) } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]) } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -1980,12 +2364,12 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); loadMt(g, d.mt); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
   if (!spot) for (const [dx, dy] of DIRS8) { if (canPlayerEnter(g, d.x + dx, d.y + dy)) { spot = [d.x + dx, d.y + dy]; break; } }
-  const [sx, sy] = spot ?? [TEMPLE_X, TEMPLE_Y];
+  const [sx, sy] = spot && !inDim(spot[0], spot[1]) ? spot : [TEMPLE_X, TEMPLE_Y];
   p.x = sx; p.y = sy; p.fx = sx; p.fy = sy; p.moveStart = 0; g.zone = zoneName(g, sx, sy);
   const now = performance.now();
   addLog(g, `Partida cargada: ${d.name}, ${g.cls.name} nivel ${p.level}.`); setStatus(g, `¡Bienvenido de vuelta, ${d.name}!`, now, "#7dffb0");
@@ -1993,6 +2377,83 @@ function gameFromSave(d: SaveData): Game {
 }
 function lsGet(k: string): string | null { try { if (typeof window === "undefined" || !window.localStorage) return null; return window.localStorage.getItem(k); } catch { return null; } }
 function lsSet(k: string, v: string): boolean { try { if (typeof window === "undefined" || !window.localStorage) return false; window.localStorage.setItem(k, v); return true; } catch { return false; } }
+
+// ===================== Cuenta con varios personajes (estilo Tibia) =====================
+// Cada personaje se guarda aparte (CHAR_KEY + id) con el mismo código EDISAR2 de siempre.
+// Las Edisar Coins y el Premium son de la cuenta: los comparten todos los personajes (como en Tibia).
+// La partida única antigua (LS_KEY) se copia tal cual al personaje 1 la primera vez; esa clave ya no se vuelve a escribir (queda de respaldo).
+const ACC_KEY = "edisar.account.v1"; const CHAR_KEY = "edisar.char."; const BACKUP_KEY = "edisar.autosave.v1.backup"; const MAX_CHARS = 6;
+interface CharEntry { id: string; name: string; cls: ClassId; level: number; savedAt: number; }
+interface Account { v: number; chars: CharEntry[]; last: string; coins: number; premUntil: number; seq: number; }
+interface KV { get: (k: string) => string | null; set: (k: string, v: string) => boolean; del: (k: string) => void; }
+const LS_KV: KV = { get: lsGet, set: lsSet, del: (k: string): void => { try { if (typeof window !== "undefined" && window.localStorage) window.localStorage.removeItem(k); } catch { /* sin almacenamiento */ } } };
+function newAccount(): Account { return { v: 1, chars: [], last: "", coins: 0, premUntil: 0, seq: 0 }; }
+function readAccount(kv: KV): Account | null {
+  const s = kv.get(ACC_KEY); if (!s) return null; let raw: unknown = null; try { raw = JSON.parse(s); } catch { return null; }
+  if (!isObj(raw)) return null; const list = raw["chars"]; if (!Array.isArray(list)) return null; const a = newAccount();
+  for (const c of list) {
+    if (!isObj(c) || a.chars.length >= MAX_CHARS) continue; const id = c["id"], name = c["name"], cls = c["cls"];
+    if (typeof id !== "string" || !/^c\d{1,6}$/.test(id) || typeof name !== "string" || typeof cls !== "string" || !Object.prototype.hasOwnProperty.call(CLASSES, cls) || a.chars.some((x: CharEntry) => x.id === id)) continue;
+    a.chars.push({ id, name: name.slice(0, 16), cls: cls as ClassId, level: intIn(c["level"], 1, 500) ?? 1, savedAt: numIn(c["savedAt"], 0, 1e15) ?? 0 });
+  }
+  const last = raw["last"]; a.last = typeof last === "string" && a.chars.some((x: CharEntry) => x.id === last) ? last : (a.chars[0]?.id ?? "");
+  a.coins = intIn(raw["coins"], 0, 1e9) ?? 0; a.premUntil = numIn(raw["premUntil"], 0, 1e15) ?? 0;
+  a.seq = Math.max(intIn(raw["seq"], 0, 1e6) ?? 0, ...a.chars.map((x: CharEntry) => Number(x.id.slice(1))));
+  return a;
+}
+function writeAccount(kv: KV, a: Account): boolean { return kv.set(ACC_KEY, JSON.stringify(a)); }
+function entryOf(id: string, d: SaveData): CharEntry { return { id, name: d.name, cls: d.cls, level: d.level, savedAt: d.savedAt }; }
+// Abre la cuenta. La primera vez convierte la partida antigua en el personaje 1 sin perder nada (copia exacta del código)
+function openAccount(kv: KV): Account {
+  const a = readAccount(kv); if (a) return a;
+  const acc = newAccount(); const old = kv.get(LS_KEY);
+  if (old) {
+    let r: DecodeResult; try { r = decodeSave(old); } catch { r = { ok: false, error: "" }; }
+    if (r.ok) {
+      if (!kv.get(BACKUP_KEY)) kv.set(BACKUP_KEY, old);
+      acc.seq = 1; kv.set(CHAR_KEY + "c1", old); acc.chars.push(entryOf("c1", r.data)); acc.last = "c1";
+      acc.coins = r.data.cs?.coins ?? 0; acc.premUntil = r.data.cs?.premUntil ?? 0;
+    }
+  }
+  writeAccount(kv, acc); return acc;
+}
+// Coins y Premium siempre vienen de la cuenta
+function withAccount(d: SaveData, a: Account): SaveData { const c0 = d.cs ?? readCS(null); return { ...d, cs: { ...c0, coins: a.coins, premUntil: a.premUntil } }; }
+function applyAccount(g: Game, a: Account): void { const c = cs(g); c.coins = a.coins; c.premUntil = a.premUntil; }
+function loadChar(kv: KV, a: Account, id: string): SaveData | null {
+  const s = kv.get(CHAR_KEY + id); if (!s) return null; let r: DecodeResult; try { r = decodeSave(s); } catch { return null; }
+  return r.ok ? withAccount(r.data, a) : null;
+}
+function newCharId(a: Account): string { let n = a.seq + 1; while (a.chars.some((c: CharEntry) => c.id === `c${n}`)) n++; a.seq = n; return `c${n}`; }
+// Nueva ficha (la partida se guarda al empezar a jugar); null si ya hay MAX_CHARS
+function createChar(kv: KV, a: Account, name: string, cls: ClassId): CharEntry | null {
+  if (a.chars.length >= MAX_CHARS) return null;
+  const e: CharEntry = { id: newCharId(a), name: name.trim().slice(0, 16) || "Aventurero", cls, level: 1, savedAt: Date.now() };
+  a.chars.push(e); a.last = e.id; writeAccount(kv, a); return e;
+}
+// Guarda un personaje: su código va a su propia clave; la cuenta recuerda nivel, fecha, último jugado, coins y Premium
+function storeChar(kv: KV, a: Account, id: string, d: SaveData): boolean {
+  const i = a.chars.findIndex((c: CharEntry) => c.id === id); const e = entryOf(id, d);
+  if (i >= 0) a.chars[i] = e; else if (a.chars.length < MAX_CHARS) a.chars.push(e); else return false;
+  const ok = kv.set(CHAR_KEY + id, encodeSave(d));
+  a.last = id; if (d.cs) { a.coins = d.cs.coins; a.premUntil = d.cs.premUntil; } writeAccount(kv, a); return ok;
+}
+function deleteChar(kv: KV, a: Account, id: string): boolean {
+  const i = a.chars.findIndex((c: CharEntry) => c.id === id); if (i < 0) return false;
+  a.chars.splice(i, 1); kv.del(CHAR_KEY + id); if (a.last === id) a.last = a.chars[0]?.id ?? ""; writeAccount(kv, a); return true;
+}
+// Importar un código (también los antiguos EDISAR1/EDISAR2) crea un personaje nuevo; de coins y Premium se queda el mayor
+type ImportResult = { ok: true; id: string } | { ok: false; error: string };
+function importChar(kv: KV, a: Account, d: SaveData): ImportResult {
+  if (a.chars.length >= MAX_CHARS) return { ok: false, error: `Ya tienes ${MAX_CHARS} personajes. Borra uno para cargar otro.` };
+  a.coins = Math.max(a.coins, d.cs?.coins ?? 0); a.premUntil = Math.max(a.premUntil, d.cs?.premUntil ?? 0);
+  const id = newCharId(a); storeChar(kv, a, id, withAccount(d, a)); return { ok: true, id };
+}
+// Guardado del personaje activo (autoguardado, «Guardar», salir)
+function persistChar(id: string, d: SaveData): boolean { if (!id) return false; try { return storeChar(LS_KV, openAccount(LS_KV), id, d); } catch { return false; } }
+function fmtLast(ms: number): string { if (!(ms > 0)) return "—"; try { return new Date(ms).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }); } catch { return "—"; } }
+const CLASS_LOOK: Record<ClassId, Look> = { druid: "staff", sorc: "staff", warlock: "staff", knight: "sword", archer: "bow", rogue: "dagger" };
+
 
 // ===================== Bucle de actualización =====================
 function update(g: Game, now: number): void {
@@ -2032,6 +2493,7 @@ function update(g: Game, now: number): void {
       if (now < w.at) { keepW.push(w); continue; }
       g.fx.push({ cells: w.cells, elem: w.elem, born: now });
       if (w.cells.some((c: [number, number]) => c[0] === p.x && c[1] === p.y)) specialHit(g, roll(w.min, w.max), now);
+      const mi = g.minion; if (mi && regionOf(p.x, p.y) >= 9 && w.cells.some((c: [number, number]) => c[0] === mi.x && c[1] === mi.y)) hurtMinion(g, roll(w.min, w.max), now, w.name);
     }
     g.warns = keepW;
   }
@@ -2046,15 +2508,16 @@ function update(g: Game, now: number): void {
   g.ground = g.ground.filter((gi: Ground) => now < gi.until);
   if (g.ground.length > 80) { const bg = g.ground.filter((gi: Ground) => !!gi.boss), rest = g.ground.filter((gi: Ground) => !gi.boss); g.ground = [...rest.slice(Math.max(0, rest.length - 80)), ...bg]; }
   if (g.shopOpen && cheb(p.x, p.y, NPC_X, NPC_Y) > 6) g.shopOpen = false;
-  coinTick(g, now); depotTick(g);
+  coinTick(g, now); depotTick(g); nqTick(g); buffTick(g, now, Date.now()); gemTick(g, now);
   const [px, py] = drawPos(p, now);
-  const rr = regionRect(regionOf(p.x, p.y));
+  const rr = viewRect(p.x, p.y);
   const vw = viewW(g); g.camX = clamp(px * TS + TS / 2 - vw / 2, rr[0] * TS, (rr[0] + rr[2]) * TS - vw); g.camY = clamp(py * TS + TS / 2 - VH / 2, rr[1] * TS, (rr[1] + rr[3]) * TS - VH);
 }
 
 // ===================== Dibujo: mundo =====================
 const TILE_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#2f6f2c", 2: "#2a5fa8", 3: "#6b6158", 4: "#8a6f4e", 5: "#cfc6b8", 6: "#4a4038", 7: "#5a4b3c", 8: "#d8c48a", 9: "#a88a5a", 10: "#d8c48a", 11: "#2a1440", 12: "#d8d2c4", 13: "#8a6a2a" };
 function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
+  if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
   if (t === GRASS || t === TREE) {
@@ -2113,14 +2576,35 @@ function drawWeapon(ctx: CanvasRenderingContext2D, x: number, y: number, look: L
   else if (look === "club") { ctx.fillStyle = "#6b4423"; ctx.fillRect(hx, hy - 8, 2, 13); ctx.fillStyle = "#8a8f98"; ctx.fillRect(hx - 3, hy - 14, 8, 7); }
   else if (look === "dagger") { ctx.fillStyle = "#dfe6ee"; ctx.fillRect(hx, hy - 8, 2, 7); ctx.fillStyle = "#5a3a1e"; ctx.fillRect(hx - 1, hy - 1, 4, 3); ctx.fillStyle = "#dfe6ee"; ctx.fillRect(x + 5, hy - 6, 2, 6); }
 }
+// Túnica de Nubes Rojas: capa larga negra con nubes rojas de borde blanco y cuello alto (se dibuja en drawHuman)
+function drawCloud(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+  ctx.fillStyle = "#f4f0f0"; ctx.fillRect(cx - 2, cy - 2, 2, 1); ctx.fillRect(cx + 1, cy - 2, 2, 1); ctx.fillRect(cx - 3, cy - 1, 7, 2); ctx.fillRect(cx - 2, cy + 1, 5, 1);
+  ctx.fillStyle = "#d01828"; ctx.fillRect(cx - 2, cy - 1, 2, 1); ctx.fillRect(cx + 1, cy - 1, 2, 1); ctx.fillRect(cx - 2, cy, 5, 1);
+}
+function drawCloudRobe(ctx: CanvasRenderingContext2D, x: number, y: number, face: Dir, phase: number): void {
+  const sw = phase === 1 ? 1 : phase === 2 ? -1 : 0;
+  ctx.fillStyle = "#121014"; ctx.fillRect(x + 9, y + 13, 14, 9); ctx.fillRect(x + 8 + sw, y + 20, 16, 8);
+  ctx.fillStyle = "#2c2832"; ctx.fillRect(x + 9, y + 13, 1, 9); ctx.fillRect(x + 22, y + 13, 1, 9);
+  if (face === 2) { ctx.fillRect(x + 16, y + 15, 1, 13); drawCloud(ctx, x + 12, y + 18); drawCloud(ctx, x + 20, y + 21); drawCloud(ctx, x + 12 + sw, y + 25); }
+  else if (face === 0) { drawCloud(ctx, x + 16, y + 17); drawCloud(ctx, x + 12 + sw, y + 23); drawCloud(ctx, x + 20 + sw, y + 25); }
+  else { const fx = face === 1 ? 1 : -1; drawCloud(ctx, x + 16 - fx * 2, y + 18); drawCloud(ctx, x + 15 + fx * 2 + sw, y + 24); }
+}
+function drawCloudCollar(ctx: CanvasRenderingContext2D, x: number, y: number, face: Dir): void {
+  ctx.fillStyle = "#121014"; ctx.fillRect(x + 10, y + 12, 12, 3); ctx.fillRect(x + 10, y + 10, 1, 3); ctx.fillRect(x + 21, y + 10, 1, 3);
+  ctx.fillStyle = "#b01020"; if (face === 0) ctx.fillRect(x + 11, y + 12, 10, 1); else ctx.fillRect(x + 11, y + 14, 10, 1);
+  ctx.fillStyle = "#f4f0f0"; ctx.fillRect(x + 10, y + 9, 1, 1); ctx.fillRect(x + 21, y + 9, 1, 1);
+}
 function drawHuman(ctx: CanvasRenderingContext2D, x: number, y: number, robe: string, trim: string, hat: HatStyle, look: Look, face: Dir, phase: number, shield: boolean, elem: Elem): void {
   const bob = phase === 0 ? 0 : 1; const lg = phase === 1 ? 2 : phase === 2 ? -2 : 0;
   ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.beginPath(); ctx.ellipse(x + 16, y + 29, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#3a2a1a"; ctx.fillRect(x + 11 + lg, y + 24, 4, 6); ctx.fillRect(x + 17 - lg, y + 24, 4, 6);
-  ctx.fillStyle = robe; ctx.fillRect(x + 9, y + 14 - bob, 14, 12);
-  ctx.fillStyle = trim; ctx.fillRect(x + 9, y + 24 - bob, 14, 2); ctx.fillRect(x + 15, y + 14 - bob, 2, 10);
+  const cloud = robe === CLOUD_ROBE;
+  if (cloud) drawCloudRobe(ctx, x, y - bob, face, phase);
+  else { ctx.fillStyle = robe; ctx.fillRect(x + 9, y + 14 - bob, 14, 12);
+  ctx.fillStyle = trim; ctx.fillRect(x + 9, y + 24 - bob, 14, 2); ctx.fillRect(x + 15, y + 14 - bob, 2, 10); }
   ctx.fillStyle = "#f0c8a0"; ctx.fillRect(x + 11, y + 5 - bob, 10, 10);
   if (face !== 0) { ctx.fillStyle = "#222"; const ex = face === 1 ? 2 : face === 3 ? -2 : 0; ctx.fillRect(x + 13 + ex, y + 9 - bob, 2, 2); ctx.fillRect(x + 17 + ex, y + 9 - bob, 2, 2); }
+  if (cloud) drawCloudCollar(ctx, x, y - bob, face);
   drawHat(ctx, x, y - bob, hat, trim, robe);
   drawWeapon(ctx, x, y - bob, look, trim, elem);
   if (shield) { ctx.fillStyle = "#8a5a2b"; ctx.beginPath(); ctx.moveTo(x + 3, y + 14); ctx.lineTo(x + 11, y + 14); ctx.lineTo(x + 11, y + 21); ctx.lineTo(x + 7, y + 25); ctx.lineTo(x + 3, y + 21); ctx.closePath(); ctx.fill(); ctx.fillStyle = trim; ctx.fillRect(x + 6, y + 16, 2, 6); }
@@ -2368,6 +2852,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   if (reg === 0 && vis(DARIO_X, DARIO_Y)) ents.push({ y: DARIO_Y, draw: () => { const x = DARIO_X * TS - cx, y = DARIO_Y * TS - cy; drawHuman(ctx, x, y, "#2a5a6a", "#ffd34d", "cap", "none", 2, 0, false, "holy"); outlined(ctx, "Darío 🪙", x + 16, y - 4, "#ffe08a", "bold 10px sans-serif"); } });
   if (reg === 0 && vis(DEPOT_X, DEPOT_Y)) ents.push({ y: DEPOT_Y, draw: () => { const x = DEPOT_X * TS - cx, y = DEPOT_Y * TS - cy; drawDepot(ctx, x, y); outlined(ctx, "Depósito 📦", x + 16, y - 1, "#f0c070", "bold 10px sans-serif"); } });
   if (reg === 0 && vis(STABLE_X, STABLE_Y)) ents.push({ y: STABLE_Y, draw: () => { const x = STABLE_X * TS - cx, y = STABLE_Y * TS - cy; ctx.fillStyle = "#d8b850"; ctx.fillRect(x + 1, y + 19, 10, 10); ctx.fillStyle = "#a88a30"; ctx.fillRect(x + 1, y + 22, 10, 1); ctx.fillRect(x + 1, y + 26, 10, 1); drawHuman(ctx, x + 3, y, "#5a6a2a", "#8a5a32", "cap", "none", 2, 0, false, "phys"); outlined(ctx, "Tomás 🐴", x + 16, y - 4, "#d8f0a0", "bold 10px sans-serif"); } });
+  if (reg === 0) for (const qn of QNPCS) if (vis(qn.x, qn.y)) ents.push({ y: qn.y, draw: () => { const x = qn.x * TS - cx, y = qn.y * TS - cy; drawHuman(ctx, x, y, qn.robe, qn.trim, qn.hat, qn.look, 2, 0, false, "phys"); outlined(ctx, qn.name.split(" ")[0] ?? qn.name, x + 16, y - 4, "#c8e0ff", "bold 10px sans-serif"); drawMark(ctx, npcMark(g, qn.id), x, y - 2, now); } });
   for (const m of regionMons(g, p.x, p.y)) if (m.alive) { const [mx, my] = drawPos(m, now); if (!vis(mx, my)) continue; ents.push({ y: my, draw: () => {
     const x = mx * TS - cx, y = my * TS - cy;
     if (t === m) { ctx.strokeStyle = "#ff2a2a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, TS - 2, TS - 2); ctx.lineWidth = 1; }
@@ -2375,6 +2860,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (now < m.slowUntil) { ctx.fillStyle = "rgba(155,232,255,0.25)"; ctx.fillRect(x, y, TS, TS); }
     const big = m.def.id === "boss" || !!m.def.boss || (m.def.look ? m.def.look.s : 1) > 1.2; const top = big ? y - 22 : y - 4;
     hpBar(ctx, x + 4, top, 24, m.hp / m.def.hp); outlined(ctx, m.def.name, x + 16, top - 2, m.def.boss ? "#ffd34d" : m.def.id === "boss" ? "#ff9a5a" : "#e8e8e8", m.def.boss ? "bold 10px sans-serif" : "9px sans-serif");
+    const dbf = monDebuffs(g, m, now); if (dbf) drawDebuffs(ctx, dbf, x + 16, top - 18);
   } }); }
   const mi = g.minion; if (mi) { const [mx, my] = drawPos(mi, now); ents.push({ y: my, draw: () => { const x = mx * TS - cx, y = my * TS - cy; ctx.globalAlpha = 0.85; drawBrute(ctx, x, y, "#3a2a4a", "#1a1022", true, 0.8, walkPhase(mi, now)); ctx.globalAlpha = 1; outlined(ctx, "Esbirro", x + 16, y - 2, "#d0a0ff", "9px sans-serif"); } }); }
   const [px, py] = drawPos(p, now);
@@ -2435,6 +2921,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (lt.note) { ctx.fillStyle = "#c8c8c8"; ctx.fillText(lt.note, 10, y0 + 21 + n * 14, w - 12); }
     ctx.globalAlpha = 1;
   }
+  drawDimOverlay(ctx, g, now);
   if (now - g.statusAt < 4500 && g.status) { ctx.globalAlpha = clamp((4500 - (now - g.statusAt)) / 600, 0, 1); outlined(ctx, g.status, viewW(g) / 2, BAR_Y - 20, g.statusColor, "bold 12px sans-serif"); ctx.globalAlpha = 1; }
   drawPowerBar(ctx, g, now, binds);
   if (g.bigMap) drawBigMap(ctx, g, now, "sans-serif");
@@ -2466,7 +2953,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   const dot = (x: number, y: number, c: string, r: number): void => { ctx.fillStyle = "#000"; ctx.fillRect(ox + x * s - r - 1, oy + y * s - r - 1, r * 2 + 2, r * 2 + 2); ctx.fillStyle = c; ctx.fillRect(ox + x * s - r, oy + y * s - r, r * 2, r * 2); };
   const reg = regionOf(g.p.x, g.p.y); const R = Math.max(2, labels ? s : Math.min(s, 4));
   if (reg === 0) {
-    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R); dot(STABLE_X + 0.5, STABLE_Y + 0.5, "#a8d060", R);
+    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R); dot(STABLE_X + 0.5, STABLE_Y + 0.5, "#a8d060", R); for (const qn of QNPCS) dot(qn.x + 0.5, qn.y + 0.5, "#8ac8ff", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
     for (const H of HOUSES) {
       const d = DOORS[H.n - 1]; if (!d) continue; dot(d.x + 0.5, d.y + 0.5, doorColor(g, H.n), R);
@@ -2503,10 +2990,12 @@ function drawRegionMap(ctx: CanvasRenderingContext2D, g: Game, bx: number, by: n
 }
 function drawMiniPanel(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
   const w = ctx.canvas.width, h = ctx.canvas.height; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+  if (inDim(g.p.x, g.p.y)) { drawDimMini(ctx, 0, 0, w, h, now); return; }
   drawRegionMap(ctx, g, 0, 0, w, h, now, false, g.miniZoom ?? 1);
 }
 function drawBigMap(ctx: CanvasRenderingContext2D, g: Game, now: number, font: string): void {
   ctx.fillStyle = "rgba(0,0,0,0.88)"; ctx.fillRect(0, 0, VW, VH);
+  if (inDim(g.p.x, g.p.y)) { drawDimMini(ctx, 12, 28, VW - 24, VH - 64, now); ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.font = `bold 13px ${font}`; ctx.fillStyle = "#e0a0ff"; ctx.fillText("✦ ??? — Otra Dimensión: ningún mapa llega aquí", VW / 2, 8); return; }
   const reg = regionOf(g.p.x, g.p.y); const H = HOUSES[reg - 1];
   const [ox, oy, w, h] = drawRegionMap(ctx, g, 12, 28, VW - 24, VH - 64, now, true);
   ctx.strokeStyle = "#b8913a"; ctx.strokeRect(ox - 0.5, oy - 0.5, w + 1, h + 1);
@@ -2570,12 +3059,23 @@ const GAME_VER = `Versión prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 350 / 1280, t: 508 / 720, w: 580 / 1280, h: 170 / 720 };
 const PLAQUE_MIN_W = 860; // por debajo de este ancho del arte los controles van debajo de la imagen
-function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?: (d: SaveData) => void; full?: boolean; onFull?: () => void }) {
+function CharPortrait(props: { cls: ClassId; size?: number }) {
+  const ref = useRef<HTMLCanvasElement | null>(null); const sz = props.size ?? 36;
+  useEffect(() => { const c = ref.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; const k = CLASSES[props.cls];
+    ctx.setTransform(c.width / 32, 0, 0, c.height / 34, 0, 0); ctx.clearRect(0, 0, 32, 34); drawHuman(ctx, 0, 2, k.robe, k.trim, k.hat, CLASS_LOOK[props.cls], 2, 0, props.cls === "knight", "phys"); }, [props.cls]);
+  return <canvas ref={ref} width={64} height={68} style={{ width: sz, height: Math.round((sz * 34) / 32), imageRendering: "pixelated", display: "block", flex: "0 0 auto" }} />;
+}
+function TitleScreen(props: { onStart: (c: ClassId, n: string, id?: string) => void; onLoad?: (d: SaveData, id?: string) => void; full?: boolean; onFull?: () => void }) {
   const th = useGrokTheme(); const artRef = useRef<HTMLDivElement | null>(null); const [artW, setArtW] = useState<number>(0);
   const [name, setName] = useState<string>(""); const [voc, setVoc] = useState<ClassId>("druid");
   const [showLoad, setShowLoad] = useState<boolean>(false); const [code, setCode] = useState<string>(""); const [err, setErr] = useState<string>("");
-  const [last] = useState<SaveData | null>(() => { const c = lsGet(LS_KEY); if (!c) return null; try { const r = decodeSave(c); return r.ok ? r.data : null; } catch { return null; } });
-  const load = (): void => { let r: DecodeResult; try { r = decodeSave(code); } catch { r = { ok: false, error: "No se pudo leer el código. Vuelve a copiarlo entero." }; } if (!r.ok) setErr(r.error); else if (props.onLoad) props.onLoad(r.data); };
+  const [acc] = useState<Account>(() => openAccount(LS_KV)); const [, setAv] = useState<number>(0); const bump = (): void => setAv((n: number) => n + 1);
+  const [sel, setSel] = useState<string>(() => acc.last); const [delId, setDelId] = useState<string>(""); const [cerr, setCerr] = useState<string>("");
+  const lastE = acc.chars.find((e: CharEntry) => e.id === acc.last) ?? null;
+  const play = (id: string): void => { const e = acc.chars.find((x: CharEntry) => x.id === id); if (!e) return; const d = loadChar(LS_KV, acc, id); if (d && props.onLoad) props.onLoad(d, id); else props.onStart(e.cls, e.name, id); };
+  const load = (): void => { let r: DecodeResult; try { r = decodeSave(code); } catch { r = { ok: false, error: "No se pudo leer el código. Vuelve a copiarlo entero." }; } if (!r.ok) { setErr(r.error); return; }
+    const im = importChar(LS_KV, acc, r.data); if (!im.ok) { setErr(im.error); return; } bump(); play(im.id); };
+  const remove = (id: string): void => { deleteChar(LS_KV, acc, id); setDelId(""); setSel(acc.last); setCerr(""); bump(); };
   useEffect(() => {
     const el = artRef.current; if (!el) return;
     const upd = (): void => setArtW(el.clientWidth); upd();
@@ -2583,7 +3083,7 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?:
     let ro: ResizeObserver | null = null; if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(upd); ro.observe(el); }
     return () => { window.removeEventListener("resize", upd); if (ro) ro.disconnect(); };
   }, [props.full]);
-  const start = (): void => props.onStart(voc, name.trim().slice(0, 16) || "Aventurero");
+  const start = (): void => { const e = createChar(LS_KV, acc, name, voc); if (!e) { setCerr(`Ya tienes ${MAX_CHARS} personajes: borra uno para crear otro.`); return; } props.onStart(voc, e.name, e.id); };
   const c = CLASSES[voc];
   const inPlaque = artW >= PLAQUE_MIN_W;
   const k = inPlaque ? Math.max(0.85, Math.min(1.45, artW / 1180)) : 1; // escala de letra dentro de la placa
@@ -2594,7 +3094,7 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?:
     border: `${primary ? 2 : 1}px solid ${primary || on ? th.text.warning : th.border.strong}`, background: th.bg.base, boxShadow: primary ? `inset 0 0 0 40px ${th.fill.warningSubtle}` : on ? `inset 0 0 0 40px ${th.fill.secondary}` : "none", color: primary || on ? gold : th.text.primary,
     textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, touchAction: "manipulation", userSelect: "none" });
   const fullBtn = (pos: CSSProperties) => <button style={{ ...gbtn(false, !!props.full), ...pos, fontSize: 12, padding: "4px 10px" }} onClick={props.onFull}>{props.full ? "✕ Salir" : "⛶ Pantalla completa"}</button>;
-  const lastLabel = last ? `▶ Continuar última partida (${last.name} · ${CLASSES[last.cls].name} nivel ${last.level})` : "";
+  const lastLabel = lastE ? `▶ Continuar última partida (${lastE.name} · ${CLASSES[lastE.cls].name} nivel ${lastE.level})` : "";
   const controls = (
     <div style={{ display: "flex", flexDirection: "column", gap: fs(6), width: "100%", fontFamily: TITLE_SERIF }}>
       <div style={{ display: "flex", gap: fs(6), alignItems: "center", flexWrap: inPlaque ? "nowrap" : "wrap" }}>
@@ -2604,11 +3104,11 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?:
         <select value={voc} aria-label="Vocación" title="Vocación" onChange={(e: ChangeEvent<HTMLSelectElement>) => setVoc(e.target.value as ClassId)} onKeyDown={(e) => e.stopPropagation()} style={{ ...field, flex: "0 1 auto", cursor: "pointer" }}>
           {CLASS_ORDER.map((id: ClassId) => <option key={id} value={id}>{CLASSES[id].name}</option>)}
         </select>
-        <button style={{ ...gbtn(true), flex: inPlaque ? "0 0 auto" : "1 1 100%" }} onClick={start}>⚔️ Comenzar aventura</button>
+        <button data-create="1" style={{ ...gbtn(true), flex: inPlaque ? "0 0 auto" : "1 1 100%" }} title={`Crea un personaje nuevo (tienes ${acc.chars.length}/${MAX_CHARS})`} onClick={start}>⚔️ Crear personaje</button>
       </div>
       <div style={{ display: "flex", gap: fs(6), alignItems: "center", flexWrap: inPlaque ? "nowrap" : "wrap" }}>
-        {last && <button style={{ ...gbtn(false, true), flex: inPlaque ? "1 1 auto" : "1 1 100%" }} title={lastLabel} onClick={() => { if (props.onLoad) props.onLoad(last); }}>{lastLabel}</button>}
-        <button style={{ ...gbtn(false, showLoad), flex: last ? "0 0 auto" : "1 1 auto" }} onClick={() => { setShowLoad(!showLoad); setErr(""); }}>📂 Cargar partida</button>
+        {lastE && <button data-continue={lastE.id} style={{ ...gbtn(false, true), flex: inPlaque ? "1 1 auto" : "1 1 100%" }} title={lastLabel} onClick={() => play(lastE.id)}>{lastLabel}</button>}
+        <button style={{ ...gbtn(false, showLoad), flex: lastE ? "0 0 auto" : "1 1 auto" }} onClick={() => { setShowLoad(!showLoad); setErr(""); }}>📂 Cargar partida</button>
       </div>
       <div style={{ fontSize: fs(12), color: th.text.secondary, textShadow: shadow, whiteSpace: inPlaque ? "nowrap" : "normal", overflow: "hidden", textOverflow: "ellipsis" }} title={c.desc}>
         <b style={{ color: gold }}>{c.name}</b> — {c.desc}
@@ -2639,6 +3139,35 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?:
             {err && <span style={{ color: th.text.danger, fontSize: 12 }}>{err}</span>}
           </div>
         </div>}
+        <div data-chars={acc.chars.length} style={{ margin: "12px 0", padding: 10, borderRadius: 8, border: `2px solid ${th.text.warning}`, background: th.bg.subtle }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <b style={{ fontFamily: TITLE_SERIF, color: gold, fontSize: 16, flex: 1 }}>👥 Tus personajes ({acc.chars.length}/{MAX_CHARS})</b>
+            <span style={{ fontSize: 11, color: th.text.secondary }}>🪙 Edisar Coins y 👑 Premium son de la cuenta: los comparten todos tus personajes.</span>
+          </div>
+          {acc.chars.length === 0 && <div style={{ fontSize: 12, color: th.text.secondary }}>Aún no tienes personajes. Escribe un nombre, elige vocación y pulsa «⚔️ Crear personaje».</div>}
+          {cerr && <div data-charerr="1" style={{ color: th.text.danger, fontSize: 12, marginBottom: 4 }}>{cerr}</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(270px,1fr))", gap: 6 }}>
+            {[...acc.chars].sort((a: CharEntry, b: CharEntry) => b.savedAt - a.savedAt).map((e: CharEntry) => { const on = e.id === sel; return (
+              <div key={e.id} data-char={e.id} onClick={() => setSel(e.id)} onDoubleClick={() => play(e.id)}
+                style={{ cursor: "pointer", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: 8, borderRadius: 6, border: `2px solid ${on ? th.text.warning : th.border.weak}`, background: on ? th.fill.warningSubtle : th.bg.base }}>
+                <CharPortrait cls={e.cls} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontFamily: TITLE_SERIF, color: on ? gold : th.text.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}{e.id === acc.last ? " ★" : ""}</div>
+                  <div data-charinfo="1" style={{ fontSize: 12 }}>{CLASSES[e.cls].name} · nivel {e.level}</div>
+                  <div style={{ fontSize: 11, color: th.text.secondary }}>Última vez: {fmtLast(e.savedAt)}</div>
+                </div>
+                {delId !== e.id && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <button data-charplay={e.id} style={{ ...gbtn(true), fontSize: 13 }} onClick={(ev) => { ev.stopPropagation(); play(e.id); }}>▶ Jugar</button>
+                  <button data-chardel={e.id} style={{ ...gbtn(false), fontSize: 11 }} onClick={(ev) => { ev.stopPropagation(); setDelId(e.id); }}>🗑 Borrar</button>
+                </div>}
+                {delId === e.id && <div data-delconfirm={e.id} onClick={(ev) => ev.stopPropagation()} style={{ flex: "1 1 100%", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", fontSize: 12, color: th.text.danger, borderTop: `1px solid ${th.border.weak}`, paddingTop: 6 }}>
+                  <span style={{ flex: 1 }}>¿Borrar a <b>{e.name}</b> ({CLASSES[e.cls].name} nivel {e.level}) para siempre? No se puede deshacer.</span>
+                  <button data-delyes={e.id} style={{ ...gbtn(false, true), fontSize: 12, color: th.text.danger }} onClick={() => remove(e.id)}>Sí, borrar</button>
+                  <button data-delno={e.id} style={{ ...gbtn(false), fontSize: 12 }} onClick={() => setDelId("")}>Cancelar</button>
+                </div>}
+              </div>); })}
+          </div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 8, marginTop: 12 }}>
           {CLASS_ORDER.map((id: ClassId) => { const kc = CLASSES[id]; const on = id === voc; return (
             <div key={id} onClick={() => setVoc(id)} style={{ cursor: "pointer", padding: 10, borderRadius: 8, border: `2px solid ${on ? th.text.warning : th.border.weak}`, background: on ? th.fill.warningSubtle : th.bg.subtle }}>
@@ -2647,7 +3176,7 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string) => void; onLoad?:
               <div style={{ fontSize: 11 }}>{kc.powers.map((pw: Power) => pw.name).join(" · ")}</div>
             </div>); })}
         </div>
-        <p style={{ fontSize: 12, color: th.text.secondary }}>Elegiste: <b>{c.name}</b>. Pulsa Enter o «Comenzar aventura». Para no perder tu progreso usa «💾 Guardar» en el juego y conserva el código.</p>
+        <p style={{ fontSize: 12, color: th.text.secondary }}>Elegiste: <b>{c.name}</b>. Escribe un nombre y pulsa Enter o «⚔️ Crear personaje» (hasta {MAX_CHARS} personajes; cada uno guarda su progreso por separado). Para tener una copia fuera del navegador usa «💾 Guardar» en el juego y conserva el código.</p>
       </div>
     </div>
   );
@@ -2903,6 +3432,76 @@ function MountsWindow(props: { g: Game; th: Theme; refresh: () => void; keyName:
   );
 }
 
+// ===== Misiones de los vecinos: diálogo, diario y seguimiento =====
+function NpcPortrait(props: { n: QNpc; size?: number }) {
+  const ref = useRef<HTMLCanvasElement | null>(null); const sz = props.size ?? 44;
+  useEffect(() => { const c = ref.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; const n = props.n;
+    ctx.setTransform(c.width / 32, 0, 0, c.height / 34, 0, 0); ctx.clearRect(0, 0, 32, 34); drawHuman(ctx, 0, 2, n.robe, n.trim, n.hat, n.look, 2, 0, false, "phys"); }, [props.n]);
+  return <canvas ref={ref} width={64} height={68} style={{ width: sz, height: Math.round((sz * 34) / 32), imageRendering: "pixelated", display: "block" }} />;
+}
+function NpcDialog(props: { g: Game; th: Theme; refresh: () => void }) {
+  const { g, th } = props; const s = nq(g); const n = qnpc(s.talk); const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, gbtn } = coinStyles(th); if (!n) return null;
+  const ready = npcQuests(n.id).some((q: NQDef) => nqStatus(g, q) === "ready");
+  const reply = (k: string, label: string, f: () => void, on?: boolean) => <button data-reply={k} style={{ ...gbtn(!!on), fontSize: 12 }} onClick={() => act(f)}>{label}</button>;
+  return (
+    <div data-dialog={n.id} onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }}
+      style={{ ...frame, inset: "auto", left: 8, top: 40, width: "min(52%, 400px)", zIndex: 6, gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>💬 {n.name}</b>
+        <button style={gbtn(false)} onClick={() => act(() => replyBye(g))}>Cerrar ✕</button>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <div style={{ border: `1px solid ${th.text.warning}`, borderRadius: 4, padding: 2, background: th.bg.elevated }}><NpcPortrait n={n} /></div>
+        <div data-say="1" style={{ flex: 1, fontSize: 12, lineHeight: 1.45, fontFamily: th.font.family }}><b style={{ color: gold }}>{n.name.split(" ")[0]}:</b> «{s.say}»</div>
+      </div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${th.text.warning}`, paddingTop: 6 }}>
+        <span style={{ fontSize: 11, color: th.text.secondary }}>Tú:</span>
+        {reply("mision", "misión", () => replyMission(g), !s.offer && !ready)}
+        {s.offer && reply("aceptar", "aceptar", () => replyAccept(g, performance.now()), true)}
+        {ready && reply("entregar", "entregar", () => replyTurnIn(g, performance.now()), true)}
+        {reply("diario", "diario", () => { s.log = true; replyBye(g); })}
+        {reply("adios", "adiós", () => { setStatus(g, `${n.name.split(" ")[0]}: «${n.bye}»`, performance.now()); replyBye(g); })}
+      </div>
+    </div>
+  );
+}
+function QuestLog(props: { g: Game; th: Theme; refresh: () => void; keyName: string }) {
+  const { g, th } = props; const s = nq(g); const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, card, gbtn } = coinStyles(th);
+  const groups: Array<[string, NQStatus[]]> = [["En curso", ["ready", "active"]], ["Disponibles", ["avail"]], ["Bloqueadas", ["prev", "lvl", "house"]], ["Completadas", ["done"]]];
+  const done = NQUESTS.filter((q: NQDef) => nqStatus(g, q) === "done").length;
+  const row = (q: NQDef, stt: NQStatus) => {
+    const st = s.q[q.id]; const n = qnpc(q.npc); const k = st ? st.k : 0; const rw = nqReward(q); const H = HOUSES[q.house - 1];
+    const txt = stt === "ready" ? `¡Lista! Vuelve con ${n ? n.name : "?"} para entregarla.` : stt === "prev" ? "Completa antes el paso anterior de la profecía." : stt === "lvl" ? `Necesitas nivel ${q.lvl}. ${q.task}` : stt === "house" ? `Necesitas llegar a la Casa de ${H ? H.name : "?"}. ${q.task}` : stt === "avail" ? `Habla con ${n ? n.name : "?"}: ${q.task}` : q.task;
+    return (
+      <div key={q.id} data-quest={q.id} data-qstate={stt} style={{ ...card, textAlign: "left", gap: 3, opacity: stt === "done" || stt === "prev" || stt === "lvl" || stt === "house" ? 0.75 : 1 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}><b style={{ flex: 1, fontSize: 12 }}>{stt === "ready" ? "❓ " : stt === "avail" ? "❗ " : stt === "done" ? "✓ " : ""}{q.name}</b><span style={{ fontSize: 10, color: th.text.secondary, whiteSpace: "nowrap" }}>{n ? n.name.split(",")[0] : ""} · nv {q.lvl}</span></div>
+        <div style={{ fontSize: 11 }}>{txt}</div>
+        {(stt === "active" || stt === "ready") && <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: th.fill.secondary, overflow: "hidden" }}><div style={{ width: `${Math.round((k / q.n) * 100)}%`, height: "100%", background: th.text.success }} /></div>
+          <span data-qprog={`${k}/${q.n}`} style={{ fontSize: 10, whiteSpace: "nowrap" }}>{q.kind === "collect" ? `${q.item ?? ""} ` : ""}{k}/{q.n}</span></div>}
+        {stt !== "done" && <div style={{ fontSize: 10, color: th.text.success }}>Premio: {rw.exp.toLocaleString("es-MX")} exp · {rw.gold.toLocaleString("es-MX")} oro{q.rw.coins ? ` · 🪙 ${q.rw.coins}` : ""}{q.rw.item ? ` · objeto ${q.rw.item === "epi" ? "épico" : "raro"}` : ""}{q.rw.mount ? " · 🐎 montura" : ""}</div>}
+      </div>
+    );
+  };
+  return (
+    <div data-qlog="1" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }}
+      style={{ ...frame, inset: "auto", left: 8, top: 40, width: "min(56%, 430px)", maxHeight: "calc(100% - 110px)", zIndex: 6, gap: 5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>🗒️ Diario de misiones <span data-qdone={done} style={{ fontSize: 11 }}>({done}/{NQUESTS.length})</span></b>
+        <button style={gbtn(false)} onClick={() => act(() => { s.log = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={{ fontSize: 10, color: th.text.secondary }}>Habla con Kiki, Marin, Shaina y Pitia en Villa Esmeralda: ❗ = misión disponible, ❓ = lista para entregar. Tecla «{props.keyName}» (cámbiala en «⌨️ Atajos»). Las misiones de las 12 Casas siguen en «📜 Misiones».</div>
+      <div style={{ overflowY: "auto", minHeight: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", gap: 4, paddingRight: 2 }}>
+        {groups.map(([t, sts]: [string, NQStatus[]]) => { const qs = NQUESTS.filter((q: NQDef) => sts.includes(nqStatus(g, q))); if (qs.length === 0) return null; return (
+          <Fragment key={t}><div style={{ color: gold, fontWeight: 700, fontSize: 12, borderBottom: `1px solid ${th.text.warning}`, marginTop: 2 }}>{t} ({qs.length})</div>
+            {qs.map((q: NQDef) => row(q, nqStatus(g, q)))}</Fragment>); })}
+      </div>
+    </div>
+  );
+}
+
 function SaveModal(props: { code: string; local: boolean; onClose: () => void; th: Theme }) {
   const { th } = props; const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [msg, setMsg] = useState<string>(""); const [good, setGood] = useState<boolean>(true);
@@ -3051,6 +3650,11 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
             <button style={{ ...btn(th, false, true), padding: "0 5px", lineHeight: "14px", background: th.bg.base, opacity: (g.miniZoom ?? 1) >= 4 ? 0.45 : 1 }} onClick={() => act(() => { miniZoomStep(g, 1); })} title="Acercar minimapa (rueda arriba)" aria-label="Acercar minimapa">+</button>
           </div>
         </div>}
+        {buffs(g).length > 0 && <div data-buffs="1" style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+          {buffs(g).map((b: Buff) => <div key={b.id} data-buff={b.id} data-left={Math.round(b.left)} title={b.tip}
+            style={{ display: "flex", alignItems: "center", gap: 2, padding: "1px 4px", fontSize: 10, fontWeight: 700, borderRadius: 3, border: `1px solid ${b.id === "xp" ? th.text.success : th.text.warning}`, background: th.bg.base, color: th.text.primary, cursor: "help", fontVariantNumeric: "tabular-nums" }}>
+            <span>{b.icon}</span><span data-bufftxt="1">{b.txt}</span></div>)}
+        </div>}
       </div>
       <div data-hudscroll="1" style={{ ...panel, overflowY: "auto", minHeight: 0, flex: "0 1 auto" }}>
         <div style={{ ...head, justifyContent: "space-between" }}><span>{p.name} · Nv {p.level}</span><span style={{ whiteSpace: "nowrap" }}><span style={{ color: th.text.warning }}>💰 {p.gold}</span> <span data-coins={cs(g).coins} title="Edisar Coins (prueba)" style={{ color: th.text.warningDeep }}>🪙 {cs(g).coins}</span></span></div>
@@ -3077,8 +3681,14 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           <button data-coinbtn="1" style={btn(th, cs(g).open, true)} onClick={() => act(() => { const c = cs(g); c.open = !c.open; c.msg = ""; })} title="Tienda de Edisar Coins (K)">🪙 Coins</button>
           <button data-depbtn="1" style={btn(th, !!g.dep && g.dep.open, true)} onClick={() => act(() => { if (g.dep && g.dep.open) g.dep.open = false; else requestDepot(g, performance.now()); })} title="Depósito (baúl junto al templo)">📦 Depósito</button>
           <button data-mountbtn="1" style={btn(th, !!g.mt && g.mt.open, true)} onClick={() => act(() => { const s = mt(g); s.open = !s.open; s.msg = ""; if (s.open && g.dep) g.dep.open = false; })} title="Monturas: elige y monta">🐎 Monturas</button>
+          <button data-qlogbtn="1" style={btn(th, !!g.nq && g.nq.log, true)} onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones">🗒️ Diario</button>
           <button style={{ ...btn(th, props.full, true), gridColumn: "1 / -1" }} onClick={props.onFull} title="Tecla P">{props.full ? "✕ Salir de pantalla completa" : "⛶ Pantalla completa"}</button>
         </div>
+        {nqActive(g).length > 0 && <div data-qtrack="1" onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones"
+          style={{ cursor: "pointer", marginBottom: 5, fontSize: 10, border: `1px solid ${th.border.strong}`, borderRadius: 4, padding: "3px 5px" }}>
+          <div style={{ fontWeight: 700, marginBottom: 1 }}>🗒️ Misiones</div>
+          {nqActive(g).slice(0, 3).map((q: NQDef) => { const st = nq(g).q[q.id]; const rd = !!st && st.s === "r"; return <div key={q.id} style={{ display: "flex", gap: 4 }}><span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span><span style={{ color: rd ? th.text.success : th.text.secondary, whiteSpace: "nowrap" }}>{rd ? "✓ entregar" : `${st ? st.k : 0}/${q.n}`}</span></div>; })}
+        </div>}
         <div data-afkmin={cs(g).afkMin} style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap", marginBottom: 5, fontSize: 10 }} title="Qué objetos recoge el modo AFK (el oro se recoge siempre)">
           <span style={{ color: th.text.secondary }}>🤖 AFK recoge:</span>
           {AFK_MINS.map((r: Rarity) => <button key={r} data-afkopt={r} style={{ ...btn(th, cs(g).afkMin === r, true), padding: "1px 5px", fontSize: 10 }} onClick={() => act(() => setAfkMin(g, r))} title={AFK_MIN_LABEL[r]}>{r === "com" ? "Todo" : <span style={{ color: cs(g).afkMin === r ? th.text.onPrimary : RAR[r].c }}>{RAR[r].n}+</span>}</button>)}
@@ -3111,20 +3721,20 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
 
 const PAD: Array<MoveAct | null> = ["ul", "up", "ur", "left", null, "right", "dl", "down", "dr"];
 const PAD_ICON: Record<MoveAct, string> = { ul: "↖", up: "↑", ur: "↗", left: "←", right: "→", dl: "↙", down: "↓", dr: "↘" };
-function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null; onExit: () => void; full: boolean; fs: boolean; onFull: () => void }) {
+function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null; charId?: string; onExit: () => void; full: boolean; fs: boolean; onFull: () => void }) {
   const th = useGrokTheme();
   const fullRef = useRef<boolean>(props.full); fullRef.current = props.full; const onFullRef = useRef<() => void>(props.onFull); onFullRef.current = props.onFull;
   const [coarse] = useState<boolean>(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches);
   const canvasRef = useRef<HTMLCanvasElement | null>(null); const miniRef = useRef<HTMLCanvasElement | null>(null); const hudRef = useRef<HTMLDivElement | null>(null);
   const gRef = useRef<Game | null>(null);
-  if (!gRef.current) gRef.current = props.save ? gameFromSave(props.save) : newGame(CLASSES[props.cls], props.name);
+  if (!gRef.current) { gRef.current = props.save ? gameFromSave(props.save) : newGame(CLASSES[props.cls], props.name); if (!props.save) applyAccount(gRef.current, openAccount(LS_KV)); }
   const g = gRef.current;
   const [binds, setBindsS] = useState<Binds>(() => cloneBinds(props.save ? props.save.binds : DEFAULT_BINDS)); const bindsRef = useRef<Binds>(binds);
   const [saveView, setSaveView] = useState<{ code: string; local: boolean } | null>(null); const saveOpenRef = useRef<boolean>(false);
   const openSave = (): void => {
     let code = ""; try { code = encodeSave(snapshot(g, bindsRef.current)); } catch { code = ""; }
     if (!code) return;
-    const local = lsSet(LS_KEY, code); g.heldDirs = []; saveOpenRef.current = true; setSaveView({ code, local });
+    const local = persistChar(props.charId ?? "", snapshot(g, bindsRef.current)); g.heldDirs = []; saveOpenRef.current = true; setSaveView({ code, local });
     addLog(g, "Partida guardada (código generado).");
   };
   const closeSave = (): void => { saveOpenRef.current = false; setSaveView(null); };
@@ -3165,14 +3775,16 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     raf = requestAnimationFrame(loop);
     const iv = window.setInterval(() => { measure(); setTick((t: number) => (t + 1) % 1000000); }, 300);
     const typing = (t: EventTarget | null): boolean => { const el = t as HTMLElement | null; return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable); };
-    const autosave = (): void => { const gg = gRef.current; if (!gg) return; try { lsSet(LS_KEY, encodeSave(snapshot(gg, bindsRef.current))); } catch { /* sin almacenamiento */ } };
+    const autosave = (): void => { const gg = gRef.current; if (!gg) return; try { persistChar(props.charId ?? "", snapshot(gg, bindsRef.current)); } catch { /* sin almacenamiento */ } };
+    autosave(); // el personaje nuevo queda guardado en su ranura desde el principio
+    try { window.scrollTo(0, 0); } catch { /* sin ventana */ } // al entrar desde la lista de personajes, el juego empieza arriba
     const autoIv = window.setInterval(autosave, 30000);
     const down = (e: KeyboardEvent): void => {
       if (typing(e.target)) return; const gg = gRef.current; if (!gg) return;
       if (saveOpenRef.current) { if (e.code === "Escape") { e.preventDefault(); saveOpenRef.current = false; setSaveView(null); } return; }
       const L = listenRef.current;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
-      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
+      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && !(gg.nq && (gg.nq.log || gg.nq.talk)) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -3260,7 +3872,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     const tx = Math.floor((px + g.camX) / TS), ty = Math.floor((py + g.camY) / TS);
     const gi = floorAt(g, tx, ty);
     if (gi && !monAt(g, tx, ty) && cheb(tx, ty, g.p.x, g.p.y) <= DROP_RANGE && regionOf(tx, ty) === regionOf(g.p.x, g.p.y)) { startDrag(e.clientX, e.clientY, { kind: "floor", gi }, () => { clickTile(g, tx, ty, performance.now()); refresh(); }); return; }
-    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === STABLE_X && (ty === STABLE_Y || ty === STABLE_Y - 1)) requestStable(g, now); else clickTile(g, tx, ty, now);
+    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === STABLE_X && (ty === STABLE_Y || ty === STABLE_Y - 1)) requestStable(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && (qnpcAt(tx, ty) || qnpcAt(tx, ty + 1))) talkTo(g, (qnpcAt(tx, ty) ?? qnpcAt(tx, ty + 1))!.id, now); else clickTile(g, tx, ty, now);
     refresh();
   };
   const hold = (d: MoveAct, on: boolean): void => { if (on) { if (!g.heldDirs.includes(d)) g.heldDirs.push(d); } else g.heldDirs = g.heldDirs.filter((x: MoveAct) => x !== d); };
@@ -3275,7 +3887,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
         <button style={btn(th, false, true)} onClick={props.onFull} title="Tecla P">⛶ Pantalla completa</button>
         <button style={btn(th, hudOpen, true)} onClick={() => setHudOpen(!hudOpen)}>{hudOpen ? "Ocultar HUD" : "Mostrar HUD"}</button>
         <button style={btn(th, false, true)} onClick={openSave}>💾 Guardar</button>
-        <button style={btn(th, false, true)} onClick={() => { try { lsSet(LS_KEY, encodeSave(snapshot(g, bindsRef.current))); } catch { /* sin almacenamiento */ } props.onExit(); }}>Nueva partida</button>
+        <button data-charsbtn="1" style={btn(th, false, true)} title="Guarda y vuelve a la lista de personajes" onClick={() => { persistChar(props.charId ?? "", snapshot(g, bindsRef.current)); props.onExit(); }}>👥 Personajes</button>
       </div>}
       <div style={full ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : { maxWidth: 1080, margin: "0 auto" }}>
         <div ref={wrapRef} style={full ? { position: "relative", flex: 1, minHeight: 0, overflow: "hidden" } : { position: "relative" }}>
@@ -3288,6 +3900,8 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {g.shopOpen && <ShopOverlay g={g} th={th} refresh={refresh} tip={hoverTip} />}
           {g.cs && g.cs.exOpen && <ExchangeOverlay g={g} th={th} refresh={refresh} />}
           {g.cs && g.cs.open && <CoinStore g={g} th={th} refresh={refresh} />}
+          {g.nq && g.nq.log && <QuestLog g={g} th={th} refresh={refresh} keyName={binds.qlog[0] ? keyLabel(binds.qlog[0]) : "—"} />}
+          {g.nq && g.nq.talk && <NpcDialog g={g} th={th} refresh={refresh} />}
           {g.mt && g.mt.open && <MountsWindow g={g} th={th} refresh={refresh} keyName={binds.mount[0] ? keyLabel(binds.mount[0]) : "—"} />}
           {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
@@ -3328,6 +3942,9 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <br />🪙 <b>Edisar Coins (prueba)</b>: tecla K o botón «🪙 Coins» abre la tienda (cosméticos, premium, mochila, pergaminos, poción de experiencia, cambio de nombre; monturas próximamente). Sin pagos reales: se ganan jugando, con «Modo prueba» o con el Cambista Darío junto a la fuente (1 Edisar Coin = 10,000 de oro). En el HUD, «🤖 AFK recoge» elige si el AFK recoge todo o sólo objetos Raros (azul), Épicos (morado) y Heaven; el oro se recoge siempre.
           <br />📦 <b>Depósito</b>: el baúl junto al templo guarda hasta 80 objetos. Tócalo (o camina hasta él) para abrirlo y arrastra objetos entre la mochila y el depósito, o usa «📦 Guardar» / «⬆ Sacar». Sólo se abre en Villa Esmeralda.
           <br />🐎 <b>Monturas</b>: tecla R (o «🐎 Montar») para montar o bajar; «🐎 Monturas» abre la ventana para elegir cuál. Montado caminas de +20% a +40% más rápido, también dentro de las casas. Tomás, en la esquina del pueblo, vende el Burro de carga por oro; otras están en la Tienda de Coins y algunas se doman venciendo jefes (Rey Minotauro, Aldebarán, Aioria, Aioros).
+          <br />🗒️ <b>Misiones del pueblo</b>: Kiki, Marin, Shaina y Pitia (en Villa Esmeralda) dan misiones: tócalos para hablar y usa «misión», «aceptar», «entregar» o «adiós». ❗ sobre su cabeza = misión disponible; ❓ = lista para entregar. La tecla J (o «🗒️ Diario») abre el diario con tu progreso. La profecía de Pitia tiene 3 pasos y termina con el Unicornio de bronce.
+          <br />⏳ <b>Efectos activos</b>: bajo el minimapa ves la poción de experiencia (⚗️ mm:ss, solo cuenta mientras juegas) y el Premium (👑 días/horas de calendario). Pasa el ratón para ver el efecto.
+          <br />♊ <b>Géminis</b>: Saga y Kanon pelean juntos. Al 50% de Saga llega Kanon y te manda a <b>Otra Dimensión</b>: llega a la grieta ✦, vence a las sombras o resiste 25 s para volver. Esquiva el gran círculo morado de la Explosión de Galaxias. Si cae un gemelo, el otro entra en furia y repite la dimensión.
           <br />⛶ <b>Pantalla completa</b>: botón ⛶ o tecla P (se puede cambiar en «Atajos»). Si el navegador no la permite, el juego ocupa toda la página; «✕ Salir» o Esc para volver.
         </div>}
       </div>
@@ -3336,7 +3953,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
 }
 
 export default function App() {
-  const [run, setRun] = useState<{ cls: ClassId; name: string; key: number; save: SaveData | null } | null>(null);
+  const [run, setRun] = useState<{ cls: ClassId; name: string; key: number; save: SaveData | null; charId?: string } | null>(null);
   // Pantalla completa: intenta la real (requestFullscreen); si el marco no la permite, el juego se maximiza dentro de la página
   const th = useGrokTheme(); const rootRef = useRef<HTMLDivElement | null>(null); const [full, setFull] = useState<boolean>(false); const [fs, setFs] = useState<boolean>(false);
   useEffect(() => {
@@ -3363,8 +3980,8 @@ export default function App() {
   return (
     <Page title="Edisar – Prototipo" width="full">
       <div ref={rootRef} style={full ? { position: "fixed", inset: 0, zIndex: 1000, background: th.bg.elevated, overflow: run ? "hidden" : "auto" } : undefined}>
-      {!run ? <TitleScreen full={full} onFull={toggleFull} onStart={(c: ClassId, n: string) => setRun({ cls: c, name: n, key: Date.now(), save: null })} onLoad={(d: SaveData) => setRun({ cls: d.cls, name: d.name, key: Date.now(), save: d })} />
-        : <GameScreen key={run.key} cls={run.cls} name={run.name} save={run.save} onExit={() => setRun(null)} full={full} fs={fs} onFull={toggleFull} />}
+      {!run ? <TitleScreen full={full} onFull={toggleFull} onStart={(c: ClassId, n: string, id?: string) => setRun({ cls: c, name: n, key: Date.now(), save: null, charId: id ?? "" })} onLoad={(d: SaveData, id?: string) => setRun({ cls: d.cls, name: d.name, key: Date.now(), save: d, charId: id ?? "" })} />
+        : <GameScreen key={run.key} cls={run.cls} name={run.name} save={run.save} charId={run.charId} onExit={() => setRun(null)} full={full} fs={fs} onFull={toggleFull} />}
       </div>
     </Page>
   );

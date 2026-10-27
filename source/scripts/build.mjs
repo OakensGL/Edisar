@@ -10,6 +10,9 @@ const PATCHES = [
     repl: "const autoIv = window.setInterval(autosave, 30000); const __unSave: () => void = ((globalThis as any).__edisarHookSave ? (globalThis as any).__edisarHookSave(autosave) : () => undefined);" },
   { name: "save on hide/close (cleanup)", find: "window.clearInterval(autoIv);", repl: "window.clearInterval(autoIv); __unSave();" },
 ];
+// Test-only build (TESTHOOK=1 → dist-test/index.html): exposes the live game ref so headless tests can set up a boss phase quickly.
+const TEST = !!process.env.TESTHOOK;
+if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef;" });
 const patchPlugin = { name: "edisar-patch", setup(b) {
   b.onLoad({ filter: /game\.canvas\.tsx$/ }, (args) => {
     let s = fs.readFileSync(args.path, "utf8"); const warnings = [];
@@ -31,6 +34,7 @@ const html = `<!doctype html>
 <style>html,body,#root{margin:0;padding:0;min-height:100%;height:100%;background:#070707;color:#fcfcfc;font-family:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif;color-scheme:dark}*{-webkit-tap-highlight-color:transparent}:fullscreen{background:#181818}</style>
 </head><body><div id="root"></div><script>${js}</script></body></html>
 `;
+if (TEST) { fs.mkdirSync(P("dist-test"), { recursive: true }); fs.writeFileSync(P("dist-test/index.html"), html); console.log(`dist-test/index.html ${(html.length / 1024).toFixed(0)} KB (test hook)`); process.exit(0); }
 fs.mkdirSync(P("dist"), { recursive: true }); fs.writeFileSync(P("dist/index.html"), html);
 fs.rmSync(P("dist/edisar.zip"), { force: true });
 execSync(`python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED); z.write(sys.argv[2],'index.html'); z.close()" edisar.zip index.html`, { cwd: P("dist") });

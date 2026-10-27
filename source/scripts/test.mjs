@@ -1,5 +1,6 @@
 // Headless Chrome tests for dist/index.html over file:// and http://. Usage: node scripts/test.mjs [--quick]
 import puppeteer from "puppeteer-core"; import http from "node:http"; import fs from "node:fs"; import path from "node:path";
+import { activeShim } from "./active-shim.mjs";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const QUICK = process.argv.includes("--quick");
 const html = fs.readFileSync(path.join(root, "dist/index.html"));
@@ -10,7 +11,7 @@ fs.mkdirSync(path.join(root, "shots"), { recursive: true });
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true,
   args: ["--no-sandbox", "--allow-file-access-from-files", "--window-size=1366,900"], defaultViewport: { width: 1366, height: 900 } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const LS = "edisar.autosave.v1";
+const LS = "@active";
 const readSave = (page) => page.evaluate((k) => { const c = localStorage.getItem(k); if (!c) return null; const b = c.split("-")[2]; return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), (ch) => ch.charCodeAt(0)))); }, LS);
 const writeSave = (page, d) => page.evaluate((k, d) => {
   const by = new TextEncoder().encode(JSON.stringify(d)); let bin = ""; for (const x of by) bin += String.fromCharCode(x); const body = btoa(bin);
@@ -21,14 +22,14 @@ const hasText = (page, t) => page.evaluate((t) => document.body.innerText.includ
 const results = []; const check = (name, ok, extra = "") => { results.push({ name, ok }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  — " + extra : ""}`); };
 
 for (const [kind, url] of targets) {
-  const ctx = await browser.createBrowserContext(); const page = await ctx.newPage(); const errs = [];
+  const ctx = await browser.createBrowserContext(); const page = await ctx.newPage(); await page.evaluateOnNewDocument(activeShim); const errs = [];
   page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); }); page.on("pageerror", (e) => errs.push(String(e)));
   await page.goto(url, { waitUntil: "load" }); await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil: "load" }); await sleep(800);
-  check(`[${kind}] title screen renders`, await hasText(page, "Comenzar aventura"));
+  check(`[${kind}] title screen renders`, await hasText(page, "Crear personaje"));
   check(`[${kind}] no 'Continuar última partida' on fresh storage`, !(await hasText(page, "Continuar última partida")));
   check(`[${kind}] localStorage usable`, await page.evaluate(() => { try { localStorage.setItem("t", "1"); localStorage.removeItem("t"); return true; } catch { return false; } }));
   await page.screenshot({ path: path.join(root, `shots/${kind}-title.png`) });
-  await page.type("input", "Tester"); await clickText(page, "Comenzar aventura"); await sleep(1500);
+  await page.type("input", "Tester"); await clickText(page, "Crear personaje"); await sleep(1500);
   check(`[${kind}] game screen renders`, await hasText(page, "Guardar"));
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide"))); const start = await readSave(page);
   // move: hold right then down
@@ -61,12 +62,14 @@ for (const [kind, url] of targets) {
   await page.evaluate((k) => { localStorage.removeItem(k); window.dispatchEvent(new Event("pagehide")); }, LS);
   const r = await readSave(page);
   check(`[${kind}] restored position`, r && r.x === d.x && r.y === d.y, r ? `saved ${d.x},${d.y} → restored ${r.x},${r.y}` : "");
-  check(`[${kind}] restored level`, r && r.level === lvlShown && r.level > 1, r ? `level ${r.level}` : "");
+  check(`[${kind}] restored level`, r && r.level > 1 && r.level >= lvlShown, r ? `level ${r.level} (list showed ${lvlShown} before the level was recomputed from exp)` : "");
+  const entryLvl = await page.evaluate(() => { const a = JSON.parse(localStorage.getItem("edisar.account.v1") || "null"); const e = a && a.chars.find((c) => c.id === a.last); return e ? e.level : 0; });
+  check(`[${kind}] character list level updated by the autosave`, r && entryLvl === r.level, `list ${entryLvl}`);
   check(`[${kind}] restored backpack + gold`, r && r.bag.length === 2 && r.bag[0].id === item.id && r.gold === 777, r ? `bag ${r.bag.map((b) => b.id).join(",")} gold ${r.gold}` : "");
   check(`[${kind}] player actually moved before saving`, !!moved, before && start ? `start ${start.x},${start.y} → ${before.x},${before.y}` : "");
   // 5) Nueva partida saves then returns to title
-  await page.evaluate((k) => localStorage.removeItem(k), LS); await clickText(page, "Nueva partida"); await sleep(600);
-  check(`[${kind}] 'Nueva partida' saves + returns to title with Continuar`, !!(await readSave(page)) && (await hasText(page, "Continuar última partida")));
+  await page.evaluate((k) => localStorage.removeItem(k), LS); await clickText(page, "👥 Personajes"); await sleep(600);
+  check(`[${kind}] '👥 Personajes' saves + returns to title with Continuar`, !!(await readSave(page)) && (await hasText(page, "Continuar última partida")));
   // 6) fullscreen really enters document fullscreen
   await clickText(page, "Pantalla completa"); await sleep(500);
   const fsOn = await page.evaluate(() => !!document.fullscreenElement); check(`[${kind}] real fullscreen (document.fullscreenElement)`, fsOn);

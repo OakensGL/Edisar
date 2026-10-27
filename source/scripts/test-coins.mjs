@@ -1,13 +1,14 @@
 // Headless check: Edisar Coins store (K / HUD button), Cambista Darío exchange, AFK loot filter, persistence. Screenshots: shots/coin-store.png, shots/coin-exchange.png
 import puppeteer from "puppeteer-core"; import path from "node:path";
+import { activeShim } from "./active-shim.mjs";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true, args: ["--no-sandbox", "--allow-file-access-from-files"], defaultViewport: { width: 1366, height: 900 } });
-const page = await browser.newPage(); const errs = [];
+const page = await browser.newPage(); await page.evaluateOnNewDocument(activeShim); const errs = [];
 page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); }); page.on("pageerror", (e) => errs.push(String(e)));
 const res = []; const check = (n, ok, x = "") => { res.push(ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${x ? "  — " + x : ""}`); };
 await page.goto("file://" + path.join(root, "dist/index.html")); await page.evaluate(() => localStorage.clear()); await page.reload(); await sleep(600);
-await page.type("input", "Cambista"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Comenzar aventura")).click()); await sleep(1200);
+await page.type("input", "Cambista"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Crear personaje")).click()); await sleep(1200);
 const attr = (sel, a) => page.evaluate((s, k) => document.querySelector(s)?.getAttribute(k) ?? null, sel, a);
 const has = (sel) => page.evaluate((s) => !!document.querySelector(s), sel);
 const clickIn = (sel, txt) => page.evaluate((s, t) => { const b = [...document.querySelectorAll(`${s} button`)].find((x) => x.textContent.includes(t)); if (b) b.click(); return !!b; }, sel, txt);
@@ -61,5 +62,44 @@ check("coins persist after reload", (await attr("[data-coins]", "data-coins")) =
 check("AFK filter persists", (await attr("[data-afkmin]", "data-afkmin")) === "rar");
 await page.keyboard.press("KeyK"); await sleep(300);
 check("purchases persist (outfit worn, bag 26)", await page.evaluate(() => document.querySelector('[data-coinitem="o_carmesi"]').innerText.includes("Puesto")) && await page.evaluate(() => /\/26\)/.test(document.body.innerText)));
+// Túnica de Nubes Rojas (Cosméticos, 90 coins): store card, purchase, worn in the world in all 4 facings, on foot and mounted
+const fs = await import("node:fs");
+for (let i = 0; i < 3; i++) await clickIn("[data-coinstore]", "Modo prueba"); await sleep(200);
+await clickIn("[data-coinstore]", "Cosméticos"); await sleep(200);
+check("Túnica de Nubes Rojas in Cosméticos for 🪙 90", await page.evaluate(() => { const e = document.querySelector('[data-coinitem="o_nubes"]'); return !!e && e.innerText.includes("Túnica de Nubes Rojas") && e.innerText.includes("90"); }));
+const nb0 = Number(await attr("[data-coinbal]", "data-coinbal"));
+await clickIn('[data-coinitem="o_nubes"]', "Comprar"); await sleep(250);
+check("buying the cloud robe deducts 90 and wears it", Number(await attr("[data-coinbal]", "data-coinbal")) === nb0 - 90 && await page.evaluate(() => document.querySelector('[data-coinitem="o_nubes"]').innerText.includes("Puesto")));
+fs.mkdirSync("/tmp/nubes", { recursive: true });
+const card = await page.$('[data-coinitem="o_nubes"]'); await page.evaluate(() => document.querySelector('[data-coinitem="o_nubes"]').scrollIntoView({ block: "center" })); await sleep(200);
+await card.screenshot({ path: "/tmp/nubes/store.png" });
+await clickIn("[data-coinstore]", "Monturas"); await sleep(200); await clickIn('[data-coinitem="m_caballo"]', "Comprar"); await sleep(250);
+await page.keyboard.press("Escape"); await sleep(250); await page.evaluate(() => window.scrollTo(0, 0)); await page.mouse.move(5, 5); await sleep(300);
+const robePx = () => page.evaluate(() => { const cv = document.querySelector('canvas[data-drop="map"]'); const ctx = cv.getContext("2d"); const r = cv.getBoundingClientRect();
+  const d = ctx.getImageData(0, 0, cv.width, cv.height).data; const xs = [], ys = [];
+  for (let i = 0; i < d.length; i += 4) if (d[i] === 0x12 && d[i + 1] === 0x10 && d[i + 2] === 0x14) { const p = i / 4; xs.push(p % cv.width); ys.push(Math.floor(p / cv.width)); }
+  if (xs.length < 20) return null; xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+  return { x: r.left + (xs[xs.length >> 1] * r.width) / cv.width, y: r.top + (ys[ys.length >> 1] * r.height) / cv.height, n: xs.length }; });
+const red = () => page.evaluate(() => { const cv = document.querySelector('canvas[data-drop="map"]'); const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] === 0xd0 && d[i + 1] === 0x18 && d[i + 2] === 0x28) n++; return n; });
+const faces = [["ArrowDown", "abajo"], ["ArrowLeft", "izquierda"], ["ArrowUp", "arriba"], ["ArrowRight", "derecha"]];
+const shot = async (file) => { const p = await robePx(); if (!p) return false; await page.screenshot({ path: file, clip: { x: p.x - 34, y: p.y - 44, width: 68, height: 72, scale: 4 } }); return true; };
+let okFoot = true, okRide = true;
+for (const [k, n] of faces) { await page.keyboard.down(k); await sleep(160); await page.keyboard.up(k); await sleep(600); const p = await robePx(); okFoot = okFoot && !!p && (await red()) > 4; await shot(`/tmp/nubes/pie-${n}.png`); }
+check("cloud robe drawn on foot in all 4 facings (black + red clouds)", okFoot);
+await page.keyboard.press("KeyR"); await sleep(500);
+for (const [k, n] of faces) { await page.keyboard.down(k); await sleep(160); await page.keyboard.up(k); await sleep(600); const p = await robePx(); okRide = okRide && !!p && (await red()) > 4; await shot(`/tmp/nubes/montado-${n}.png`); }
+check("cloud robe drawn while mounted in all 4 facings", okRide);
+await page.screenshot({ path: path.join(root, "shots/outfit-nubes-rojas-world.png") });
+{ // compose shots/outfit-nubes-rojas.png: store card + 4 facings on foot + 4 facings mounted
+  const b64 = (f) => "data:image/png;base64," + fs.readFileSync(f).toString("base64");
+  const row = (pre) => faces.map(([, n]) => `<figure><img src="${b64(`/tmp/nubes/${pre}-${n}.png`)}"><figcaption>${n}</figcaption></figure>`).join("");
+  const cp = await browser.newPage(); await cp.setViewport({ width: 1300, height: 800 });
+  await cp.setContent(`<html><body style="margin:0;background:#1b1712;color:#f0d890;font:14px Georgia,serif;padding:14px;display:inline-block">
+    <h2 style="margin:0 0 10px">Túnica de Nubes Rojas — 🪙 90 (Tienda de Edisar Coins › Cosméticos)</h2>
+    <div style="display:flex;gap:16px;align-items:flex-start"><div><img src="${b64("/tmp/nubes/store.png")}" style="zoom:1.6;image-rendering:pixelated"><div>En la tienda</div></div>
+    <div><div>A pie</div><div style="display:flex;gap:6px">${row("pie")}</div><div style="margin-top:8px">Montado</div><div style="display:flex;gap:6px">${row("montado")}</div></div></div>
+    <style>figure{margin:0;text-align:center}img{display:block;image-rendering:pixelated;width:204px;border:2px solid #6a5530}</style></body></html>`);
+  await sleep(300); const el = await cp.$("body"); await el.screenshot({ path: path.join(root, "shots/outfit-nubes-rojas.png") }); await cp.close();
+}
 check("no console errors", errs.length === 0, errs.slice(0, 3).join(" | "));
 await browser.close(); console.log(`${res.filter(Boolean).length}/${res.length} passed`); process.exit(res.every(Boolean) ? 0 : 1);

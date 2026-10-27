@@ -1,14 +1,15 @@
 // Headless check: mouse-wheel zoom on the HUD minimap (clamped levels, no page scroll, wheel elsewhere untouched, +/- buttons, saved).
 // Usage: node scripts/test-minimap.mjs   → also writes shots/minimap-zoom.png (zoomed minimap) and shots/minimap-zoom-full.png
 import puppeteer from "puppeteer-core"; import path from "node:path";
+import { activeShim } from "./active-shim.mjs";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true, args: ["--no-sandbox", "--allow-file-access-from-files"], defaultViewport: { width: 1366, height: 900, deviceScaleFactor: 2 } });
-const page = await browser.newPage(); const errs = [];
+const page = await browser.newPage(); await page.evaluateOnNewDocument(activeShim); const errs = [];
 page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); }); page.on("pageerror", (e) => errs.push(String(e)));
 const res = []; const check = (n, ok, x = "") => { res.push(ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${x ? "  — " + x : ""}`); };
 await page.goto("file://" + path.join(root, "dist/index.html")); await page.evaluate(() => localStorage.clear()); await page.reload(); await sleep(600);
-await page.type("input", "Zoomer"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Comenzar aventura")).click()); await sleep(1200);
+await page.type("input", "Zoomer"); await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Crear personaje")).click()); await sleep(1200);
 const zoom = () => page.evaluate(() => Number(document.querySelector("[data-minizoom]")?.getAttribute("data-minizoom")));
 const label = () => page.evaluate(() => document.querySelector("[data-minizoom-label]")?.textContent ?? "");
 const pix = () => page.evaluate(() => { const c = document.querySelector("[data-minizoom] canvas"); return c.toDataURL(); });
