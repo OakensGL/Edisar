@@ -51,8 +51,24 @@ const field = () => ev(() => { const g = globalThis.__edisarG.current; const W =
 
 // ===== 1) Modo GM =====
 await newChar("knight", "Minato", 100);
-check("botón «🛠 Modo GM (prueba)» en el menú", await ev(() => !!document.querySelector("[data-gmbtn]") && document.querySelector("[data-gmbtn]").textContent.includes("Modo GM")));
-await click("[data-gmbtn]"); await sleep(400);
+const KEY = process.env.GM_KEY || fs.readFileSync("/workspace/edisar/.gmkey", "utf8").trim();
+check("sin botón de Modo GM en el menú (jugadores normales no lo ven)", await ev(() => !document.querySelector("[data-gmbtn]") && !Array.from(document.querySelectorAll("button")).some((b) => /Modo GM/.test(b.textContent))));
+check("el código publicado no contiene la clave en texto plano", !fs.readFileSync(path.join(G, "dist-test/index.html"), "utf8").includes(KEY) && !fs.readFileSync(path.join(G, "src/game.canvas.tsx"), "utf8").includes(KEY));
+await page.evaluate(() => document.activeElement && document.activeElement.blur()); await sleep(100);
+const pos0 = await ev(() => { const g = globalThis.__edisarG.current; return JSON.stringify([g.p.x, g.p.y, g.p.cd, g.p.gcd, g.shopOpen, g.afk]); });
+await page.keyboard.press("Enter"); await sleep(250);
+check("Enter abre el cuadro de chat/comandos visible («Escribe un comando…»)", await ev(() => { const i = document.querySelector("[data-cmd]"); if (!i) return false; const r = i.getBoundingClientRect(); return document.activeElement === i && r.width > 150 && r.height > 15 && i.placeholder.startsWith("Escribe un comando"); }));
+await page.keyboard.type("1234 wasd qezc"); await sleep(700);
+check("mientras escribes no se disparan teclas del juego (ni poderes ni movimiento)", (await ev(() => { const g = globalThis.__edisarG.current; return JSON.stringify([g.p.x, g.p.y, g.p.cd, g.p.gcd, g.shopOpen, g.afk]); })) === pos0, pos0);
+await page.keyboard.press("Escape"); await sleep(200);
+check("Esc cierra el cuadro", await ev(() => !document.querySelector("[data-cmd]")));
+await page.keyboard.press("Enter"); await sleep(250); await page.keyboard.type("gm"); await page.keyboard.press("Enter"); await sleep(250);
+check("«gm» (sin barra) pide la clave (campo enmascarado) sin activar GM", await ev(() => { const i = document.querySelector("[data-cmd]"); return !!i && i.type === "password" && !(globalThis.__edisarG.current.gm && globalThis.__edisarG.current.gm.on); }));
+await page.keyboard.type("clave-mala"); await sleep(150); await shot("gm-locked.png");
+await page.keyboard.press("Enter"); await sleep(400);
+check("clave incorrecta: «Clave incorrecta» y GM sigue apagado", await ev(() => { const g = globalThis.__edisarG.current; return !(g.gm && g.gm.on) && !document.querySelector("[data-gm]") && /Clave incorrecta/.test(g.status); }));
+check("captura gm-locked.png", fs.existsSync(path.join(G, "shots/gm-locked.png")));
+await page.keyboard.press("Enter"); await sleep(200); await page.keyboard.type("gm " + KEY); await page.keyboard.press("Enter"); await sleep(500);
 check("al activarlo se abre el panel GM (marcado como prototipo)", await ev(() => !!document.querySelector("[data-gm]") && document.querySelector("[data-gm]").textContent.includes("PROTOTIPO") && globalThis.__edisarG.current.gm.on));
 await page.type("[data-gmq]", "Croqui"); await sleep(150); await select("[data-gmrar]", "hea"); await page.click("[data-gmqty]", { clickCount: 3 }); await page.type("[data-gmqty]", "2");
 let bag0 = await ev(() => globalThis.__edisarG.current.p.bag.length); await click("[data-gmcreate]"); await sleep(200);
@@ -74,11 +90,11 @@ check("matar cercanos", await ev(() => { const g = globalThis.__edisarG.current;
 await select("[data-gmplace]", "temple"); await click("[data-gmtp]"); await sleep(300);
 // comando /gm
 await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press("Slash"); await sleep(250);
-check("tecla / abre la línea de comandos", await ev(() => !!document.querySelector("[data-cmd]")));
+check("«/» también abre el cuadro (no está asignada a nada)", await ev(() => !!document.querySelector("[data-cmd]")));
 await page.keyboard.type("gm off"); await page.keyboard.press("Enter"); await sleep(250);
 check("«/gm off» desactiva el Modo GM", await ev(() => !globalThis.__edisarG.current.gm.on && !document.querySelector("[data-gm]")));
-await page.keyboard.press("Slash"); await sleep(200); await page.keyboard.type("gm"); await page.keyboard.press("Enter"); await sleep(250);
-check("«/gm» lo vuelve a activar", await ev(() => globalThis.__edisarG.current.gm.on));
+await page.keyboard.press("Enter"); await sleep(200); await page.keyboard.type("/gm " + KEY); await page.keyboard.press("Enter"); await sleep(500);
+check("Enter + «/gm <clave>» lo vuelve a activar", await ev(() => globalThis.__edisarG.current.gm.on));
 await click('[data-gm] button:nth-of-type(2)'); await sleep(200);
 // Minato: hoja de 4 direcciones + escena
 await put(62, 66); await ev(() => { const g = globalThis.__edisarG.current; g.lootToast = null; g.status = ""; g.log = []; }); await sleep(700);
@@ -89,10 +105,10 @@ await compose([mrow], "Modo GM — atuendo de Minato (haori blanco con llamas ro
 check("captura gm-minato.png", fs.existsSync(path.join(G, "shots/gm-minato.png")));
 // guardado: gm:1 por personaje
 await click("[data-charsbtn]"); await sleep(600); await page.reload(); await sleep(500); await cont(); await sleep(1200);
-check("al volver a entrar, el personaje sigue en Modo GM ([GM])", await ev(() => !!globalThis.__edisarG.current.gm && globalThis.__edisarG.current.gm.on));
+check("al volver a entrar, el Modo GM NO sigue activo (hay que volver a dar la clave)", await ev(() => !(globalThis.__edisarG.current.gm && globalThis.__edisarG.current.gm.on)));
 
 // ===== 2) Portal del templo al Inframundo =====
-await ev(() => { const g = globalThis.__edisarG.current; g.gm.open = false; g.cleared = 11; });
+await ev(() => { const g = globalThis.__edisarG.current; if (g.gm) g.gm.open = false; g.cleared = 11; });
 const TP = [46, 65]; await put(TP[0] + 1, TP[1]); await sleep(300); await key("ArrowLeft");
 let st = await status(); let p = await at();
 check("portal del templo sellado antes de Géminis (🔒 se abre al vencer a Géminis)", p[0] === TP[0] + 1 && /Géminis/.test(st), st);
@@ -135,7 +151,7 @@ const VOC = [["druid", "bendicion-del-bosque"], ["sorc", "infierno"], ["warlock"
 for (const [cls, slug] of VOC) {
   await newChar(cls, "Prueba", 100, { gm: 1 });
   const f = await field(); await put(f[0], f[1]); await sleep(300);
-  await ev(() => { const g = globalThis.__edisarG.current; g.gm.open = true; }); await sleep(200);
+  await ev(() => { const g = globalThis.__edisarG.current; g.gm = { on: true, open: true, god: false, inv: false, msg: "", bad: false }; }); await sleep(200);
   await click("[data-gmgod]"); await select("[data-gmmon]", "uw3c"); for (let i = 0; i < 5; i++) { await click("[data-gmspawn]"); await sleep(60); }
   if (cls === "knight") { // Cadenas: monstruos a 3-5 casillas → junto al caballero
     await ev(([x, y]) => { const g = globalThis.__edisarG.current; const ms = g.mons.filter((m) => m.alive && m.temp); const spots = [[x + 4, y], [x - 4, y + 1], [x + 1, y - 4], [x - 3, y - 3], [x + 4, y + 3]]; ms.forEach((m, i) => { const s = spots[i % 5]; m.x = s[0]; m.y = s[1]; m.fx = m.x; m.fy = m.y; m.calmUntil = performance.now() + 1e6; m.angryUntil = 0; }); g.p.mana = 99999; }, f);

@@ -64,7 +64,7 @@ const TS = 32; let VW_T = 21; let VH_T = 13; let VW = TS * VW_T; let VH = TS * V
 const OY = 32; const OW_W = 96; const OW_H = 72 + OY; const HW = 64, HH = 48, NH = 12;
 const DIM_X0 = 4, DIM_Y0 = OW_H + 4, DIM_W = 34, DIM_H = 22; // Otra Dimensión: arena aparte (cuenta como Casa de Géminis)
 const GEM_BHP = 1.2, GEM_BATK = 1.0, GEM_KHP = 0.8, GEM_KATK = 1.1; // Saga y Kanon (sobre la curva de las Casas)
-const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 5; const DIAG_MUL = 1.4; const BAG_MAX = 20;
+const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 3; /* v22: era 5 (×0,6) */ const DIAG_MUL = 1.4; const BAG_MAX = 20;
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
 const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
 const PLAYER_T = -7;
@@ -108,7 +108,7 @@ const DEFAULT_BINDS: Binds = {
   ul: ["KeyQ", "Numpad7"], ur: ["KeyE", "Numpad9"], dl: ["KeyZ", "Numpad1"], dr: ["KeyC", "Numpad3"],
   power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"], power5: ["F7", "Digit7"], power6: ["F8", "Digit8"],
   hpPot: ["F5", "Digit5"], manaPot: ["F6", "Digit6"], attack: ["Space"], nextTarget: ["Tab"], clearTarget: ["Escape"],
-  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"], qlog: ["KeyJ"],
+  shop: ["KeyT"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"], qlog: ["KeyJ"],
 };
 const MOVE_VEC: Record<MoveAct, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0], ul: [-1, -1], ur: [1, -1], dl: [-1, 1], dr: [1, 1] };
 const DIRS8: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]];
@@ -193,6 +193,9 @@ interface ItemDef { loot?: boolean; }
 const TIER_LV = [30, 38, 46, 54, 62];
 const TIER_N = ["de bronce celeste", "de plata lunar", "de oro solar", "de oricalco", "del Zodiaco"];
 function addLoot(d: ItemDef): void { d.loot = true; ITEMS.push(d); ITEM[d.id] = d; }
+// Varita de Entrenamiento (solo Tienda de Coins): daño muy bajo (la mitad que la Varita de brasas), x2 entrenamiento de nivel mágico
+const TWAND = "twand", TWAND_PRICE = 80;
+{ const d = it(TWAND, "Varita de Entrenamiento", "weapon", "wand", 1, ["druid", "sorc", "warlock"], 0, { atk: 7, range: 4, elem: "fire" }); ITEMS.push(d); ITEM[d.id] = d; }
 function addTier(t: number): void {
   const L = TIER_LV[t] ?? 30, nm = TIER_N[t] ?? "", a = Math.round(1.45 * L + 8), k = t + 1, pr = Math.round(60 * L);
   const add = (id: string, name: string, slot: Slot, wt: WType, voc: ClassId[] | null, o: ItemOpt): void => addLoot(it(`${id}_t${k}`, `${name} ${nm}`, slot, wt, L, voc, pr, o));
@@ -636,6 +639,7 @@ function itemDesc(i: Inst): string {
   add("atk", "Ataque"); add("def", "Defensa"); add("arm", "Armadura"); add("magic", "Magia +"); add("hp", "Vida +"); add("mana", "Maná +"); add("speed", "Velocidad +");
   if (d.slot === "weapon") parts.push(`alcance ${d.range}`);
   if (d.wt === "sword") parts.push("equilibrada"); if (d.wt === "axe") parts.push("lenta pero fuerte"); if (d.wt === "club") parts.push("+30 % contra blindados"); if (d.wt === "dagger" && d.slot === "weapon") parts.push("muy rápida");
+  if (d.id === TWAND) parts.push("x2 entrenamiento de nivel mágico");
   parts.push(`nivel ${d.lvl}`);
   parts.push(d.voc ? d.voc.map((v: ClassId) => CLASSES[v].name).join("/") : "todas las vocaciones");
   return parts.join(" · ");
@@ -796,6 +800,7 @@ function skillNeed(g: Game, k: SkillId): number {
 }
 function trainSkill(g: Game, k: SkillId, amt: number, now: number): void {
   if (!(amt > 0)) return;
+  if (k === "magic" && g.p.eq.weapon?.id === TWAND) amt *= 2; // Varita de Entrenamiento
   const s = g.p.sk[k]; s.tries += amt;
   let guard = 0;
   while (guard < 5 && s.tries >= skillNeed(g, k)) {
@@ -824,12 +829,12 @@ function addExp(g: Game, amt: number, now: number): void {
   }
 }
 function rollItem(g: Game, def: MonDef): Inst | null {
-  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id));
+  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== TWAND && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id));
   if (def.house) { const hi = pool.filter((d: ItemDef) => d.lvl >= def.lootLvl - 18); if (hi.length > 0 && Math.random() < 0.75) pool = hi; }
   if (def.uw) pool = uwPool(def, pool);
   if (Math.random() < 0.7) { const mine = pool.filter((d: ItemDef) => d.voc === null || d.voc.includes(g.cls.id)); if (mine.length > 0) pool = mine; }
   const d = pool[Math.floor(Math.random() * pool.length)]; if (!d) return null;
-  const [pr, pe, ph] = def.rar; const r = Math.random();
+  const pr = def.rar[0] * 0.5, pe = def.rar[1] * 0.5, ph = def.rar[2] / 3; const r = Math.random(); // v22: raro y épico ×0,5, Heaven ×1/3
   let rar: Rarity = r < ph ? "hea" : r < ph + pe ? "epi" : r < ph + pe + pr ? "rar" : "com";
   if ((def.id === "boss" || def.boss) && rar === "com") rar = "rar";
   return { uid: g.nextUid++, id: d.id, rar };
@@ -891,10 +896,10 @@ function killMon(g: Game, m: Mon, now: number): void {
 // ===================== Las Casas: misiones y guardianes =====================
 function questReward(n: number): { exp: number; gold: number; item: string } {
   const H = HOUSES[n - 1]; const R = H ? H.rec : 1;
-  return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.5), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
+  return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.3), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
 }
 function rewardItem(g: Game, maxLvl: number, rar: Rarity): Inst | null {
-  const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
+  const pool = ITEMS.filter((d: ItemDef) => d.id !== TWAND && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
   const top = pool.slice(0, 8); const d = top[Math.floor(Math.random() * top.length)]; if (!d) return null;
   return { uid: g.nextUid++, id: d.id, rar };
 }
@@ -1681,7 +1686,7 @@ const MOUNTS: MountDef[] = [
   { id: "m_corcel", n: "Corcel de Sagitario", price: 0, speed: 40, src: "boss", mon: "h8boss", chance: 0.06, kind: "pegasus", body: "#f4f0e8", dark: "#a8a090", mane: "#ffd34d" },
   { id: "m_unicornio", n: "Unicornio de bronce", price: 0, speed: 35, src: "quest", kind: "horse", body: "#c89a5a", dark: "#6a4a26", mane: "#f4e8c8" },
 ];
-type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename";
+type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename" | "twand";
 const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string }> = {
   premium: { n: `Premium ${PREM_DAYS} días`, d: `+${Math.round(PREM_EXP * 100)}% de experiencia por cazar y los objetos raros, épicos y Heaven brillan en el suelo.`, price: 250, icon: "👑" },
   bag: { n: `Mochila ampliada (+${BAG_STEP} casillas)`, d: `Más espacio en la mochila (hasta ${BAG_CAP} casillas).`, price: 150, icon: "🎒" },
@@ -1689,6 +1694,7 @@ const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string 
   scroll5: { n: "Pergaminos de regreso ×5", d: "Paquete de 5 pergaminos.", price: 12, icon: "📜" },
   xp: { n: "Poción de experiencia (1 h)", d: `+${Math.round(XP_BOOST * 100)}% de experiencia por cazar durante 1 hora de juego (se acumula hasta 5 h).`, price: 25, icon: "⚗️" },
   rename: { n: "Cambio de nombre", d: "Elige un nombre nuevo para tu personaje.", price: 100, icon: "✒️" },
+  twand: { n: "Varita de Entrenamiento", d: "Druida, hechicero y brujo, nivel 1. Daño muy bajo (para entrenar, no para cazar): x2 entrenamiento de nivel mágico mientras la llevas equipada.", price: TWAND_PRICE, icon: "🪄" },
 };
 interface CoinState {
   coins: number; owned: string[]; outfit: string; aura: string; ncol: string; premUntil: number; xpLeft: number; xpT: number; bagX: number; scrolls: number; afkMin: Rarity;
@@ -1740,12 +1746,14 @@ function buyUtil(g: Game, u: UtilId, now: number, newName?: string): boolean {
   if (u === "bag" && c.bagX >= BAG_STEP * BAG_BUYS) { coinMsg(g, "Tu mochila ya tiene el tamaño máximo.", true); return false; }
   if (u === "xp" && c.xpLeft + XP_BOOST_MS > XP_BOOST_MAX) { coinMsg(g, "Ya tienes el máximo de 5 h de poción de experiencia.", true); return false; }
   let nm = "";
+  if (u === "twand") { if (!ITEM[TWAND]?.voc?.includes(g.cls.id)) { coinMsg(g, "Solo para druida, hechicero y brujo.", true); return false; } if (g.p.bag.length >= bagMax(g)) { coinMsg(g, "La mochila está llena.", true); return false; } }
   if (u === "rename") { nm = (newName ?? "").trim().replace(/\s+/g, " "); if (!/^[A-Za-zÀ-ÿ0-9 ]{2,16}$/.test(nm)) { coinMsg(g, "Escribe un nombre de 2 a 16 letras o números.", true); return false; } if (nm === g.p.name) { coinMsg(g, "Ese ya es tu nombre.", true); return false; } }
   if (!spend(g, it.price)) return false;
   if (u === "premium") { const base = Math.max(Date.now(), c.premUntil); c.premUntil = base + PREM_DAYS * 86400000; coinMsg(g, `¡Premium activo hasta el ${new Date(c.premUntil).toLocaleDateString("es-MX")}!`); }
   else if (u === "bag") { c.bagX += BAG_STEP; coinMsg(g, `Mochila ampliada: ahora tiene ${bagMax(g)} casillas.`); }
   else if (u === "scroll" || u === "scroll5") { const n = u === "scroll" ? 1 : 5; c.scrolls += n; coinMsg(g, `Compraste ${n} pergamino${n > 1 ? "s" : ""} de regreso (tienes ${c.scrolls}).`); }
   else if (u === "xp") { c.xpLeft += XP_BOOST_MS; coinMsg(g, `Poción de experiencia activa: ${Math.round(c.xpLeft / 60000)} min restantes.`); }
+  else if (u === "twand") { g.p.bag.push({ uid: g.nextUid++, id: TWAND, rar: "com" }); coinMsg(g, "Compraste la Varita de Entrenamiento: está en tu mochila (x2 entrenamiento de nivel mágico al equiparla)."); }
   else if (u === "rename") { const old = g.p.name; g.p.name = nm; coinMsg(g, `Ahora te llamas ${nm} (antes ${old}).`); setStatus(g, `¡Ahora te llamas ${nm}!`, now, "#ffd34d"); }
   return true;
 }
@@ -1969,7 +1977,7 @@ function nq(g: Game): NQState { if (!g.nq) g.nq = { q: {}, talk: "", say: "", of
 function qnpc(id: string): QNpc | undefined { return QNPCS.find((n: QNpc) => n.id === id); }
 function qdef(id: string): NQDef | undefined { return NQUESTS.find((q: NQDef) => q.id === id); }
 function qnpcAt(x: number, y: number): QNpc | undefined { return QNPCS.find((n: QNpc) => n.x === x && n.y === y); }
-function nqReward(q: NQDef): { exp: number; gold: number } { return { exp: Math.round((expFor(q.lvl + 3) - expFor(q.lvl)) * 0.35) + 150, gold: Math.round(60 + q.lvl * q.lvl * 4) }; }
+function nqReward(q: NQDef): { exp: number; gold: number } { return { exp: Math.round((expFor(q.lvl + 3) - expFor(q.lvl)) * 0.21) + 90, gold: Math.round(60 + q.lvl * q.lvl * 4) }; }
 type NQStatus = "done" | "ready" | "active" | "avail" | "prev" | "lvl" | "house";
 function nqStatus(g: Game, q: NQDef): NQStatus {
   const st = g.nq ? g.nq.q[q.id] : undefined;
@@ -3982,7 +3990,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined, uw: saveUw(g), gm: gmOn(g) ? 1 : undefined };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined, uw: saveUw(g) };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -4056,7 +4064,7 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; loadUw(g, d.uw); if (d.gm === 1) gmSt(g).on = true; let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; loadUw(g, d.uw); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -4464,7 +4472,8 @@ function iconKey(id: string, wt?: string, slot?: string): string {
 /** Potions (PotKind) → icon key */
 function potIconKey(k: string): string { return k === "mana" ? "pot_mana" : k === "hp2" ? "pot_hp2" : k === "mana2" ? "pot_mana2" : k === "xp" ? "pot_xp" : "pot_hp"; }
 /** Coin-shop utilities (UtilId) → icon key */
-function utilIconKey(u: string): string { return u === "premium" ? "premium" : u === "bag" ? "bag" : u === "scroll" || u === "scroll5" ? "scroll" : u === "xp" ? "pot_xp" : u === "rename" ? "quill" : "unknown"; }
+ICO_DEF[TWAND] = "wand_a gold wood sapph";
+function utilIconKey(u: string): string { return u === "twand" ? TWAND : u === "premium" ? "premium" : u === "bag" ? "bag" : u === "scroll" || u === "scroll5" ? "scroll" : u === "xp" ? "pot_xp" : u === "rename" ? "quill" : "unknown"; }
 /** Quest collectibles (HouseQuest.item / NQDef.item names) → icon key */
 function questIconKey(name: string): string {
   const n = name.toLowerCase();
@@ -5161,10 +5170,19 @@ function setGm(g: Game, on: boolean, now: number): void {
   const s = gmSt(g); s.on = on; s.open = on; if (!on) { s.god = false; s.inv = false; }
   setStatus(g, on ? "🛠 Modo GM activado (herramienta de prueba)." : "Modo GM desactivado.", now, on ? "#ffd34d" : "#ffffff"); addLog(g, on ? "🛠 Modo GM activado: panel de pruebas abierto." : "🛠 Modo GM desactivado.");
 }
-function runCmd(g: Game, txt: string, now: number): string {
-  const t = txt.trim().toLowerCase().replace(/\s+/g, " ");
-  if (t === "/gm" || t === "/gm on" || t === "/gm off") { setGm(g, t === "/gm" ? !gmOn(g) : t === "/gm on", now); return gmOn(g) ? "Modo GM activado." : "Modo GM desactivado."; }
-  return "Comando desconocido. Prueba «/gm».";
+// Solo se guarda el SHA-256 de la clave GM, nunca la clave
+const GM_HASH = "abdc7606e8784bdfacf90842498974113b1a32871972b28d954c4d711e1a2f70";
+async function gmKeyOk(k: string): Promise<boolean> {
+  try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(k)); return Array.from(new Uint8Array(b), (x: number) => x.toString(16).padStart(2, "0")).join("") === GM_HASH; } catch { return false; }
+}
+async function runCmd(g: Game, txt: string, now: number): Promise<string> {
+  const raw = txt.trim(); const t = raw.toLowerCase().replace(/\s+/g, " ");
+  if (t === "/gm off" || t === "gm off") { if (gmOn(g)) setGm(g, false, now); return "Modo GM desactivado."; }
+  const m = /^\/?gm(?:\s+(\S+))?$/i.exec(raw); if (!m) return "Comando desconocido.";
+  if (gmOn(g)) { gmSt(g).open = true; return "Panel GM abierto. «gm off» lo desactiva."; }
+  if (!m[1]) return "🔑 Escribe la clave después de «gm ».";
+  if (!(await gmKeyOk(m[1]))) return "Clave incorrecta.";
+  setGm(g, true, now); return "Modo GM activado.";
 }
 function gmNum(v: string | number, lo: number, hi: number): number | null { const n = typeof v === "number" ? v : v.trim() === "" ? NaN : Number(v); return Number.isFinite(n) && Math.floor(n) === n && n >= lo && n <= hi ? n : null; }
 function gmGet(g: Game, f: GmField): number { const p = g.p; return f === "level" ? p.level : f === "gold" ? p.gold : f === "coins" ? cs(g).coins : p.sk[f].lvl; }
@@ -5422,6 +5440,7 @@ function ItemTipBody(props: { g: Game; th: Theme; inst: Inst; plain?: boolean })
           </div>))}
         {c.rows.length === 0 && <div style={{ color: th.text.tertiary }}>Sin estadísticas</div>}
       </div>
+      {inst.id === TWAND && <div style={{ color: th.text.success, fontWeight: 700 }}>✦ x2 entrenamiento de nivel mágico</div>}
       {!plain && c.cur && c.def.slot === "weapon" && <div style={{ color: th.text.tertiary, fontSize: 10 }}>Daño por minuto: {Math.round((cmpStats(inst).atk * cmpStats(inst).aps))} frente a {Math.round(cmpStats(c.cur).atk * cmpStats(c.cur).aps)}</div>}
     </div>
   );
@@ -5687,6 +5706,7 @@ function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
           {utilCard("scroll", `Tienes ${c.scrolls}`, true)}
           {utilCard("scroll5", "", true)}
           {utilCard("rename", `Ahora: ${g.p.name}`, true)}
+          {utilCard("twand", ITEM[TWAND]?.voc?.includes(g.cls.id) ? "x2 entrenamiento de nivel mágico" : "Solo druida, hechicero y brujo", !!ITEM[TWAND]?.voc?.includes(g.cls.id))}
         </div>}
       </div>
       <div style={{ fontSize: 10, color: th.text.tertiary }}>Tecla para abrir/cerrar: se puede cambiar en «⌨️ Atajos».</div>
@@ -6113,7 +6133,6 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           <button data-depbtn="1" style={btn(th, !!g.dep && g.dep.open, true)} onClick={() => act(() => { if (g.dep && g.dep.open) g.dep.open = false; else requestDepot(g, performance.now()); })} title="Depósito (baúl junto al templo)">📦 Depósito</button>
           <button data-mountbtn="1" style={btn(th, !!g.mt && g.mt.open, true)} onClick={() => act(() => { const s = mt(g); s.open = !s.open; s.msg = ""; if (s.open && g.dep) g.dep.open = false; })} title="Monturas: elige y monta">🐎 Monturas</button>
           <button data-qlogbtn="1" style={btn(th, !!g.nq && g.nq.log, true)} onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones">🗒️ Diario</button>
-          <button data-gmbtn="1" style={btn(th, gmOn(g), true)} onClick={() => act(() => { if (!gmOn(g)) setGm(g, true, performance.now()); else { const s = gmSt(g); s.open = !s.open; } })} title="Modo GM: herramienta de prueba (también con el comando /gm)">🛠 {gmOn(g) ? "Panel GM" : "Modo GM (prueba)"}</button>
           <button style={{ ...btn(th, props.full, true), gridColumn: "1 / -1" }} onClick={props.onFull} title="Tecla P">{props.full ? "✕ Salir de pantalla completa" : "⛶ Pantalla completa"}</button>
         </div>
         {nqActive(g).length > 0 && <div data-qtrack="1" onClick={() => act(() => { const s = nq(g); s.log = !s.log; if (s.log) replyBye(g); })} title="Diario de misiones"
@@ -6218,7 +6237,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       const L = listenRef.current;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
       if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && !(gg.nq && (gg.nq.log || gg.nq.talk)) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
-      if (e.key === "/" && !actionFor(bindsRef.current, e.code)) { e.preventDefault(); gg.heldDirs = []; setCmd("/"); return; }
+      if ((e.code === "Enter" || e.code === "NumpadEnter" || (e.key === "/" && !actionFor(bindsRef.current, e.code))) && !e.repeat) { e.preventDefault(); gg.heldDirs = []; setCmd(""); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -6337,8 +6356,8 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {g.nq && g.nq.log && <QuestLog g={g} th={th} refresh={refresh} keyName={binds.qlog[0] ? keyLabel(binds.qlog[0]) : "—"} />}
           {g.nq && g.nq.talk && <NpcDialog g={g} th={th} refresh={refresh} />}
           {g.gm && g.gm.on && g.gm.open && <GmWindow g={g} th={th} refresh={refresh} />}
-          {cmd !== null && <input data-cmd="1" aria-label="Comando" autoFocus value={cmd} placeholder="/gm" onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: 8, bottom: 56, zIndex: 8, width: 220, background: th.bg.base, color: th.text.primary, border: `1px solid ${th.text.warning}`, borderRadius: 4, padding: "3px 6px", fontFamily: th.font.mono, fontSize: 12 }}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setCmd(e.target.value)} onBlur={() => setCmd(null)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") { const out = runCmd(g, cmd, performance.now()); setStatus(g, out, performance.now(), "#ffd34d"); setCmd(null); refresh(); } else if (e.key === "Escape") setCmd(null); }} />}
+          {cmd !== null && <input data-cmd="1" aria-label="Chat y comandos" autoFocus autoComplete="off" type={/^\/?gm\s/i.test(cmd) && !/^\/?gm\s+off$/i.test(cmd) ? "password" : "text"} value={cmd} placeholder="Escribe un comando… (Enter: enviar · Esc: cerrar)" onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: 8, bottom: 56, zIndex: 8, width: "min(70%, 420px)", background: th.bg.base, color: th.text.primary, border: `2px solid ${th.text.warning}`, borderRadius: 4, padding: "5px 8px", fontFamily: th.font.mono, fontSize: 13 }}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCmd(e.target.value)} onBlur={() => setCmd(null)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") { const c = cmd.trim(); if (/^\/?gm$/i.test(c) && !gmOn(g)) { setCmd("gm "); setStatus(g, "🔑 Escribe la clave y pulsa Enter.", performance.now(), "#ffd34d"); refresh(); return; } setCmd(null); if (c) void runCmd(g, c, performance.now()).then((out: string) => { setStatus(g, out, performance.now(), out === "Clave incorrecta." ? "#ff9a5a" : "#ffd34d"); refresh(); }); } else if (e.key === "Escape") setCmd(null); }} />}
           {g.mt && g.mt.open && <MountsWindow g={g} th={th} refresh={refresh} keyName={binds.mount[0] ? keyLabel(binds.mount[0]) : "—"} />}
           {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
@@ -6370,7 +6389,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           </div>
         </div>}
         {!full && <div style={{ fontSize: 11, color: th.text.secondary, marginTop: 6, lineHeight: 1.5 }}>
-          WASD / flechas / numpad para moverte (Q E Z C o 7 9 1 3 en diagonal). Espacio: atacar al más cercano (otra vez: siguiente). F1–F4 poderes, F5/F6 pociones, T o Enter: tienda (cerca de Rosa), G: AFK, M: mapa, H: atajos (ahí puedes cambiar cualquier tecla).
+          WASD / flechas / numpad para moverte (Q E Z C o 7 9 1 3 en diagonal). Espacio: atacar al más cercano (otra vez: siguiente). F1–F4 poderes, F5/F6 pociones, T: tienda (cerca de Rosa), Enter: chat y comandos, G: AFK, M: mapa, H: atajos (ahí puedes cambiar cualquier tecla).
           Toca el suelo para caminar, un monstruo para atacarlo, o a Rosa para abrir la tienda. Pisa el botín para recogerlo. El equipo, la mochila y el minimapa están dentro del juego, a la derecha (▸ lo oculta); Habilidades, Misiones, Atajos y Registro se abren como ventanas.
           Caballero y pícaro persiguen solos a su objetivo (moverte a mano cancela la persecución hasta el próximo ataque). «💾 Guardar» te da un código para continuar después.
           <br />🏛️ <b>Las 12 Casas del Zodiaco</b>: sube por el camino del Santuario, al norte de la villa. Entra pisando el portal de cada casa (empieza por Aries, nivel 3); al vencer a su guardián dorado se abre la siguiente y vuelves al templo. Cuidado con los ataques marcados en rojo: ¡apártate! El AFK puede cazar dentro de las casas, pero nunca pelea contra los guardianes.
