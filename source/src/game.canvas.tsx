@@ -449,8 +449,8 @@ function expFor(L: number): number { return Math.round((50 / 3) * (L * L * L - 6
 function levelFor(exp: number): number { let L = 1; while (L < 500 && expFor(L + 1) <= exp) L++; return L; }
 function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL; }
 function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL; }
-function regionOf(x: number, y: number): number { if (x < OW_W) return inDim(x, y) ? NH : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
-function regionRect(r: number): [number, number, number, number] { if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
+function regionOf(x: number, y: number): number { if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
+function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
 function inRect(q: [number, number, number, number], x: number, y: number): boolean { return x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]; }
 function isSafe(x: number, y: number): boolean { return x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1; }
 
@@ -508,7 +508,7 @@ let MAP_CACHE: Uint8Array | null = null;
 function buildMap(): Uint8Array {
   if (MAP_CACHE) return MAP_CACHE;
   const big = new Uint8Array(MW * MH).fill(ROCK);
-  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big);
+  buildOverworld(big); buildSanctuary(big); for (const H of HOUSES) buildHouse(big, H.n); buildDim(big); buildCroqLair(big);
   MAP_CACHE = big; return big;
 }
 // Mundo exterior: se genera con las coordenadas de siempre (96×72) y se desplaza OY casillas al sur
@@ -542,6 +542,8 @@ function tileAt(g: Game, x: number, y: number): number { if (x < 0 || y < 0 || x
 function zoneName(g: Game, x: number, y: number): string {
   const r = regionOf(x, y);
   if (inDim(x, y)) return "✦ ??? — Otra Dimensión";
+  if (r === CROQ_R) return croqZone(x, y);
+  if (r === 0 && inCastleZone(x, y)) return castleZoneName(x, y);
   if (r > 0) { const H = HOUSES[r - 1], rt = HRT[r - 1]; if (!H) return "Santuario"; return rt && inRect(rt.room, x, y) ? `${H.glyph} Templo de ${H.boss.split(" de ")[0] ?? H.boss}` : `${H.glyph} Casa de ${H.name}`; }
   if (y < OY) return "Santuario: camino de las 12 Casas";
   const oy = y - OY;
@@ -556,7 +558,7 @@ function findMon(g: Game, id: number): Mon | null { if (id < 0) return null; for
 function canPlayerEnter(g: Game, x: number, y: number): boolean { if (!walkable(tileAt(g, x, y))) return false; if (isNpcAt(x, y)) return false; return monAt(g, x, y) === null; }
 function canMonEnter(g: Game, x: number, y: number): boolean {
   const t = tileAt(g, x, y);
-  if (!walkable(t) || t === PORTAL || isSafe(x, y)) return false;
+  if (!walkable(t) || t === PORTAL || isSafe(x, y) || inCastleBlock(x, y)) return false; // the Torre de Croqui hall stays monster-free
   if (g.p.x === x && g.p.y === y) return false;
   if (g.minion && g.minion.x === x && g.minion.y === y) return false;
   return monAt(g, x, y) === null;
@@ -711,7 +713,7 @@ interface Mon { spec: number[]; enraged: boolean; temp: boolean; }
 function makeMon(id: number, def: MonDef, x: number, y: number): Mon {
   return { id, def, hp: def.hp, alive: true, respawnAt: 0, deadAt: 0, x, y, fx: x, fy: y, sx: x, sy: y, moveStart: 0, moveDur: 1, face: 2, nextMove: 0, nextAtk: 0, angryUntil: 0, slowUntil: 0, dotUntil: 0, dotNext: 0, dotMin: 0, dotMax: 0, calmUntil: 0, spec: [], enraged: false, temp: false };
 }
-function indexMons(g: Game): void { const br: Mon[][] = []; for (let r = 0; r <= NH; r++) br.push([]); for (const m of g.mons) br[regionOf(m.sx, m.sy)]?.push(m); g.byRegion = br; }
+function indexMons(g: Game): void { const br: Mon[][] = []; for (let r = 0; r <= CROQ_R; r++) br.push([]); for (const m of g.mons) br[regionOf(m.sx, m.sy)]?.push(m); g.byRegion = br; }
 function regionMons(g: Game, x: number, y: number): Mon[] { return g.byRegion[regionOf(x, y)] ?? g.mons; }
 // Monstruo temporal (invocaciones, clones, segunda fase): no reaparece
 function spawnTemp(g: Game, def: MonDef | undefined, x: number, y: number, now: number): Mon | null {
@@ -724,7 +726,7 @@ function spawnTemp(g: Game, def: MonDef | undefined, x: number, y: number, now: 
 }
 // Al salir o morir: desaparecen invocaciones/clones y los guardianes se recuperan
 function resetRegion(g: Game, r: number): void {
-  if (r <= 0) return; let any = false;
+  if (r <= 0) return; if (r === CROQ_R) croqReset(g); let any = false;
   for (const m of g.byRegion[r] ?? []) {
     if (m.temp) { if (m.alive) { m.alive = false; m.respawnAt = Infinity; } any = true; continue; }
     if (m.def.boss && m.alive) { m.hp = m.def.hp; m.enraged = false; m.spec = []; m.angryUntil = 0; m.x = m.sx; m.y = m.sy; m.fx = m.sx; m.fy = m.sy; }
@@ -749,6 +751,8 @@ function newGame(cls: ClassDef, name: string): Game {
   let id = 0;
   const all: Array<[MonId, number, number]> = [...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]): [MonId, number, number] => [s[0], s[1], s[2] + OY]);
   for (const rt of HRT) if (rt) for (const s of rt.spawns) all.push(s);
+  for (const s of CROQ_SPAWNS) all.push(s);
+  for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && inCastleBlock(s[1], s[2])) all.splice(i, 1); } // nothing spawns inside the Torre de Croqui
   for (const [mid, x0, y0] of all) {
     let fx = -1, fy = -1;
     for (let r = 0; r <= 6 && fx < 0; r++) for (let dy = -r; dy <= r && fx < 0; dy++) for (let dx = -r; dx <= r; dx++) if (okSpot(x0 + dx, y0 + dy) && regionOf(x0 + dx, y0 + dy) === regionOf(x0, y0)) { fx = x0 + dx; fy = y0 + dy; break; }
@@ -816,7 +820,7 @@ function addExp(g: Game, amt: number, now: number): void {
   }
 }
 function rollItem(g: Game, def: MonDef): Inst | null {
-  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== "gemini_gold");
+  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== "gemini_gold" && !isCroqItem(d.id));
   if (def.house) { const hi = pool.filter((d: ItemDef) => d.lvl >= def.lootLvl - 18); if (hi.length > 0 && Math.random() < 0.75) pool = hi; }
   if (Math.random() < 0.7) { const mine = pool.filter((d: ItemDef) => d.voc === null || d.voc.includes(g.cls.id)); if (mine.length > 0) pool = mine; }
   const d = pool[Math.floor(Math.random() * pool.length)]; if (!d) return null;
@@ -872,6 +876,7 @@ function killMon(g: Game, m: Mon, now: number): void {
     }
   }
   if (got.length > 0) bossLoot(g, m, got, now);
+  croqKill(g, m, now);
   if (bigBoss) { coinDrop(g, m, now); mountDrop(g, m, now); }
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
@@ -884,7 +889,7 @@ function questReward(n: number): { exp: number; gold: number; item: string } {
   return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.5), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
 }
 function rewardItem(g: Game, maxLvl: number, rar: Rarity): Inst | null {
-  const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
+  const pool = ITEMS.filter((d: ItemDef) => d.id !== "gemini_gold" && !isCroqItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
   const top = pool.slice(0, 8); const d = top[Math.floor(Math.random() * top.length)]; if (!d) return null;
   return { uid: g.nextUid++, id: d.id, rar };
 }
@@ -957,7 +962,7 @@ function hitMon(g: Game, m: Mon, dmg: number, elem: Elem, now: number, leech: nu
 function die(g: Game, now: number): void {
   const p = g.p; const loss = Math.floor(p.exp * 0.1); const reg = regionOf(p.x, p.y);
   p.exp = Math.max(0, p.exp - loss); p.level = levelFor(p.exp); p.hp = maxHp(g); p.mana = maxMana(g);
-  resetRegion(g, reg); p.slowUntil = 0; p.poisonUntil = 0; g.returnAt = 0;
+  resetRegion(g, reg); if (reg !== CROQ_R && g.croq) resetRegion(g, CROQ_R); p.slowUntil = 0; p.poisonUntil = 0; g.returnAt = 0;
   p.x = TEMPLE_X; p.y = TEMPLE_Y; p.fx = TEMPLE_X; p.fy = TEMPLE_Y; p.moveStart = 0; p.face = 2;
   g.target = -1; g.projs = []; g.heldDirs = []; g.pending = null; g.walkGoal = null; g.minion = null; g.deaths++; g.zone = "Villa Esmeralda (zona segura)"; g.chase = false; g.warns = []; g.dim = null; g.gem = undefined; g.dimFx = null;
   if (g.afk) { g.afk = false; addLog(g, "El modo AFK se apagó al morir."); }
@@ -1146,6 +1151,7 @@ function afterMove(g: Game, now: number): void {
 }
 function houseOpen(g: Game, n: number): boolean { return n <= g.cleared + 1; }
 function usePortal(g: Game, now: number): void {
+  if (croqPortal(g, now)) return;
   const p = g.p; const r = regionOf(p.x, p.y);
   if (r > 0) {
     const d = DOORS[r - 1], H = HOUSES[r - 1]; if (!d || !H) return;
@@ -1235,7 +1241,7 @@ function castPower(g: Game, i: number, now: number): boolean {
       for (const [dx, dy] of DIRS8) { const x = p.x + dx, y = p.y + dy; if (canPlayerEnter(g, x, y) && !isSafe(x, y)) { spot = [x, y]; break; } }
       if (!spot) { setStatus(g, "No hay espacio para invocar.", now); return false; }
       g.minion = { x: spot[0], y: spot[1], fx: spot[0], fy: spot[1], moveStart: 0, moveDur: 1, face: 2, until: now + pw.dur, nextAtk: now + 800, min: lo, max: hi };
-      setStatus(g, "¡Un esbirro sombrío te sirve!", now, "#b070ff"); break;
+      summonDemon(g, g.minion); setStatus(g, g.minion.demon ? `😈 ¡El ${DEMON.NAME} arde a tu lado!` : "¡Un esbirro sombrío te sirve!", now, g.minion.demon ? "#ff7040" : "#b070ff"); break;
     }
     case "buff": p.defUntil = now + pw.dur; setStatus(g, "Postura defensiva: daño recibido -50 %.", now, "#9fd0ff"); break;
     case "dash": {
@@ -1328,7 +1334,9 @@ function stepMon(g: Game, m: Mon, now: number): void {
   if (m.dotUntil > now && now >= m.dotNext) { m.dotNext = now + 1000; damageMon(g, m, roll(m.dotMin, m.dotMax), now, "dark"); if (!m.alive) return; }
   const d = cheb(m.x, m.y, p.x, p.y); const calm = now < m.calmUntil;
   const aggro = !calm && !isSafe(p.x, p.y) && (d <= 6 || now < m.angryUntil);
-  if (m.def.boss && aggro && d <= 10 && bossThink(g, m, now, d)) return;
+  if (m.def.id === CROQ_ID) { croqTick(g, m, now); if (!m.alive || (g.dim && !inDim(m.x, m.y))) return; }
+  if ((m.def.id === VENEQ_ID || m.def.id === "croq_guard") && aggro && venequitoThink(g, m, now, d)) return;
+  if (m.def.boss && aggro && (d <= 10 || m.def.id === CROQ_ID) && (m.def.id === CROQ_ID ? croquiThink(g, m, now, d) : bossThink(g, m, now, d))) return;
   if (aggro && d > 1 && highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) { if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); hurtMinion(g, roll(Math.round(m.def.atk * 0.6), Math.round(m.def.atk * 1.0)), now, m.def.name); } return; }
   if (aggro && d <= 1) {
     if (now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); if (highBoss(m) && g.minion && cheb(m.x, m.y, g.minion.x, g.minion.y) <= 1) hurtMinion(g, roll(Math.round(m.def.atk * 0.5), Math.round(m.def.atk * 0.9)), now, m.def.name); }
@@ -1431,12 +1439,65 @@ function doSpecial(g: Game, m: Mon, s: Special, now: number, d: number): void {
   }
   void d;
 }
+// ===================== Brujo nivel 50+: Demonio Infernal (la invocación mejora) =====================
+// Below level 50 «utevo res» keeps the old shadow minion. From level 50 the same spell summons a demon with more HP and damage
+// whose blow burns a 3×3 area around its target. It is level-based, so existing level-50+ warlock saves get it automatically.
+const DEMON_LVL = 50;
+const DEMON = { DMG: 1.8, HP: 0.6, AOE_R2: 2, ATK_MS: 1400, NAME: "Demonio Infernal" }; // vs the old minion: ×1.8 damage, 60% of your max HP (old: 30%), 1.4 s (old: 1.5 s)
+interface Minion { demon?: boolean; }
+interface Game { demonSeen?: boolean; }
+interface SaveData { dm?: number; }
+function demonOn(g: Game): boolean { return g.cls.id === "warlock" && g.p.level >= DEMON_LVL; }
+function powName(g: Game, pw: Power): string { return pw.kind === "summon" && demonOn(g) ? `Invocar ${DEMON.NAME}` : pw.name; }
+function powTip(g: Game, pw: Power): string {
+  if (pw.kind !== "summon" || g.cls.id !== "warlock") return `${pw.name} («${pw.words}») · ${pw.mana} maná`;
+  return demonOn(g) ? `😈 ${DEMON.NAME} («${pw.words}»): demonio con más vida y daño; su golpe de fuego oscuro quema un área 3×3 alrededor del objetivo. ${pw.mana} maná.`
+    : `${pw.name} («${pw.words}»): esbirro sombrío que golpea a un objetivo. En el nivel ${DEMON_LVL} se convierte en el ${DEMON.NAME} (daño en área). ${pw.mana} maná.`;
+}
+function demonNotice(g: Game, now: number): void {
+  if (g.demonSeen || !demonOn(g)) return; g.demonSeen = true;
+  setStatus(g, `😈 ¡Brujo nivel ${DEMON_LVL}+! Tu esbirro ahora es el ${DEMON.NAME}: más vida, más daño y golpes en área.`, now, "#ff7040");
+  addLog(g, `😈 Desbloqueaste el ${DEMON.NAME} (Brujo nivel ${DEMON_LVL}+): «utevo res» ahora invoca un demonio que quema un área 3×3.`);
+}
+function summonDemon(g: Game, mi: Minion): void { // upgrades a freshly summoned minion when the warlock is level 50+
+  if (!demonOn(g)) return;
+  mi.demon = true; mi.min = Math.round(mi.min * DEMON.DMG); mi.max = Math.round(mi.max * DEMON.DMG); mi.mhp = Math.max(120, Math.round(maxHp(g) * DEMON.HP)); mi.hp = mi.mhp;
+}
+function demonStrike(g: Game, mi: Minion, t: Mon, now: number): void { hitCells(g, circle(t.x, t.y, DEMON.AOE_R2), mi.min, mi.max, "dark", now, false); }
+/** Demonio Infernal sprite (32 px tile, feet at y≈30): horns, bat wings, dark red/black body with a fiery glow. */
+function drawDemon(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, ph: number, face: number, atk: boolean): void {
+  const bob = ph ? 1 : Math.sin(now / 300) * 0.8, flap = Math.sin(now / 140) * 3;
+  ctx.save();
+  const gl = ctx.createRadialGradient(x + 16, y + 18, 2, x + 16, y + 18, 24); gl.addColorStop(0, `rgba(255,90,20,${0.35 + 0.15 * Math.sin(now / 120)})`); gl.addColorStop(1, "rgba(255,60,0,0)");
+  ctx.fillStyle = gl; ctx.fillRect(x - 10, y - 8, 52, 52);
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(x + 16, y + 29, 11, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(x + 16, y + 30); ctx.scale(1.15, 1.15); ctx.translate(-16, -30 + bob);
+  for (const sd of [-1, 1]) { // bat wings (behind the body)
+    ctx.fillStyle = "#2a0608"; ctx.beginPath(); ctx.moveTo(16 + sd * 4, 12); ctx.lineTo(16 + sd * 17, 2 - flap); ctx.lineTo(16 + sd * 15, 9 - flap * 0.5); ctx.lineTo(16 + sd * 18, 14 - flap * 0.3); ctx.lineTo(16 + sd * 13, 17); ctx.lineTo(16 + sd * 15, 21); ctx.lineTo(16 + sd * 5, 19); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#7a1410"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(16 + sd * 4, 12); ctx.lineTo(16 + sd * 17, 2 - flap); ctx.moveTo(16 + sd * 5, 14); ctx.lineTo(16 + sd * 15, 9 - flap * 0.5); ctx.moveTo(16 + sd * 5, 16); ctx.lineTo(16 + sd * 18, 14 - flap * 0.3); ctx.stroke();
+  }
+  const lg = ph === 1 ? 1.5 : ph === 2 ? -1.5 : 0; // legs + hooves
+  ctx.fillStyle = "#1a0405"; ctx.fillRect(11 + lg, 22, 4, 7); ctx.fillRect(17 - lg, 22, 4, 7); ctx.fillStyle = "#0a0203"; ctx.fillRect(10 + lg, 28, 5, 2); ctx.fillRect(17 - lg, 28, 5, 2);
+  ctx.strokeStyle = "#3a0808"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(16, 23); ctx.quadraticCurveTo(26, 27 + flap * 0.3, 27, 20); ctx.stroke(); ctx.lineWidth = 1; // tail
+  ctx.fillStyle = "#ff5a14"; ctx.beginPath(); ctx.moveTo(27, 17); ctx.lineTo(29, 21); ctx.lineTo(25, 21); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#5a0c0e"; ctx.beginPath(); ctx.moveTo(9, 12); ctx.lineTo(23, 12); ctx.lineTo(21, 24); ctx.lineTo(11, 24); ctx.closePath(); ctx.fill(); // torso
+  ctx.fillStyle = "#8a1a14"; ctx.fillRect(12, 14, 8, 2); ctx.fillRect(13, 17, 6, 1.5); ctx.fillRect(13, 20, 6, 1.5);
+  const p = 0.6 + 0.4 * Math.sin(now / 90); ctx.fillStyle = `rgba(255,150,40,${p})`; ctx.fillRect(15.5, 13, 1, 10); ctx.fillRect(11, 15, 1, 4); ctx.fillRect(20, 15, 1, 4); // fiery cracks
+  const up = atk ? 5 : 0; ctx.fillStyle = "#4a0a0c"; ctx.fillRect(6, 13 - up, 3, 8); ctx.fillRect(23, 13 - up, 3, 8); // arms, claws raised while striking
+  ctx.fillStyle = "#ffcf6a"; ctx.fillRect(6, 20 - up, 1, 2); ctx.fillRect(8, 20 - up, 1, 2); ctx.fillRect(23, 20 - up, 1, 2); ctx.fillRect(25, 20 - up, 1, 2);
+  ctx.fillStyle = "#3a0608"; ctx.fillRect(11, 4, 10, 9); ctx.fillStyle = "#5a0c0e"; ctx.fillRect(12, 5, 8, 7); // head
+  ctx.fillStyle = "#e8d8b0"; ctx.beginPath(); ctx.moveTo(12, 6); ctx.quadraticCurveTo(7, 3, 8, -3); ctx.lineTo(10, 2); ctx.lineTo(13, 4); ctx.closePath(); ctx.fill(); // horns
+  ctx.beginPath(); ctx.moveTo(20, 6); ctx.quadraticCurveTo(25, 3, 24, -3); ctx.lineTo(22, 2); ctx.lineTo(19, 4); ctx.closePath(); ctx.fill();
+  if (face !== 0) { ctx.fillStyle = "#ffe060"; ctx.fillRect(13, 7, 2.2, 1.6); ctx.fillRect(17, 7, 2.2, 1.6); ctx.fillStyle = "#ff7a1a"; ctx.fillRect(14, 10, 4, 1); } // eyes + mouth
+  for (let k = 0; k < 3; k++) { const t = (now / 500 + k / 3) % 1; ctx.globalAlpha = 1 - t; ctx.fillStyle = k % 2 ? "#ff9a2a" : "#ffe08a"; ctx.fillRect(10 + k * 5 + Math.sin(now / 150 + k) * 1.5, 4 - t * 10, 2, 2); } // embers
+  ctx.globalAlpha = 1; ctx.restore();
+}
 function stepMinion(g: Game, now: number): void {
   const mi = g.minion; if (!mi) return; const p = g.p;
   if (now >= mi.until) { g.minion = null; addLog(g, "Tu esbirro se desvanece."); return; }
   const t = curTarget(g) ?? g.mons.find((m: Mon) => m.alive && cheb(m.x, m.y, mi.x, mi.y) <= 1 && now < m.angryUntil) ?? null;
   if (t && cheb(t.x, t.y, mi.x, mi.y) <= 1) {
-    if (now >= mi.nextAtk) { mi.nextAtk = now + 1500; mi.face = dirFrom(t.x - mi.x, t.y - mi.y); hitMon(g, t, roll(mi.min, mi.max), "dark", now, 0); }
+    if (now >= mi.nextAtk) { mi.nextAtk = now + (mi.demon ? DEMON.ATK_MS : 1500); mi.face = dirFrom(t.x - mi.x, t.y - mi.y); if (mi.demon) demonStrike(g, mi, t, now); else hitMon(g, t, roll(mi.min, mi.max), "dark", now, 0); }
     return;
   }
   if (now < mi.moveStart + mi.moveDur) return;
@@ -2085,6 +2146,7 @@ function dimTick(g: Game, now: number): void {
 }
 // Cada paso: une a Kanon al 50% de Saga, lanza las Otras Dimensiones pendientes y reinicia el estado si los gemelos se recuperan
 function gemTick(g: Game, now: number): void {
+  CROQ_DIM_ON = !!g.dim && g.dim.home === "croq"; if (CROQ_DIM_ON) { croqDimTick(g, now); return; }
   const p = g.p; if (regionOf(p.x, p.y) !== NH) { if (g.gem && !g.dim) g.gem = undefined; return; }
   dimTick(g, now); if (g.dim) return;
   const bs = gemBosses(g); const saga = bs.find((m: Mon) => m.def.id === "h12boss"), kanon = bs.find((m: Mon) => m.def.id === "h12boss2");
@@ -2115,6 +2177,710 @@ function gemKill(g: Game, m: Mon, now: number): boolean {
   st.banAt = now + 3000; g.dimFx = { at: now + 1700, kind: "pre" };
   return true;
 }
+
+// ===================== CROQUI & VENEQUITO: sprites (procedural canvas, same style as drawHuman/drawLook) =====================
+// Self-contained (no imports). Local units = 1 tile (32 px) like the rest of the game; feet at y≈30.
+// face: 0 up · 1 right · 2 down · 3 left (the game's Dir). phase: 0 idle · 1/2 walk (walkPhase). cast: 0..1 (cast pose blend).
+type CqDir = 0 | 1 | 2 | 3;
+const CQ = {
+  scale: 1.45,                                   // boss scale (Saga/Kanon use 1.4)
+  hair: "#141218", hairHi: "#2c2836",           // dark/black hair
+  cloak: "#16161e", cloakHi: "#2a2a38",         // dark upper cloak / shoulders
+  robe: "#17b8b0", robeHi: "#5fe6dc", robeLo: "#0c7a78", robeDk: "#08504f", // long teal/cyan robe
+  purple: "#7a2ed0", purpleHi: "#b070ff", purpleDk: "#3e1478",             // purple accents (lower robe, trim)
+  skin: "#eec39a", skinLo: "#c8956a",
+  hat: "#7a2ed0", hatHi: "#b070ff", hatDk: "#3e1478", hatBand: "#e0409a", gem: "#ff8ad8",  // Ferumbras' hat (purple/pink, matches the robe trim)
+  wand: "#6b4423", wandGold: "#e8c040", orb: "#7fe8ff", orbCore: "#ffffff",                // mage addon 1 wand
+  ring: ["#2a7aff", "#5ac8ff", "#9be8ff"],      // swirling blue energy rings
+  rage: ["#ff3a20", "#ff9a2a", "#c040ff"],
+};
+function cqR(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string): void { c.fillStyle = col; c.fillRect(x, y, w, h); }
+function cqEll(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, col: string): void { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+
+/** Energy rings around Croqui. layer "back" = far half (draw BEFORE the body), "front" = near half (AFTER). cx/cy in px (ring centre). */
+function drawCroquiAura(ctx: CanvasRenderingContext2D, cx: number, cy: number, now: number, layer: "back" | "front", rage = false, s = 1): void {
+  const cols = rage ? CQ.rage : CQ.ring; ctx.save(); ctx.lineCap = "round";
+  const rings: Array<[number, number, number, number, number]> = [[-6, 22, 7, 1.0, 0], [6, 25, 8, -0.8, 2.1], [17, 20, 6, 1.3, 4.2]]; // [y offset, rx, ry, speed, phase]
+  rings.forEach(([oy, rx, ry, sp, ph]: [number, number, number, number, number], i: number) => {
+    const tilt = Math.sin(now / 900 + ph) * 0.18; const a0 = now / (420 / Math.abs(sp)) * Math.sign(sp) + ph;
+    for (let seg = 0; seg < 3; seg++) { // 3 dashes per ring, they orbit
+      const st = a0 + (seg * Math.PI * 2) / 3, en = st + 1.25;
+      for (let k = 0; k < 10; k++) {
+        const an = st + ((en - st) * k) / 10; const sn = Math.sin(an); const front = sn > 0;
+        if ((layer === "front") !== front) continue;
+        const px = cx + Math.cos(an) * rx * s, py = cy + (oy + sn * ry + Math.cos(an) * rx * tilt) * s;
+        ctx.globalAlpha = (0.3 + 0.6 * (k / 10)) * (front ? 0.85 : 0.5);
+        ctx.fillStyle = cols[(i + seg) % 3] ?? "#5ac8ff"; const w = (k > 7 ? 2.6 : 2) * s; ctx.fillRect(px - w / 2, py - w / 2, w, w);
+      }
+    }
+  });
+  if (layer === "back") { // soft glow + rising sparks
+    const g = ctx.createRadialGradient(cx, cy + 6 * s, 2, cx, cy + 6 * s, 30 * s); const p = 0.22 + 0.1 * Math.sin(now / 260);
+    g.addColorStop(0, rage ? `rgba(255,80,40,${p + 0.1})` : `rgba(60,170,255,${p})`); g.addColorStop(1, "rgba(40,120,255,0)");
+    ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(cx - 32 * s, cy - 26 * s, 64 * s, 64 * s);
+  } else {
+    for (let k = 0; k < 6; k++) { const t = ((now / 900 + k / 6) % 1); ctx.globalAlpha = 1 - t; ctx.fillStyle = k % 2 ? cols[2] ?? "#fff" : "#ffffff";
+      ctx.fillRect(cx + Math.sin(k * 2.3 + now / 400) * 16 * s, cy + (24 - t * 44) * s, 1.6 * s, 1.6 * s); }
+  }
+  ctx.restore();
+}
+function cqHat(c: CanvasRenderingContext2D, face: CqDir, now: number, bob: number): void {
+  const w = Math.sin(now / 380) * 1.2; const side = face === 1 ? 1 : face === 3 ? -1 : 0;
+  const by = 5 - bob; // brim
+  cqEll(c, 16, by + 1, 12, 3.2, CQ.hatDk); cqEll(c, 16, by, 11.5, 2.6, CQ.hat); cqR(c, 6, by - 0.5, 20, 1, CQ.hatHi);
+  // cone (Ferumbras' hat: tall, bent backwards with a drooping curled tip)
+  c.fillStyle = CQ.hat; c.beginPath(); c.moveTo(9, by); c.lineTo(23, by); c.lineTo(19.5 - side * 1.5, by - 10); c.lineTo(13.5 - side * 1.5, by - 10); c.closePath(); c.fill();
+  cqR(c, 10, by - 3, 2, 3, CQ.hatHi);
+  const tx = 16.5 - side * 3 + (side === 0 ? 3 : 0), ty = by - 10; const dir = side === 0 ? 1 : -side;
+  c.beginPath(); c.moveTo(13.5 - side * 1.5, ty); c.lineTo(19.5 - side * 1.5, ty); c.quadraticCurveTo(tx + dir * 6, ty - 9 + w, tx + dir * 9, ty - 4 + w); c.lineTo(tx + dir * 8, ty - 1 + w); c.quadraticCurveTo(tx + dir * 4, ty - 5 + w, 15 - side * 1.5, ty); c.closePath(); c.fill();
+  cqEll(c, tx + dir * 8.6, ty - 2 + w, 1.8, 1.8, CQ.hatDk);
+  // band + pink gem
+  cqR(c, 9, by - 2.5, 14, 2.2, CQ.hatBand);
+  if (face !== 0) { cqR(c, 15 + side * 4, by - 3, 2.4, 2.8, CQ.gem); cqR(c, 15.4 + side * 4, by - 2.8, 0.9, 0.9, "#ffe8f8"); }
+}
+function cqWand(c: CanvasRenderingContext2D, hx: number, hy: number, up: number, now: number, rage: boolean): void {
+  // wand from hand (hx,hy): shaft points up-ish; up = 0..1 raises it above the head
+  const len = 9; const ang = -Math.PI / 2 + (1 - up) * 0.35; const ex = hx + Math.cos(ang) * len, ey = hy + Math.sin(ang) * len - up * 6;
+  c.strokeStyle = CQ.wand; c.lineWidth = 1.8; c.beginPath(); c.moveTo(hx, hy + 2); c.lineTo(ex, ey); c.stroke(); c.lineWidth = 1;
+  cqR(c, ex - 1.6, ey + 0.4, 3.2, 1.2, CQ.wandGold);
+  const r = 2.4 + up * 1.4 + Math.sin(now / 150) * 0.3; const g = c.createRadialGradient(ex, ey - 2, 0.5, ex, ey - 2, r * 3);
+  g.addColorStop(0, rage ? "rgba(255,170,80,0.85)" : "rgba(160,240,255,0.85)"); g.addColorStop(1, "rgba(80,200,255,0)"); c.fillStyle = g; c.fillRect(ex - r * 3, ey - 2 - r * 3, r * 6, r * 6);
+  cqEll(c, ex, ey - 2, r, r, rage ? "#ffb060" : CQ.orb); cqEll(c, ex - r * 0.35, ey - 2 - r * 0.35, r * 0.4, r * 0.4, CQ.orbCore);
+  if (up > 0.3) for (let k = 0; k < 4; k++) { const an = now / 130 + (k * Math.PI) / 2; c.globalAlpha = up; cqR(c, ex + Math.cos(an) * (r + 3) - 1, ey - 2 + Math.sin(an) * (r + 3) - 1, 2, 2, k % 2 ? "#ff9a2a" : "#ffe08a"); }
+  c.globalAlpha = 1;
+}
+/** Croqui (boss). x,y = tile top-left in px. cast 0..1 raises the wand (use 1 during telegraphs). rage = red-HP enrage look. */
+function drawCroqui(ctx: CanvasRenderingContext2D, x: number, y: number, face: CqDir, phase: number, now: number, cast = 0, rage = false, aura = true): void {
+  const s = CQ.scale; ctx.save();
+  ell0(ctx, x + 16, y + 30, 14, 4.5);
+  if (aura) drawCroquiAura(ctx, x + 16, y + 14, now, "back", rage, s * 0.92);
+  ctx.translate(x + 16, y + 30); ctx.scale(s, s); ctx.translate(-16, -30);
+  if (face === 3) { ctx.translate(32, 0); ctx.scale(-1, 1); face = 1; }
+  const c = ctx; const bob = phase === 0 ? Math.round(Math.sin(now / 420) * 0.6 + 0.4) * 0.5 : 1; const sw = Math.sin(now / 260) * 1.2 + (phase === 1 ? 1.5 : phase === 2 ? -1.5 : 0);
+  const fl = cast * 2; // robe flare when casting
+  if (rage) { const f = 0.5 + 0.5 * Math.sin(now / 90); c.globalAlpha = 0.5 + 0.3 * f; for (let k = 0; k < 7; k++) { const fx = 4 + k * 4, h = 3 + ((k * 7 + Math.floor(now / 80)) % 5); cqR(c, fx, 30 - h, 2, h, k % 2 ? CQ.rage[1]! : CQ.rage[0]!); } c.globalAlpha = 1; }
+  // feet
+  const lg = phase === 1 ? 1.5 : phase === 2 ? -1.5 : 0;
+  cqR(c, 11 + lg, 28.5, 4, 2, "#141016"); cqR(c, 17 - lg, 28.5, 4, 2, "#141016");
+  if (face === 2 || face === 0) {
+    // --- long robe (front / back) ---
+    const top = 13 - bob, hem = 30.5;
+    c.fillStyle = CQ.robeLo; c.beginPath(); c.moveTo(8.5, top); c.lineTo(23.5, top); c.lineTo(26 + fl + sw * 0.4, hem); c.lineTo(6 - fl + sw * 0.4, hem); c.closePath(); c.fill();
+    c.fillStyle = CQ.robe; c.beginPath(); c.moveTo(10, top); c.lineTo(22, top); c.lineTo(23.5 + fl + sw * 0.4, hem); c.lineTo(8.5 - fl + sw * 0.4, hem); c.closePath(); c.fill();
+    cqR(c, 11, top + 2, 1.5, 13, CQ.robeHi); cqR(c, 19.5 + sw * 0.2, top + 6, 1.2, 11, CQ.robeDk); cqR(c, 13 + sw * 0.2, top + 8, 0.8, 9, CQ.robeLo); cqR(c, 17.6 + sw * 0.3, top + 9, 0.8, 8, CQ.robeHi); // folds
+    // purple lower robe + hem
+    c.fillStyle = CQ.purple; c.beginPath(); c.moveTo(7.2 - fl * 0.8 + sw * 0.35, 26.8); c.lineTo(25 + fl * 0.8 + sw * 0.35, 26.8); c.lineTo(26 + fl + sw * 0.4, hem); c.lineTo(6 - fl + sw * 0.4, hem); c.closePath(); c.fill();
+    cqR(c, 7.5 - fl + sw * 0.4, hem - 1, 18.5 + fl * 2, 1, CQ.purpleDk); cqR(c, 7.6 + sw * 0.35, 26.8, 17.6, 0.8, CQ.purpleHi);
+    if (face === 2) { cqR(c, 15.2, top + 3, 1.6, 27 - top - 3, CQ.purple); cqR(c, 15.2, top + 3, 0.6, 27 - top - 3, CQ.purpleHi); } // front trim strip
+    // sleeves + hands
+    const arm = (sx: number, raise: number): void => { c.fillStyle = CQ.robe; c.beginPath(); c.moveTo(sx, top + 1); c.lineTo(sx + (sx < 16 ? -4 : 4), top + 9 - raise * 9); c.lineTo(sx + (sx < 16 ? -1 : 1), top + 11 - raise * 9); c.closePath(); c.fill();
+      cqR(c, sx + (sx < 16 ? -4.5 : 2.5), top + 9 - raise * 9, 2.4, 1.6, CQ.purple); cqR(c, sx + (sx < 16 ? -4.2 : 2.8), top + 10.4 - raise * 9, 2, 2, CQ.skin); };
+    const wx = face === 2 ? 6 : 26; // front: wand in his right hand (viewer's left) — like the Tibia sprite
+    arm(9, face === 2 ? cast : 0); arm(23, face === 0 ? cast : 0);
+    if (face === 0) { cqR(c, 10, top - 1, 12, 6, CQ.hair); cqR(c, 11, top + 5, 10, 3, CQ.hair); cqR(c, 12.5, top + 8, 7, 2, CQ.hair); cqR(c, 12, top, 1, 7, CQ.hairHi); cqR(c, 18, top + 1, 1, 7, CQ.hairHi); } // long hair down the back
+    // dark upper cloak / shoulders + high collar
+    c.fillStyle = CQ.cloak; c.beginPath(); c.moveTo(7, top + 4.5); c.lineTo(9.5, top - 1); c.lineTo(22.5, top - 1); c.lineTo(25, top + 4.5); c.lineTo(20, top + 6.5); c.lineTo(16, top + 5); c.lineTo(12, top + 6.5); c.closePath(); c.fill();
+    cqR(c, 9.5, top - 1, 13, 1, CQ.cloakHi); cqR(c, 8, top + 4, 3, 0.8, CQ.purple); cqR(c, 21, top + 4, 3, 0.8, CQ.purple);
+    if (face === 2) { cqR(c, 9.5, top - 4, 2, 4, CQ.cloak); cqR(c, 20.5, top - 4, 2, 4, CQ.cloak); } // collar points
+    // head
+    if (face === 2) {
+      cqR(c, 9.5, 4 - bob, 13, 11, CQ.hair); cqR(c, 8.5, 9 - bob, 2.5, 8, CQ.hair); cqR(c, 21, 9 - bob, 2.5, 8, CQ.hair); // hair frame, long sides
+      cqR(c, 11, 6 - bob, 10, 9, CQ.skin); cqR(c, 11, 13 - bob, 10, 2, CQ.skinLo); cqR(c, 11, 6 - bob, 10, 1.5, CQ.hair);
+      cqR(c, 12.5, 9.5 - bob, 2, 2, "#1a1020"); cqR(c, 17.5, 9.5 - bob, 2, 2, "#1a1020"); cqR(c, 13, 9.5 - bob, 0.8, 0.8, rage ? "#ff6040" : "#7fe8ff"); cqR(c, 18, 9.5 - bob, 0.8, 0.8, rage ? "#ff6040" : "#7fe8ff");
+      cqR(c, 14.5, 13 - bob, 3, 0.8, "#8a4a3a");
+    } else { cqR(c, 10, 4 - bob, 12, 11, CQ.hair); cqR(c, 11, 5 - bob, 3, 7, CQ.hairHi); }
+    cqHat(c, face, now, bob);
+    if (face === 2) cqWand(c, wx - 2.8, top + 10.5 - cast * 9, cast, now, rage);
+    else cqWand(c, wx + 1.5, top + 10.5 - cast * 9, cast, now, rage);
+  } else {
+    // --- side view (facing right; left is mirrored) ---
+    const top = 13 - bob, hem = 30.5;
+    c.fillStyle = CQ.robeLo; c.beginPath(); c.moveTo(11, top); c.lineTo(21, top); c.lineTo(23 + fl, hem); c.lineTo(6 - fl * 1.5 + sw, hem); c.lineTo(8 + sw * 0.5, 20); c.closePath(); c.fill();
+    c.fillStyle = CQ.robe; c.beginPath(); c.moveTo(12, top); c.lineTo(20.5, top); c.lineTo(22 + fl, hem); c.lineTo(9 - fl + sw * 0.8, hem); c.closePath(); c.fill();
+    cqR(c, 19, top + 3, 1.2, 12, CQ.robeHi); cqR(c, 12.5 + sw * 0.3, top + 6, 1, 10, CQ.robeDk);
+    c.fillStyle = CQ.purple; c.beginPath(); c.moveTo(7 + sw * 0.8 - fl * 1.2, 26.8); c.lineTo(22.8 + fl * 0.9, 26.8); c.lineTo(23 + fl, hem); c.lineTo(6 - fl * 1.5 + sw, hem); c.closePath(); c.fill();
+    cqR(c, 7 + sw - fl, hem - 1, 16 + fl * 2, 1, CQ.purpleDk); cqR(c, 8 + sw * 0.7, 26.8, 14.5, 0.8, CQ.purpleHi);
+    cqR(c, 10.5, top - 1, 4, 7, CQ.hair); cqR(c, 11, top + 6, 2.5, 3, CQ.hair); // hair falling behind
+    c.fillStyle = CQ.cloak; c.beginPath(); c.moveTo(10, top + 5); c.lineTo(12, top - 1); c.lineTo(21, top - 1); c.lineTo(22.5, top + 5); c.lineTo(16, top + 6.5); c.closePath(); c.fill(); cqR(c, 12, top - 1, 9, 1, CQ.cloakHi);
+    cqR(c, 19.5, top - 4, 2, 4, CQ.cloak);
+    // head profile
+    cqR(c, 11, 4 - bob, 10, 11, CQ.hair); cqR(c, 15, 6 - bob, 7, 9, CQ.skin); cqR(c, 21.5, 9.5 - bob, 1.2, 2, CQ.skin); cqR(c, 15, 13 - bob, 7, 2, CQ.skinLo);
+    cqR(c, 18.5, 9.5 - bob, 2, 2, "#1a1020"); cqR(c, 19, 9.5 - bob, 0.8, 0.8, rage ? "#ff6040" : "#7fe8ff"); cqR(c, 14, 6 - bob, 2, 9, CQ.hair);
+    cqHat(c, 1, now, bob);
+    // front arm holding the wand forward
+    c.fillStyle = CQ.robe; c.beginPath(); c.moveTo(15, top + 1); c.lineTo(24, top + 7 - cast * 8); c.lineTo(22.5, top + 9.5 - cast * 8); c.lineTo(14, top + 6); c.closePath(); c.fill();
+    cqR(c, 22, top + 6.5 - cast * 8, 2, 2.5, CQ.purple); cqR(c, 23.6, top + 7 - cast * 8, 2, 2, CQ.skin);
+    cqWand(c, 24.8, top + 7.5 - cast * 8, cast, now, rage);
+  }
+  ctx.restore();
+  if (aura) drawCroquiAura(ctx, x + 16, y + 14, now, "front", rage, s * 0.92);
+}
+function ell0(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number): void { c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+
+// ===================== VENEQUITO (summon): Tibia citizen in Venezuela flag colours =====================
+const VQ = { yellow: "#ffd21e", yellowLo: "#d8a800", blue: "#1f45c8", blueLo: "#132c86", red: "#d01c2a", redLo: "#8a0c16", star: "#ffffff", skin: "#d9a070", hair: "#2a1a10", shoe: "#2a1a12" };
+/** Venequito, normal monster size. cast 0..1 = throwing pose ("Chispa tricolor"). */
+function drawVenequito(ctx: CanvasRenderingContext2D, x: number, y: number, face: CqDir, phase: number, now: number, cast = 0): void {
+  const c = ctx; c.save(); c.translate(x, y);
+  if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const bob = phase === 0 ? 0 : 1; const lg = phase === 1 ? 2 : phase === 2 ? -2 : 0;
+  ell0(c, 16, 29, 9, 3);
+  // red bottom: trousers + shoes
+  cqR(c, 11 + lg, 21 - bob, 4, 8, VQ.red); cqR(c, 17 - lg, 21 - bob, 4, 8, VQ.red); cqR(c, 14.5 + lg, 21 - bob, 0.8, 8, VQ.redLo);
+  cqR(c, 10.5 + lg, 28, 5, 2, VQ.shoe); cqR(c, 16.5 - lg, 28, 5, 2, VQ.shoe);
+  // blue middle band with the arc of 8 white stars
+  cqR(c, 8.5, 17 - bob, 15, 5.5, VQ.blue); cqR(c, 8.5, 21.5 - bob, 15, 1, VQ.blueLo);
+  for (let k = 0; k < 8; k++) { const an = Math.PI * (0.15 + 0.7 * (k / 7)); const sx = 16 - Math.cos(an) * 5.5, sy = 21.3 - bob - Math.sin(an) * 3; cqR(c, sx - 0.5, sy - 0.5, 1, 1, VQ.star); }
+  // yellow top: shirt + sleeves
+  cqR(c, 9, 12 - bob, 14, 5.2, VQ.yellow); cqR(c, 9, 12 - bob, 14, 1, "#fff08a"); cqR(c, 21.5, 13 - bob, 1.5, 4, VQ.yellowLo);
+  const thr = face === 1 ? cast : 0;
+  if (face !== 1) { cqR(c, 6, 13 - bob, 3, 6, VQ.yellow); cqR(c, 6, 18.5 - bob, 3, 2, VQ.skin); }
+  if (face === 1) { // side: throwing arm forward/up
+    c.fillStyle = VQ.yellow; c.save(); c.translate(17, 14 - bob); c.rotate(-0.4 - thr * 1.6); c.fillRect(-1.5, 0, 3, 7); c.fillStyle = VQ.skin; c.fillRect(-1.5, 6.5, 3, 2.5); c.restore();
+  } else { const up = cast; cqR(c, 23, 13 - bob - up * 6, 3, 6, VQ.yellow); cqR(c, 23, 18.5 - bob - up * 9, 3, 2, VQ.skin); }
+  // head
+  cqR(c, 11, 4 - bob, 10, 9, VQ.skin);
+  if (face === 0) cqR(c, 11, 3 - bob, 10, 8, VQ.hair);
+  else { cqR(c, 11, 3 - bob, 10, 3, VQ.hair); if (face === 1) { cqR(c, 11, 3 - bob, 4, 7, VQ.hair); cqR(c, 18, 7 - bob, 2, 2, "#222"); cqR(c, 21, 8 - bob, 1, 2, VQ.skin); }
+    else { cqR(c, 13, 7 - bob, 2, 2, "#222"); cqR(c, 17, 7 - bob, 2, 2, "#222"); cqR(c, 14.5, 10.5 - bob, 3, 0.8, "#8a3a2a"); } }
+  // little tricolour cap brim (yellow) on top
+  cqR(c, 10.5, 2.5 - bob, 11, 1.5, VQ.yellow); if (face === 1) cqR(c, 20, 3 - bob, 3, 1, VQ.yellowLo);
+  if (cast > 0.2) drawVeneqBolt(c, face === 1 ? 24 : 24.5, face === 1 ? 6 - bob : 10 - bob - cast * 6, now, cast);
+  c.restore();
+}
+/** «Chispa tricolor» projectile (yellow/blue/red spark). x,y = centre px. */
+function drawVeneqBolt(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, a = 1): void {
+  ctx.save(); ctx.globalAlpha = a; const sp = now / 90;
+  const cols = [VQ.yellow, VQ.blue, VQ.red];
+  for (let k = 0; k < 3; k++) { const an = sp + (k * Math.PI * 2) / 3; cqEll(ctx, x + Math.cos(an) * 2.4, y + Math.sin(an) * 2.4, 2, 2, cols[k] ?? "#fff"); }
+  cqEll(ctx, x, y, 1.4, 1.4, "#ffffff"); ctx.restore();
+}
+
+// ===================== FX for the fight (all px, already camera-relative) =====================
+/** Themed telegraph tile (draw instead of the generic red warn for Croqui warns). k = 0..1 progress to impact. */
+function drawCroquiWarnTile(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, now: number, full = false): void {
+  const fl = 0.5 + 0.5 * Math.sin(now / 55 + x * 0.3 + y * 0.2);
+  ctx.fillStyle = `rgba(255,${Math.round(120 - 90 * k)},20,${0.2 + 0.45 * k + 0.08 * fl})`; ctx.fillRect(x + 1, y + 1, 30, 30);
+  if (full) { ctx.fillStyle = `rgba(160,60,255,${0.18 + 0.2 * k})`; ctx.fillRect(x + 1, y + 1, 30, 3); }
+  ctx.strokeStyle = `rgba(255,220,120,${0.25 + 0.5 * k})`; ctx.strokeRect(x + 2.5, y + 2.5, 27, 27);
+  const r = 13 * (1 - k); if (r > 1) { ctx.strokeStyle = "rgba(255,250,200,0.8)"; ctx.beginPath(); ctx.arc(x + 16, y + 16, r, 0, Math.PI * 2); ctx.stroke(); }
+}
+/** Safe tile during a full-screen power: teal pulsing ring with ✓. */
+function drawCroquiSafeTile(ctx: CanvasRenderingContext2D, x: number, y: number, now: number): void {
+  const p = 0.5 + 0.5 * Math.sin(now / 120);
+  ctx.fillStyle = `rgba(40,230,210,${0.25 + 0.2 * p})`; ctx.fillRect(x + 1, y + 1, 30, 30);
+  ctx.strokeStyle = "#7ffff0"; ctx.lineWidth = 2; ctx.strokeRect(x + 3, y + 3, 26, 26); ctx.lineWidth = 1;
+  ctx.fillStyle = "#e8fffc"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✓", x + 16, y + 17);
+}
+/** Full-view overlay while a full-screen power charges (k 0..1) and its impact flash (k > 1 → 1..1.4). W,H = view px. */
+function drawFireRainOverlay(ctx: CanvasRenderingContext2D, W: number, H: number, k: number, now: number, label: string): void {
+  ctx.save();
+  if (k <= 1) {
+    ctx.fillStyle = `rgba(255,60,0,${0.06 + 0.16 * k})`; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = `rgba(255,140,40,${0.4 + 0.4 * Math.abs(Math.sin(now / 70))})`; ctx.lineWidth = 10; ctx.strokeRect(5, 5, W - 10, H - 10); ctx.lineWidth = 1;
+    for (let i = 0; i < 60; i++) { const sx = ((i * 97) % 1000) / 1000 * W, ph = ((now / 600 + i * 0.137) % 1); const sy = ph * H * (0.4 + k * 0.6);
+      ctx.globalAlpha = 0.25 + 0.6 * k; ctx.fillStyle = i % 3 === 0 ? "#ffe08a" : i % 3 === 1 ? "#ff7a1a" : "#c050ff"; ctx.fillRect(sx - 1, sy - 8, 2, 8); ctx.fillRect(sx - 2, sy - 1, 4, 3); }
+    ctx.globalAlpha = 1; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 4; ctx.strokeStyle = "#000"; ctx.strokeText(label, W / 2, H * 0.22); ctx.fillStyle = "#ffd080"; ctx.fillText(label, W / 2, H * 0.22); ctx.lineWidth = 1;
+  } else { const f = Math.max(0, 1.4 - k) / 0.4; ctx.fillStyle = `rgba(255,190,90,${0.7 * f})`; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
+}
+/** Mana-drain beam from the player (x0,y0) to Croqui's wand (x1,y1), with orbs flowing to Croqui. */
+function drawManaBeam(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, now: number, a = 1): void {
+  ctx.save(); ctx.globalAlpha = a; const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  for (let w = 0; w < 2; w++) { ctx.strokeStyle = w ? "rgba(200,240,255,0.9)" : "rgba(40,110,255,0.55)"; ctx.lineWidth = w ? 1.5 : 6; ctx.beginPath();
+    for (let s = 0; s <= 20; s++) { const t = s / 20, o = Math.sin(t * 9 - now / 60) * (w ? 2 : 3.5) * Math.sin(t * Math.PI); const px = x0 + dx * t + nx * o, py = y0 + dy * t + ny * o; if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); } ctx.stroke(); }
+  for (let k = 0; k < 7; k++) { const t = ((now / 500 + k / 7) % 1); cqEll(ctx, x0 + dx * t + nx * Math.sin(k + now / 90) * 3, y0 + dy * t + ny * Math.sin(k + now / 90) * 3, 2.6 - t, 2.6 - t, k % 2 ? "#9bd8ff" : "#3a7aff"); }
+  ctx.lineWidth = 1; ctx.restore();
+}
+/** Mana orb pickup (dropped during the enrage). x,y = tile top-left px. */
+function drawManaOrb(ctx: CanvasRenderingContext2D, x: number, y: number, now: number): void {
+  const b = Math.sin(now / 220) * 2; const g = ctx.createRadialGradient(x + 16, y + 15 + b, 1, x + 16, y + 15 + b, 14); g.addColorStop(0, "rgba(120,190,255,0.7)"); g.addColorStop(1, "rgba(40,90,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(x, y, 32, 32); ell0(ctx, x + 16, y + 27, 6, 2);
+  cqEll(ctx, x + 16, y + 15 + b, 6, 6, "#1e50d8"); cqEll(ctx, x + 16, y + 15 + b, 4.6, 4.6, "#3a7aff"); cqEll(ctx, x + 14, y + 13 + b, 1.8, 1.8, "#e8f4ff");
+}
+/** Big fireball / meteor in flight (x,y centre px, r radius). */
+function drawCroquiFireball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, now: number): void {
+  for (let k = 5; k >= 1; k--) { ctx.globalAlpha = 0.25; cqEll(ctx, x - k * r * 0.35, y - k * r * 0.35, r * (1 - k * 0.12), r * (1 - k * 0.12), k % 2 ? "#ff7a1a" : "#c040ff"); }
+  ctx.globalAlpha = 1; cqEll(ctx, x, y, r, r, "#ff5a14"); cqEll(ctx, x, y, r * 0.7, r * 0.7, "#ffa030"); cqEll(ctx, x - r * 0.2, y - r * 0.2, r * 0.38 + Math.sin(now / 40) * 0.5, r * 0.38, "#fff0b0");
+}
+/** Lair tiles («Santuario Ígneo»): call from drawTile when regionOf(wx,wy) === CROQ_R. h = hash(wx, wy). */
+function drawCroquiTile(ctx: CanvasRenderingContext2D, t: "floor" | "lava" | "wall" | "portal", x: number, y: number, h: number, now: number): void {
+  if (t === "lava") { ctx.fillStyle = "#4a0c04"; ctx.fillRect(x, y, 32, 32); const p = 0.5 + 0.5 * Math.sin(now / 400 + (h % 17));
+    ctx.fillStyle = `rgba(255,${90 + Math.round(60 * p)},20,0.85)`; ctx.fillRect(x + (h % 10), y + ((h >> 4) % 10), 14, 9); ctx.fillStyle = "#ffd060"; ctx.fillRect(x + 6 + ((h >> 8) % 16), y + 18, 4, 2); return; }
+  if (t === "wall") { ctx.fillStyle = "#16121c"; ctx.fillRect(x, y, 32, 32); ctx.fillStyle = "#2a2436"; ctx.fillRect(x + 2, y + 2, 28, 12); ctx.fillStyle = "#0a0810"; ctx.fillRect(x, y + 28, 32, 4);
+    ctx.fillStyle = "rgba(40,220,210,0.55)"; ctx.fillRect(x + 6 + (h % 14), y + 6, 2, 16); return; }
+  ctx.fillStyle = "#211a26"; ctx.fillRect(x, y, 32, 32); ctx.fillStyle = "#2c2434"; ctx.fillRect(x + (h % 12), y + ((h >> 4) % 12), 14, 10);
+  ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.strokeRect(x + 0.5, y + 0.5, 31, 31);
+  if (h % 5 === 0) { const p = 0.4 + 0.6 * Math.abs(Math.sin(now / 700 + (h % 31))); ctx.strokeStyle = `rgba(30,220,200,${0.35 * p})`; ctx.beginPath(); ctx.moveTo(x + 4, y + 8 + (h % 9)); ctx.lineTo(x + 14, y + 14); ctx.lineTo(x + 27, y + 10 + ((h >> 3) % 12)); ctx.stroke(); }
+  if (h % 7 === 0) { ctx.fillStyle = "rgba(255,120,30,0.5)"; ctx.fillRect(x + 20, y + 22, 3, 2); }
+  if (t === "portal") drawCroquiVortex(ctx, x + 16, y + 16, 12, now, 1);
+}
+/** Croqui's «Otra Dimensión» look: fiery + teal/purple void (drop-in alternative to drawDimTile / drawVortex colours). */
+function drawCroquiDimTile(ctx: CanvasRenderingContext2D, solid: boolean, x: number, y: number, h: number, now: number): void {
+  if (solid) { ctx.fillStyle = "#2a1236"; ctx.fillRect(x, y, 32, 32); ctx.fillStyle = "#3e1a52"; ctx.fillRect(x + (h % 12), y + ((h >> 4) % 12), 12, 8); ctx.fillStyle = "rgba(30,210,200,0.35)"; ctx.fillRect(x, y + 30, 32, 2); ctx.strokeStyle = "rgba(255,140,60,0.25)"; ctx.strokeRect(x + 0.5, y + 0.5, 31, 31); return; }
+  ctx.fillStyle = "#08060f"; ctx.fillRect(x, y, 32, 32); ctx.fillStyle = "rgba(20,120,130,0.25)"; ctx.fillRect(x, y, 32, 32);
+  for (let k = 0; k < 3; k++) { const sx = (h >> (k * 7)) % 30, sy = (h >> (k * 7 + 3)) % 30; ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(now / 500 + ((h >> k) % 50))); ctx.fillStyle = k === 0 ? "#ffb060" : k === 1 ? "#7ffff0" : "#b070ff"; ctx.fillRect(x + sx, y + sy, k === 0 ? 2 : 1, k === 0 ? 2 : 1); }
+  ctx.globalAlpha = 1;
+}
+function drawCroquiVortex(ctx: CanvasRenderingContext2D, x: number, y: number, R: number, now: number, a: number): void {
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); const cols = ["#ff8a2a", "#3ae0d0", "#a050ff", "#ffe08a"];
+  for (let k = 0; k < 4; k++) { ctx.rotate(now / 500 + (k * Math.PI) / 2); ctx.strokeStyle = cols[k] ?? "#fff"; ctx.lineWidth = 3; ctx.beginPath();
+    for (let s = 0; s <= 30; s++) { const r = (R * s) / 30, an = s * 0.35; if (s === 0) ctx.moveTo(Math.cos(an) * r, Math.sin(an) * r); else ctx.lineTo(Math.cos(an) * r, Math.sin(an) * r); } ctx.stroke(); }
+  ctx.restore(); ctx.lineWidth = 1;
+}
+const CROQ_DIM_THEME = { tint: "rgba(20,110,120,0.22)", edge: "rgba(60,0,40,0.65)", text: "#7ffff0", frame: "#ff8a2a", title: "✦ DIMENSIÓN DE CROQUI ✦", flash: "rgba(255,170,90," };
+// ===================== /CROQUI & VENEQUITO sprites =====================
+
+// ===================== CROQUI, el Archimago de la Llama Turquesa (jefe opcional post-Géminis) =====================
+// Paste AFTER `function gemKill(...)` (before the Gemini "// --- Dibujo ---" line) and after croqui-sprites.ts.
+// Needs the hooks listed in SPEC.md §9 (applied automatically by tools/integrate.mjs).
+// ---------- 1) Constants: tune everything here ----------
+const CROQ = {
+  HP_X_SAGA: 9, ATK_X_SAGA: 1.7, ATK_MS: 1200, SPEED: 460, EXP_MUL: 0.2, PARTY: 1, // PARTY = number of players (co-op): HP × (0.6 + 0.4·n)
+  GAP: [1400, 2600] as [number, number], CD_JITTER: 0.35, FIRST_RAIN_MS: 20000,
+  P2_AT: 0.5, P2_GAP: 0.8,                                   // 50%: Otra Dimensión, then casts 20% more often
+  RAGE_AT: 0.2, RAGE_GAP: 0.6, RAGE_CD: 0.7, RAGE_DMG: 1.25, RAGE_TELE: 0.85, // <20%: VIDA ROJA
+  DRAIN_PASSIVE: 0.015, SIPHON_TICK: 0.06, SIPHON_MS: 3000, SIPHON_RANGE: 7, SIPHON_HEAL: 0.001,
+  ORB_EVERY: 8000, ORB_LIFE: 8000, ORB_MANA: 0.18,
+  SUMMON_EVERY: [16000, 22000] as [number, number], SUMMON_N: 2, SUMMON_CAP: 4, SUMMON_CAP_RAGE: 6, CHEER_N: 3, CHEER_DMG: 1.15,
+  HARD_ENRAGE_MS: 900000, APOC_EVERY: 6000, APOC_DMG: 3.0,
+  DIM_MS: 25000, DIM_RAIN_MS: 1800,
+  RAR: [0.2, 0.4, 0.4] as [number, number, number], DROP_N: 8, UNIQUE_HEA: 0.5, POOL_MIN_LVL: 54, POOL_UNIQUE: 0.25,
+  GOLD: [25000, 40000] as [number, number], COINS: [5, 12] as [number, number], FIRST_COINS: 50, OUTFIT_P: 0.08, AURA_P: 0.1, MOUNT_P: 0.05,
+};
+// Powers: lo/hi = damage × A (A = Croqui atk), tele = telegraph ms, cd = base cooldown, w = random weight, ph: 1 always · 2 after the Dimension · 3 red HP only
+type CqPow = "bola" | "lanza" | "meteoro" | "triple" | "nova" | "anillo" | "cruz" | "equis" | "brasas" | "lluvia" | "ola" | "solnegro" | "sifon" | "supernova";
+interface CqPowDef { n: string; lo: number; hi: number; tele: number; cd: number; w: number; ph: 1 | 2 | 3; }
+const CROQ_POW: Record<CqPow, CqPowDef> = {
+  bola: { n: "Bola de Fuego Mayor", lo: 1.1, hi: 1.5, tele: 750, cd: 5000, w: 5, ph: 1 },
+  lanza: { n: "Lanza Ígnea", lo: 0.9, hi: 1.3, tele: 600, cd: 6000, w: 4, ph: 1 },
+  meteoro: { n: "Meteoro", lo: 1.6, hi: 2.1, tele: 1200, cd: 11000, w: 3, ph: 1 },
+  nova: { n: "Nova de Magma", lo: 0.8, hi: 1.2, tele: 900, cd: 7000, w: 4, ph: 1 },
+  anillo: { n: "Anillo Infernal", lo: 0.9, hi: 1.3, tele: 1000, cd: 9000, w: 3, ph: 1 },
+  cruz: { n: "Cruz de Fuego", lo: 0.9, hi: 1.25, tele: 1000, cd: 8000, w: 3, ph: 1 },
+  brasas: { n: "Campo de Brasas", lo: 0.2, hi: 0.3, tele: 900, cd: 12000, w: 2, ph: 1 },
+  lluvia: { n: "Lluvia del Fénix", lo: 0.8, hi: 1.05, tele: 1700, cd: 22000, w: 2, ph: 1 },
+  ola: { n: "Ola Ígnea", lo: 0.9, hi: 1.2, tele: 900, cd: 20000, w: 2, ph: 1 },
+  triple: { n: "Triple Brasa", lo: 0.6, hi: 0.85, tele: 700, cd: 9000, w: 3, ph: 2 },
+  equis: { n: "Equis Ardiente", lo: 0.9, hi: 1.25, tele: 1000, cd: 8000, w: 3, ph: 2 },
+  solnegro: { n: "Sol Negro", lo: 1.1, hi: 1.45, tele: 1500, cd: 18000, w: 2, ph: 3 },
+  sifon: { n: "Sifón Arcano", lo: 0, hi: 0, tele: 0, cd: 10000, w: 3, ph: 3 },
+  supernova: { n: "Supernova Turquesa", lo: 1.0, hi: 1.4, tele: 800, cd: 14000, w: 2, ph: 3 },
+};
+// ---------- 2) Lair geometry (free strip under the overworld: x 40..95, y 104..143) ----------
+const CROQ_R = NH + 1; // region id 13 (regionOf / byRegion / regionRect hooks)
+const CROQ_X0 = 40, CROQ_Y0 = OW_H, CROQ_W = OW_W - 40, CROQ_H = MH - OW_H;
+const CROQ_RECT: [number, number, number, number] = [CROQ_X0, CROQ_Y0, CROQ_W, CROQ_H];
+const CROQ_ARENA: [number, number, number, number] = [67, 116, 90, 131]; // walkable floor (x0,y0,x1,y1), lava ring around it
+const CROQ_HOME: [number, number] = [79, 123];
+const CROQ_ENTRY: [number, number] = [46, 124], CROQ_EXIT: [number, number] = [43, 124], CROQ_STELE: [number, number] = [49, 120];
+const CROQ_DOOR: [number, number] = [65, OY + 48]; // teleport inside the hall of the Torre de Croqui (croqui-castle.ts), south of Villa Esmeralda
+const CROQ_SPAWNS: Array<[string, number, number]> = [["croq_guard", 57, 123], ["croq_guard", 60, 125], ["croq_guard", 62, 123], ["croqui", CROQ_HOME[0], CROQ_HOME[1]]];
+function inCroq(x: number, y: number): boolean { return x >= CROQ_X0 && x < CROQ_X0 + CROQ_W && y >= CROQ_Y0 && y < CROQ_Y0 + CROQ_H; }
+function buildCroqLair(m: Uint8Array): void {
+  const set = (x: number, y: number, t: number): void => { if (inCroq(x, y)) m[y * MW + x] = t; };
+  const rect = (x0: number, y0: number, x1: number, y1: number, t: number): void => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, t); };
+  rect(CROQ_X0, CROQ_Y0, CROQ_X0 + CROQ_W - 1, CROQ_Y0 + CROQ_H - 1, ROCK);
+  rect(41, 117, 54, 130, HWALL); rect(42, 118, 53, 129, MARBLE);                  // antechamber
+  rect(54, 122, 65, 126, MARBLE); rect(54, 121, 65, 121, HWALL); rect(54, 127, 65, 127, HWALL); // corridor
+  rect(64, 113, 93, 134, HWALL); rect(65, 114, 92, 133, WATER);                   // arena walls + lava ring (WATER = blocks walking, not spells)
+  rect(CROQ_ARENA[0], CROQ_ARENA[1], CROQ_ARENA[2], CROQ_ARENA[3], MARBLE); rect(64, 122, 66, 126, MARBLE); // floor + gate
+  for (const [x, y] of [[71, 120], [86, 120], [71, 127], [86, 127]] as Array<[number, number]>) rect(x, y, x + 1, y, HWALL); // 4 pillars
+  set(CROQ_EXIT[0], CROQ_EXIT[1], PORTAL); set(CROQ_STELE[0], CROQ_STELE[1], BOULDER);
+  buildCroqCastle(m); // overworld entrance: gothic tower + dead-tree grove south of town (croqui-castle.ts)
+}
+// ---------- 3) Monster defs (calibrated on Saga / House 12) ----------
+const CROQ_ID = "croqui", VENEQ_ID = "venequito";
+const CROQ_SHADE_LOOK: MonLook = { body: "shadow", c1: "#0c5a5a", c2: "#04161a", c3: "#ff8a2a", s: 1, horn: "none", glyph: "", alpha: 0.85 };
+function croqHpFor(n: number): number { const saga = MONS.h12boss?.hp ?? 88387; return Math.round(saga * CROQ.HP_X_SAGA * (0.6 + 0.4 * Math.max(1, n))); }
+(function croqDefs(): void {
+  const st = HSTAT[NH - 1] ?? { hp: 1584, atk: 265 }; const sagaAtk = MONS.h12boss?.atk ?? 358; const hp = croqHpFor(CROQ.PARTY); const atk = Math.round(sagaAtk * CROQ.ATK_X_SAGA);
+  MONS[CROQ_ID] = { id: CROQ_ID, name: "Croqui", hp, exp: Math.round(hp * CROQ.EXP_MUL), atk, speed: CROQ.SPEED, gold: 0, respawn: 600000, armored: true, drop: 1, dropN: 0, lootLvl: 74, rar: CROQ.RAR, atkMs: CROQ.ATK_MS,
+    boss: { specials: [], phase2: "", clone: "" } };
+  const vq: MonDef = { id: VENEQ_ID, name: "Venequito", hp: Math.round(st.hp * 0.9), exp: 300, atk: Math.round(st.atk * 0.8), speed: 380, gold: 40, respawn: 0, armored: false, drop: 0.08, dropN: 1, lootLvl: 62, rar: [0.3, 0.1, 0.02], atkMs: 1600 };
+  MONS[VENEQ_ID] = vq;
+  MONS.croq_guard = { ...vq, id: "croq_guard", name: "Venequito centinela", hp: Math.round(st.hp * 1.4), exp: 900, atk: Math.round(st.atk * 0.95), respawn: 30000, gold: 120, drop: 0.12 };
+  MONS.croq_shade = { ...vq, id: "croq_shade", name: "Sombra ígnea", hp: Math.round(st.hp * 1.8), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(st.atk * 1.05), speed: 430, look: CROQ_SHADE_LOOK };
+  MONS.croq_echo = { ...vq, id: "croq_echo", name: "Eco de Croqui", hp: Math.round(st.hp * 6), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(atk * 0.45), speed: 520 };
+})();
+// ---------- 4) Unique loot, cosmetics, mount ----------
+const CROQ_UNIQUES = ["croq_wand", "croq_hat", "croq_robe", "croq_legs", "croq_boots", "croq_ring", "croq_amulet", "croq_orb", "croq_blade", "croq_bow", "croq_dag", "croq_shield", "croq_mail"];
+function isCroqItem(id: string): boolean { return id.startsWith("croq_"); }
+addLoot(it("croq_wand", "Varita de Croqui", "weapon", "wand", 70, CASTERS, 9000, { atk: 122, range: 5, elem: "fire", magic: 8, mana: 150 }));
+addLoot(it("croq_hat", "Sombrero de Ferumbras", "head", "armor", 70, CASTERS, 9000, { arm: 8, magic: 4, mana: 260 }));
+addLoot(it("croq_robe", "Túnica turquesa de Croqui", "body", "armor", 70, CASTERS, 9000, { arm: 13, mana: 520, magic: 5, hp: 120 }));
+addLoot(it("croq_legs", "Faldar turquesa de Croqui", "legs", "armor", 70, CASTERS, 8000, { arm: 8, mana: 260, magic: 2 }));
+addLoot(it("croq_boots", "Botas del Archimago", "feet", "armor", 70, null, 8000, { arm: 7, speed: 28 }));
+addLoot(it("croq_ring", "Anillo de los Anillos Azules", "ring", "jewel", 70, null, 8000, { atk: 8, magic: 4, hp: 160, mana: 120 }));
+addLoot(it("croq_amulet", "Amuleto de la Otra Dimensión", "amulet", "jewel", 70, null, 8000, { hp: 300, mana: 300, magic: 2 }));
+addLoot(it("croq_orb", "Orbe de energía azul", "off", "orb", 70, CASTERS, 8000, { magic: 10, mana: 420 }));
+addLoot(it("croq_blade", "Espada ígnea de Croqui", "weapon", "sword", 70, KN, 9000, { atk: 124, elem: "fire" }));
+addLoot(it("croq_bow", "Arco del Fénix", "weapon", "bow", 70, AR, 9000, { atk: 122, range: 6, elem: "fire" }));
+addLoot(it("croq_dag", "Daga de brasa", "weapon", "dagger", 70, RO, 9000, { atk: 112, elem: "fire", speed: 10 }));
+addLoot(it("croq_shield", "Escudo de la Llama Turquesa", "off", "shield", 70, KN, 8000, { def: 62, arm: 8 }));
+addLoot(it("croq_mail", "Coraza de magma", "body", "armor", 70, PHYS, 9000, { arm: 20, hp: 320 }));
+OUTFITS.push({ id: "o_croqui", n: "Atuendo de Croqui", robe: "#17b8b0", trim: "#7a2ed0", price: 0 });
+AURAS.push({ id: "a_croqui", n: "Anillos de Croqui", c: [90, 200, 255], price: 0 });
+MOUNTS.push({ id: "m_croqui", n: "Dragón turquesa de Croqui", price: 0, speed: 45, src: "boss", mon: CROQ_ID, chance: CROQ.MOUNT_P, kind: "dragon", body: "#17b8b0", dark: "#0c5a5a", mane: "#b070ff" });
+// ---------- 5) Fight state ----------
+interface CqOrb { x: number; y: number; until: number; }
+interface CqRain { safe: Array<[number, number]>; at: number; born: number; label: string; }
+interface CroqSt { phase: 1 | 2 | 3; start: number; nextCast: number; cd: Partial<Record<CqPow, number>>; nextSummon: number; castUntil: number; dimAt: number; dimDone: boolean;
+  siphonUntil: number; siphonNext: number; drainNext: number; orbs: CqOrb[]; nextOrb: number; apocNext: number; rain: CqRain | null; fx: { at: number; kind: "pre" | "in" | "out" } | null; }
+interface Game { croq?: CroqSt | null; croqGate?: number; }
+interface DimSt { home?: "gem" | "croq"; }
+let CROQ_DIM_ON = false; // set each tick: Otra Dimensión uses Croqui's theme
+function croqSt(g: Game, now: number): CroqSt {
+  if (!g.croq) g.croq = { phase: 1, start: now, nextCast: now + 2500, cd: { lluvia: now + CROQ.FIRST_RAIN_MS, ola: now + 12000 }, nextSummon: now + 9000, castUntil: 0, dimAt: 0, dimDone: false,
+    siphonUntil: 0, siphonNext: 0, drainNext: 0, orbs: [], nextOrb: 0, apocNext: 0, rain: null, fx: null };
+  return g.croq;
+}
+const jit = (v: number, j: number): number => Math.round(v * (1 - j + Math.random() * 2 * j));
+function croqArena(g: Game, c: [number, number]): boolean { return inRect(CROQ_ARENA, c[0], c[1]) && walkable(tileAt(g, c[0], c[1])); }
+function croqVeneqs(g: Game): number { let n = 0; for (const o of g.byRegion[CROQ_R] ?? []) if (o.alive && o.temp && o.def.id === VENEQ_ID) n++; return n; }
+// ---------- 6) AI: called from stepMon every step (passives) and instead of bossThink (casting) ----------
+function croqTick(g: Game, m: Mon, now: number): void {
+  const p = g.p; if (regionOf(p.x, p.y) !== CROQ_R || (!g.croq && !inRect(CROQ_ARENA, p.x, p.y))) return; const st = croqSt(g, now); const f = m.hp / m.def.hp;
+  if (inRect(CROQ_ARENA, p.x, p.y)) m.angryUntil = now + 60000;
+  if (now < m.angryUntil && !st.apocNext) st.apocNext = st.start + CROQ.HARD_ENRAGE_MS;
+  if (st.phase === 1 && !st.dimDone && f <= CROQ.P2_AT && !st.dimAt) { st.dimAt = now + 1300; st.fx = { at: now, kind: "pre" }; shoutCq(g, m, "¡Otra Dimensión!", now, "#7ffff0"); }
+  if (st.dimAt && now >= st.dimAt) { st.dimAt = 0; croqEnterDim(g, m, now); return; }
+  if (st.phase < 3 && f <= CROQ.RAGE_AT) {
+    st.phase = 3; m.enraged = true; st.nextOrb = now + 3000; st.drainNext = now + 1000; st.nextCast = Math.min(st.nextCast, now + 800);
+    addFloat(g, m.x * TS + 16, m.y * TS - 40, "¡VIDA ROJA!", "#ff3030", now); setStatus(g, "¡Croqui arde en VIDA ROJA! Más poderes, más rápidos… y te roba el maná.", now, "#ff6060"); addLog(g, "⚠ Croqui entra en VIDA ROJA.");
+  }
+  if (st.phase === 3) {
+    if (now >= st.drainNext) { st.drainNext = now + 1000; p.mana = Math.max(0, p.mana - maxMana(g) * CROQ.DRAIN_PASSIVE); }
+    if (now >= st.nextOrb) { st.nextOrb = now + CROQ.ORB_EVERY; for (let t = 0; t < 30; t++) { const c: [number, number] = [CROQ_ARENA[0] + Math.floor(Math.random() * 24), CROQ_ARENA[1] + Math.floor(Math.random() * 16)]; if (croqArena(g, c) && cheb(c[0], c[1], m.x, m.y) >= 3) { st.orbs.push({ x: c[0], y: c[1], until: now + CROQ.ORB_LIFE }); break; } } }
+  }
+  st.orbs = st.orbs.filter((o: CqOrb) => { if (o.x === p.x && o.y === p.y) { const a = Math.round(maxMana(g) * CROQ.ORB_MANA); p.mana = Math.min(maxMana(g), p.mana + a); pfloat(g, `+${a} maná`, "#7fc8ff", now, -14); return false; } return now < o.until; });
+  if (st.siphonUntil > now && now >= st.siphonNext) {
+    st.siphonNext = now + 500;
+    if (cheb(m.x, m.y, p.x, p.y) > CROQ.SIPHON_RANGE || !los(g, m.x, m.y, p.x, p.y)) { st.siphonUntil = 0; pfloat(g, "¡Rompiste el sifón!", "#9be8ff", now, -14); }
+    else { const a = Math.round(maxMana(g) * CROQ.SIPHON_TICK); p.mana = Math.max(0, p.mana - a); m.hp = Math.min(m.def.hp, m.hp + m.def.hp * CROQ.SIPHON_HEAL); pfloat(g, `-${a} maná`, "#5a8aff", now, -14); }
+  }
+  if (st.apocNext && now >= st.apocNext) { st.apocNext = now + CROQ.APOC_EVERY; croqWarnAll(g, m, now, "Apocalipsis", 2000, CROQ.APOC_DMG, CROQ.APOC_DMG, [], true); }
+}
+function shoutCq(g: Game, m: Mon, text: string, now: number, col: string): void { addFloat(g, m.x * TS + 16, m.y * TS - 34, text, col, now); setStatus(g, `Croqui: «${text}»`, now, col); }
+function croqA(g: Game, m: Mon): number { const st = g.croq; return m.def.atk * (st && st.phase === 3 ? CROQ.RAGE_DMG : 1) * (croqVeneqs(g) >= CROQ.CHEER_N ? CROQ.CHEER_DMG : 1); }
+function croqWarn(g: Game, m: Mon, now: number, cells: Array<[number, number]>, tele: number, lo: number, hi: number, name: string, delay = 0): void {
+  const A = croqA(g, m); const k = g.croq?.phase === 3 ? CROQ.RAGE_TELE : 1; const at = now + delay + Math.round(tele * k);
+  g.warns.push({ cells: cells.filter((c: [number, number]) => croqArena(g, c)), at, born: now + delay, min: Math.round(A * lo), max: Math.round(A * hi), elem: "fire", name });
+  if (g.warns.length > 40) g.warns.shift();
+}
+function croqWarnAll(g: Game, m: Mon, now: number, name: string, tele: number, lo: number, hi: number, safe: Array<[number, number]>, full: boolean): void {
+  const cells: Array<[number, number]> = []; const key = new Set(safe.map((c: [number, number]) => c[0] * 1000 + c[1]));
+  for (let y = CROQ_ARENA[1]; y <= CROQ_ARENA[3]; y++) for (let x = CROQ_ARENA[0]; x <= CROQ_ARENA[2]; x++) if (!key.has(x * 1000 + y)) cells.push([x, y]);
+  croqWarn(g, m, now, cells, tele, lo, hi, name); const st = croqSt(g, now); st.rain = { safe, at: now + tele, born: now, label: full ? `¡${name}! No hay refugio` : `¡${name}! Busca un refugio ✓` };
+}
+function croquiThink(g: Game, m: Mon, now: number, d: number): boolean {
+  const p = g.p; const st = croqSt(g, now); if (st.dimAt) return true;
+  if (now >= st.nextSummon && croqVeneqs(g) < (st.phase === 3 ? CROQ.SUMMON_CAP_RAGE : CROQ.SUMMON_CAP)) {
+    st.nextSummon = now + roll(CROQ.SUMMON_EVERY[0], CROQ.SUMMON_EVERY[1]) * (st.phase === 3 ? 0.7 : 1);
+    for (let k = 0; k < CROQ.SUMMON_N; k++) { const v = spawnTemp(g, MONS[VENEQ_ID], m.x + (k ? 2 : -2), m.y + 1, now); if (v) v.angryUntil = now + 120000; }
+    shoutCq(g, m, "¡Venequitos, a mí!", now, "#ffd21e"); st.castUntil = now + 500; m.spec[0] = st.castUntil; return true;
+  }
+  if (now < st.nextCast) return false;
+  const ready = (Object.keys(CROQ_POW) as CqPow[]).filter((k: CqPow) => { const P = CROQ_POW[k]; return P.ph <= st.phase && now >= (st.cd[k] ?? 0) && (k !== "sifon" || (d <= CROQ.SIPHON_RANGE && los(g, m.x, m.y, p.x, p.y))); });
+  let sum = 0; for (const k of ready) sum += CROQ_POW[k].w; if (sum <= 0) return false;
+  let r = Math.random() * sum; let pick: CqPow = ready[0] ?? "bola"; for (const k of ready) { r -= CROQ_POW[k].w; if (r <= 0) { pick = k; break; } }
+  const P = CROQ_POW[pick]; const gapK = st.phase === 3 ? CROQ.RAGE_GAP : st.phase === 2 ? CROQ.P2_GAP : 1;
+  st.cd[pick] = now + jit(P.cd * (st.phase === 3 ? CROQ.RAGE_CD : 1), CROQ.CD_JITTER); st.nextCast = now + Math.round(roll(CROQ.GAP[0], CROQ.GAP[1]) * gapK);
+  st.castUntil = now + 600; m.spec[0] = st.castUntil; m.face = dirFrom(p.x - m.x, p.y - m.y); shoutCq(g, m, `¡${P.n}!`, now, st.phase === 3 ? "#ff6040" : "#ffb040");
+  croqCast(g, m, pick, now); return true;
+}
+function croqCast(g: Game, m: Mon, k: CqPow, now: number): void {
+  const p = g.p; const P = CROQ_POW[k]; const W = (cells: Array<[number, number]>, delay = 0, tele = P.tele, lo = P.lo, hi = P.hi): void => croqWarn(g, m, now, cells, tele, lo, hi, P.n, delay);
+  const disc = (cx: number, cy: number, r: number): Array<[number, number]> => circle(cx, cy, r * r + r);
+  switch (k) {
+    case "bola": W([[p.x, p.y], [p.x + 1, p.y], [p.x - 1, p.y], [p.x, p.y + 1], [p.x, p.y - 1]]); break;
+    case "lanza": { const dx = sgn(p.x - m.x), dy = sgn(p.y - m.y); const c: Array<[number, number]> = []; for (let s = 1; s <= 10; s++) { const x = m.x + dx * s, y = m.y + dy * s; c.push([x, y], [x - dy, y + dx], [x + dy, y - dx]); } W(c); break; }
+    case "meteoro": W(disc(p.x, p.y, 2)); break;
+    case "triple": for (let s = 0; s < 3; s++) W(disc(p.x + roll(-1, 1), p.y + roll(-1, 1), 1), s * 650); break;
+    case "nova": W(disc(m.x, m.y, 3)); break;
+    case "anillo": W(circle(m.x, m.y, 42).filter((c: [number, number]) => { const q = (c[0] - m.x) ** 2 + (c[1] - m.y) ** 2; return q > 9; })); break;
+    case "cruz": { const c: Array<[number, number]> = []; for (let s = -12; s <= 12; s++) c.push([m.x + s, m.y], [m.x, m.y + s]); W(c); break; }
+    case "equis": { const c: Array<[number, number]> = []; for (let s = -10; s <= 10; s++) c.push([m.x + s, m.y + s], [m.x + s, m.y - s], [m.x + s + 1, m.y + s], [m.x + s + 1, m.y - s]); W(c); break; }
+    case "brasas": { const ctrs: Array<[number, number]> = [[p.x, p.y]]; for (let s = 0; s < 4; s++) ctrs.push([roll(CROQ_ARENA[0], CROQ_ARENA[2]), roll(CROQ_ARENA[1], CROQ_ARENA[3])]);
+      const cells = ctrs.flatMap((c: [number, number]) => circle(c[0], c[1], 2)); for (let t = 0; t < 6; t++) W(cells, t * 1000, P.tele); break; }
+    case "lluvia": { const safe: Array<[number, number]> = []; const n = roll(5, 7);
+      for (let t = 0; t < 80 && safe.length < n * 5; t++) { const x = roll(CROQ_ARENA[0] + 1, CROQ_ARENA[2] - 1), y = roll(CROQ_ARENA[1] + 1, CROQ_ARENA[3] - 1); const dd = cheb(x, y, p.x, p.y);
+        if (dd >= 3 && dd <= 9 && croqArena(g, [x, y]) && !safe.some((c: [number, number]) => cheb(c[0], c[1], x, y) <= 2)) safe.push([x, y], [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); }
+      croqWarnAll(g, m, now, P.n, g.croq?.phase === 3 ? 1300 : P.tele, P.lo, P.hi, safe, false); break; }
+    case "ola": { const horiz = Math.random() < 0.5; const gap = horiz ? roll(CROQ_ARENA[1] + 1, CROQ_ARENA[3] - 1) : roll(CROQ_ARENA[0] + 1, CROQ_ARENA[2] - 1); const fwd = Math.random() < 0.5;
+      const a0 = horiz ? CROQ_ARENA[0] : CROQ_ARENA[1], a1 = horiz ? CROQ_ARENA[2] : CROQ_ARENA[3], b0 = horiz ? CROQ_ARENA[1] : CROQ_ARENA[0], b1 = horiz ? CROQ_ARENA[3] : CROQ_ARENA[2];
+      for (let s = 0; s <= (a1 - a0) / 2; s++) { const a = fwd ? a0 + s * 2 : a1 - s * 2; const c: Array<[number, number]> = [];
+        for (let b = b0; b <= b1; b++) if (Math.abs(b - gap) > 1) for (const aa of [a, a + (fwd ? 1 : -1)]) c.push(horiz ? [aa, b] : [b, aa]); W(c, s * 220); } break; }
+    case "solnegro": { const safe: Array<[number, number]> = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) safe.push([m.x + dx, m.y + dy]); croqWarnAll(g, m, now, P.n, P.tele, P.lo, P.hi, safe, false); break; }
+    case "sifon": { const st = croqSt(g, now); st.siphonUntil = now + CROQ.SIPHON_MS; st.siphonNext = now + 500; setStatus(g, "¡Sifón Arcano! Aléjate más de 7 casillas o ponte detrás de un pilar.", now, "#7fc8ff"); break; }
+    case "supernova": W(disc(m.x, m.y, 3)); W(circle(m.x, m.y, 56).filter((c: [number, number]) => (c[0] - m.x) ** 2 + (c[1] - m.y) ** 2 > 9), 900); break;
+  }
+}
+// Venequito: «Chispa tricolor», a 1-tile fireball on the player from 2–4 tiles (melee otherwise)
+function venequitoThink(g: Game, m: Mon, now: number, d: number): boolean {
+  const p = g.p; if (d < 2 || d > 4 || now < (m.spec[0] ?? 0) || !los(g, m.x, m.y, p.x, p.y)) return false;
+  m.spec[0] = now + jit(3500, 0.25); m.spec[1] = now + 450; m.face = dirFrom(p.x - m.x, p.y - m.y);
+  g.warns.push({ cells: [[p.x, p.y]], at: now + 700, born: now, min: Math.round(m.def.atk * 0.35), max: Math.round(m.def.atk * 0.55), elem: "fire", name: "Chispa tricolor" }); return true;
+}
+// ---------- 7) Otra Dimensión (Croqui's version; reuses the DIM_* arena and its tiles) ----------
+function croqEnterDim(g: Game, m: Mon, now: number): void {
+  const p = g.p; if (g.dim || inDim(p.x, p.y)) return; const st = croqSt(g, now); st.dimDone = true; st.fx = { at: now, kind: "in" };
+  const ret: [number, number] = [p.x, p.y]; placePlayer(g, DIM_START[0], DIM_START[1], now);
+  g.dim = { until: now + CROQ.DIM_MS, start: now, ret, n: 1, rainAt: now + 2500, by: "Croqui", home: "croq" };
+  for (const [x, y] of [[14, 8], [17, 13], [15, 11], [18, 9]] as Array<[number, number]>) { const s = spawnTemp(g, MONS.croq_shade, DIM_X0 + x, DIM_Y0 + y, now); if (s) { s.angryUntil = now + CROQ.DIM_MS + 5000; s.nextAtk = now + 1500; } }
+  const e = spawnTemp(g, MONS.croq_echo, DIM_X0 + 27, DIM_Y0 + 8, now); if (e) { e.angryUntil = now + CROQ.DIM_MS + 5000; e.nextAtk = now + 2000; }
+  specialHit(g, roll(Math.round(m.def.atk * 0.25), Math.round(m.def.atk * 0.45)), now);
+  setStatus(g, `¡Croqui: «Otra Dimensión»! Llega a la grieta ✦ o resiste ${Math.round(CROQ.DIM_MS / 1000)} s.`, now, "#7ffff0"); addLog(g, "🌀 Croqui te mandó a su Otra Dimensión.");
+}
+function croqLeaveDim(g: Game, now: number, why: string): void {
+  const d = g.dim; if (!d) return; const st = croqSt(g, now);
+  for (const m of g.byRegion[NH] ?? []) if (m.alive && m.temp && inDim(m.x, m.y)) { m.alive = false; m.respawnAt = Infinity; }
+  g.mons = g.mons.filter((m: Mon) => !m.temp || m.alive); indexMons(g);
+  const boss = (g.byRegion[CROQ_R] ?? []).find((m: Mon) => m.alive && m.def.id === CROQ_ID); let spot: [number, number] | null = null;
+  for (let t = 0; t < 60 && !spot; t++) { const x = roll(CROQ_ARENA[0], CROQ_ARENA[2]), y = roll(CROQ_ARENA[1], CROQ_ARENA[3]); if (canPlayerEnter(g, x, y) && (!boss || cheb(boss.x, boss.y, x, y) >= 3)) spot = [x, y]; }
+  placePlayer(g, (spot ?? d.ret)[0], (spot ?? d.ret)[1], now); g.dim = null; st.fx = { at: now, kind: "out" };
+  const lost = now - d.start; st.phase = Math.max(st.phase, 2) as 2 | 3; st.nextCast = now + 1500; st.nextSummon += lost; st.apocNext += lost;
+  for (const k of Object.keys(st.cd) as CqPow[]) st.cd[k] = (st.cd[k] ?? 0) + lost;
+  if (boss) boss.nextAtk = Math.max(boss.nextAtk, now + 1500);
+  setStatus(g, why, now, "#7ffff0"); addLog(g, `🌀 Saliste de la dimensión de Croqui (${why}). Ahora lanza más poderes.`);
+}
+function croqDimTick(g: Game, now: number): void {
+  const d = g.dim; if (!d) return; const p = g.p;
+  if (!inDim(p.x, p.y)) { g.dim = null; return; }
+  if (p.x === DIM_RIFT[0] && p.y === DIM_RIFT[1]) { croqLeaveDim(g, now, "Cruzaste la grieta ✦ y vuelves a la guarida."); return; }
+  const foes = (g.byRegion[NH] ?? []).filter((m: Mon) => m.alive && inDim(m.x, m.y));
+  if (foes.length === 0 && now - d.start > 1000) { croqLeaveDim(g, now, "Venciste a las sombras ígneas."); return; }
+  if (now >= d.until) { croqLeaveDim(g, now, "Resististe: la dimensión se cierra."); return; }
+  if (now >= d.rainAt) { d.rainAt = now + CROQ.DIM_RAIN_MS; const A = MONS[CROQ_ID]?.atk ?? 600;
+    g.warns.push({ cells: circle(p.x, p.y, 2).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), at: now + 1100, born: now, min: Math.round(A * 0.45), max: Math.round(A * 0.7), elem: "fire", name: "Lluvia de brasas" }); }
+}
+// ---------- 8) Portal, zone name, reset, kill/loot ----------
+function croqPortal(g: Game, now: number): boolean {
+  const p = g.p;
+  if (regionOf(p.x, p.y) === CROQ_R) { resetRegion(g, CROQ_R); g.returnAt = 0; g.heldDirs = []; teleport(g, CROQ_DOOR[0] - 2, CROQ_DOOR[1], now); setStatus(g, "Saliste de la Guarida de Croqui: estás en la sala de la Torre.", now, "#7dffb0"); return true; }
+  if (p.x !== CROQ_DOOR[0] || p.y !== CROQ_DOOR[1]) return false;
+  const back = (): void => { p.x = CROQ_DOOR[0] - 1; p.y = CROQ_DOOR[1]; p.fx = p.x; p.fy = p.y; p.moveStart = 0; g.walkGoal = null; };
+  if (g.cleared < NH) { back(); setStatus(g, "🔒 Un sello turquesa bloquea el portal de la Torre: primero vence a los gemelos de Géminis.", now, "#ff9a5a"); return true; }
+  if (!g.croqGate || now - g.croqGate > 10000 || now - g.croqGate < 700) { if (g.croqGate && now - g.croqGate < 700) { const p2 = g.p; p2.x = CROQ_DOOR[0] - 1; p2.y = CROQ_DOOR[1]; p2.fx = p2.x; p2.fy = p2.y; p2.moveStart = 0; return true; } g.croqGate = now; back(); setStatus(g, "⚠ Guarida de Croqui — Recomendado: grupo (nivel 70+). Pisa el portal otra vez para entrar.", now, "#ff8a2a"); addLog(g, "⚠ Croqui es el jefe más difícil de Edisar. Recomendado: grupo."); return true; }
+  g.croqGate = 0; teleport(g, CROQ_ENTRY[0], CROQ_ENTRY[1], now); setStatus(g, "🔥 Guarida de Croqui — Recomendado: grupo. El portal ✦ de atrás te saca.", now, "#ff8a2a"); return true;
+}
+function croqZone(x: number, y: number): string { return inRect(CROQ_ARENA, x, y) ? "🔥 Salón de la Llama Turquesa (Croqui)" : "🔥 Guarida de Croqui — Recomendado: grupo"; }
+function croqReset(g: Game): void { g.croq = null; CROQ_DIM_ON = false; }
+function croqKill(g: Game, m: Mon, now: number): void {
+  if (m.def.id !== CROQ_ID) return; const items: Inst[] = []; const voc = (d: ItemDef): boolean => d.voc === null || d.voc.includes(g.cls.id);
+  const rr = (): Rarity => { const [pr, pe] = CROQ.RAR; const r = Math.random(); return r < pr ? "rar" : r < pr + pe ? "epi" : "hea"; };
+  const uniq = CROQ_UNIQUES.map((id: string) => ITEM[id]).filter((d: ItemDef | undefined): d is ItemDef => !!d && voc(d));
+  const u = uniq[Math.floor(Math.random() * uniq.length)]; if (u) items.push({ uid: g.nextUid++, id: u.id, rar: Math.random() < CROQ.UNIQUE_HEA ? "hea" : "epi" });
+  const pool = ITEMS.filter((d: ItemDef) => d.lvl >= CROQ.POOL_MIN_LVL && d.id !== "gemini_gold" && !isCroqItem(d.id)); const mine = pool.filter(voc);
+  for (let k = 1; k < CROQ.DROP_N; k++) {
+    const src = Math.random() < CROQ.POOL_UNIQUE ? uniq : Math.random() < 0.7 && mine.length ? mine : pool; const d = src[Math.floor(Math.random() * src.length)];
+    if (d) items.push({ uid: g.nextUid++, id: d.id, rar: rr() });
+  }
+  bossLoot(g, m, items, now);
+  const gold = roll(CROQ.GOLD[0], CROQ.GOLD[1]); g.p.gold += gold; addFloat(g, m.x * TS + 16, m.y * TS + 6, `+${gold} oro`, "#ffd34d", now);
+  const first = (g.bossKills[CROQ_R - 1] ?? 0) === 0; g.bossKills[CROQ_R - 1] = (g.bossKills[CROQ_R - 1] ?? 0) + 1;
+  coinGain(g, roll(CROQ.COINS[0], CROQ.COINS[1]) + (first ? CROQ.FIRST_COINS : 0), first ? "¡primera victoria sobre Croqui!" : "botín de Croqui", now);
+  const c = cs(g); for (const [id, pr] of [["o_croqui", CROQ.OUTFIT_P], ["a_croqui", CROQ.AURA_P]] as Array<[string, number]>) if (!c.owned.includes(id) && Math.random() < pr) { c.owned.push(id); addLog(g, `✨ ¡Cosmético exclusivo: ${cosmeticName(id)}!`); }
+  croqReset(g); g.warns = []; addLog(g, "🏆 ¡Venciste a Croqui, el Archimago de la Llama Turquesa!");
+}
+// ---------- 9) Drawing hooks ----------
+function drawCroqMon(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): boolean {
+  const id = m.def.id; const ph = walkPhase(m, now); const face = m.face as CqDir;
+  if (id === CROQ_ID) { drawCroqui(ctx, x, y, face, ph, now, (m.spec[0] ?? 0) > now ? 1 : 0, m.enraged, true); return true; }
+  if (id === "croq_echo") { ctx.save(); ctx.globalAlpha = 0.55; drawCroqui(ctx, x, y, face, ph, now, 0, true, false); ctx.restore(); return true; }
+  if (id === VENEQ_ID || id === "croq_guard") { drawVenequito(ctx, x, y, face, ph, now, (m.spec[1] ?? 0) > now ? 1 : 0); return true; }
+  return false;
+}
+function drawCroqOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  const p = g.p; const W = viewW(g); const cx = g.camX, cy = g.camY;
+  if (drawCroqFx(ctx, g, now)) return;
+  if (regionOf(p.x, p.y) !== CROQ_R) return; const sx = (wx: number): number => wx * TS + 16 - cx, sy = (wy: number): number => wy * TS + 16 - cy;
+  outlined(ctx, "⚠ RECOMENDADO: GRUPO", sx(CROQ_STELE[0]), sy(CROQ_STELE[1]) - 26, "#ff8a2a", "bold 11px sans-serif");
+  const st = g.croq; if (!st) return;
+  for (const o of st.orbs) drawManaOrb(ctx, sx(o.x), sy(o.y), now);
+  const rn = st.rain; if (rn && now < rn.at + 300) { for (const c of rn.safe) drawCroquiSafeTile(ctx, c[0] * TS - cx, c[1] * TS - cy, now); drawFireRainOverlay(ctx, W, VH, clamp((now - rn.born) / Math.max(1, rn.at - rn.born), 0, 1), now, rn.label); } else st.rain = null;
+  const boss = (g.byRegion[CROQ_R] ?? []).find((m: Mon) => m.alive && m.def.id === CROQ_ID);
+  if (boss && st.siphonUntil > now) { const [bx, by] = drawPos(boss, now), [px, py] = drawPos(p, now); drawManaBeam(ctx, bx * TS + 16 - cx, by * TS - 4 - cy, px * TS + 16 - cx, py * TS + 10 - cy, now, 1); }
+  if (st.apocNext) { const left = Math.ceil((st.apocNext - now) / 1000); if (now >= st.start + CROQ.HARD_ENRAGE_MS) outlined(ctx, `☠ APOCALIPSIS en ${left} s`, W / 2, 96, "#ff4040", "bold 13px sans-serif"); }
+  if (croqVeneqs(g) >= CROQ.CHEER_N) outlined(ctx, "¡Ánimo tricolor! Croqui +15% daño", W / 2, 112, "#ffd21e", "bold 11px sans-serif");
+}
+function drawCroqFx(ctx: CanvasRenderingContext2D, g: Game, now: number): boolean { // Croqui-themed Otra Dimensión overlay; true = handled
+  const st = g.croq; const W = viewW(g); const T = CROQ_DIM_THEME;
+  if (g.dim && g.dim.home === "croq") {
+    ctx.fillStyle = T.tint; ctx.fillRect(0, 0, W, VH);
+    const rx = DIM_RIFT[0] * TS + 16 - g.camX, ry = DIM_RIFT[1] * TS + 16 - g.camY; drawCroquiVortex(ctx, rx, ry, 22, now, 0.95); outlined(ctx, "✦ GRIETA", rx, ry - 30, "#ffffff", "bold 11px sans-serif");
+    const left = Math.max(0, Math.ceil((g.dim.until - now) / 1000)); const foes = (g.byRegion[NH] ?? []).filter((m: Mon) => m.alive && inDim(m.x, m.y)).length;
+    ctx.fillStyle = "rgba(4,20,24,0.85)"; const bw = Math.min(W - 16, 440); ctx.fillRect(W / 2 - bw / 2, 30, bw, 34); ctx.strokeStyle = T.frame; ctx.strokeRect(W / 2 - bw / 2 + 0.5, 30.5, bw - 1, 33);
+    outlined(ctx, T.title, W / 2, 38, T.text, "bold 13px sans-serif"); outlined(ctx, `Llega a la grieta ✦, vence a las sombras (${foes}) o resiste ${left} s`, W / 2, 54, "#ffffff", "bold 11px sans-serif");
+  }
+  const fx = st?.fx; if (!st || !fx) return !!(g.dim && g.dim.home === "croq"); const t = now - fx.at;
+  const dur = fx.kind === "pre" ? 1300 : fx.kind === "in" ? 2600 : 1200; if (t > dur) { st.fx = null; return !!(g.dim && g.dim.home === "croq"); }
+  const k = t / dur;
+  if (fx.kind === "pre") { ctx.strokeStyle = `rgba(255,138,42,${0.5 + 0.3 * Math.sin(t / 60)})`; ctx.lineWidth = 14; ctx.strokeRect(7, 7, W - 14, VH - 14); ctx.lineWidth = 1; outlined(ctx, "«¡Otra Dimensión!»", W / 2, VH * 0.3, T.text, "bold 18px sans-serif"); return true; }
+  ctx.fillStyle = `${T.flash}${(fx.kind === "in" ? 0.7 : 0.5) * (1 - k)})`; ctx.fillRect(0, 0, W, VH); drawCroquiVortex(ctx, W / 2, VH / 2, VH * (0.25 + 0.4 * k), now, 1 - k);
+  outlined(ctx, fx.kind === "in" ? "¡OTRA DIMENSIÓN!" : "¡De vuelta en la guarida!", W / 2, VH * 0.42, "#ffffff", `bold ${fx.kind === "in" ? 34 : 20}px sans-serif`); return true;
+}
+function drawCroqTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): boolean {
+  if (inDim(wx, wy)) { if (!CROQ_DIM_ON) return false; drawCroquiDimTile(ctx, t === MARBLE, x, y, hash(wx, wy), now); return true; }
+  if (drawCroqCastleTile(ctx, t, x, y, wx, wy, now)) return true;
+  if (!inCroq(wx, wy)) return false;
+  drawCroquiTile(ctx, t === WATER ? "lava" : t === PORTAL ? "portal" : t === MARBLE ? "floor" : "wall", x, y, hash(wx, wy), now); return true;
+}
+
+// ===================== Torre de Croqui: overworld entrance south of Villa Esmeralda =====================
+// A black, spiky Orthanc-style tower over a small gothic hall, inside a grove of dead trees on ashen ground.
+// Reuses existing tile ids (GRASS = ash ground, TREE = dead tree, WALL = black stone, FLOOR = hall, PATH, PORTAL),
+// and draws them differently inside the zone, so walkability / pathing / minimap logic need no new tile types.
+// Overworld coords (y already includes OY). Town wall ends at y = OY+40; road x = 48 stays untouched.
+const CQC_GROVE: [number, number, number, number] = [36, OY + 41, 76, OY + 55];  // x0,y0,x1,y1: both sides of the road (x 47–49 untouched), desert starts at OY+56
+const CQC_WALLS: [number, number, number, number] = [53, OY + 44, 67, OY + 52];  // hall outer walls; interior 13×7
+const CQC_TOWER: [number, number, number, number] = [58, OY + 41, 62, OY + 43];  // Orthanc footprint (north of the hall)
+const CQC_GATE: [number, number] = [53, OY + 48];
+const CQC_PILLARS: Array<[number, number]> = [[57, OY + 46], [57, OY + 50], [63, OY + 46], [63, OY + 50]];
+const CQC_ZONE: [number, number, number, number] = [CQC_GROVE[0], CQC_TOWER[1], CQC_GROVE[2], CQC_GROVE[3]];
+function inCastleZone(x: number, y: number): boolean { return inRect(CQC_ZONE, x, y); }
+function inCastleHall(x: number, y: number): boolean { return x > CQC_WALLS[0] && x < CQC_WALLS[2] && y > CQC_WALLS[1] && y < CQC_WALLS[3]; }
+function inCastleBlock(x: number, y: number): boolean { return inRect([CQC_WALLS[0], CQC_TOWER[1], CQC_WALLS[2], CQC_WALLS[3]], x, y); } // walls + tower + hall (no spawns here)
+function cqcIsWall(x: number, y: number): boolean {
+  if (inRect(CQC_TOWER, x, y)) return true; if (CQC_PILLARS.some((q: [number, number]) => q[0] === x && q[1] === y)) return true;
+  if (x === CQC_GATE[0] && y === CQC_GATE[1]) return false;
+  return inRect(CQC_WALLS, x, y) && (x === CQC_WALLS[0] || x === CQC_WALLS[2] || y === CQC_WALLS[1] || y === CQC_WALLS[3]);
+}
+function buildCroqCastle(m: Uint8Array): void {
+  const set = (x: number, y: number, t: number): void => { m[y * MW + x] = t; };
+  const spawn = new Set<number>([...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]) => s[1] * 1000 + s[2] + OY));
+  const near = (x: number, y: number): boolean => x >= CQC_WALLS[0] - 1 && x <= CQC_WALLS[2] + 1 && y >= CQC_TOWER[1] - 1 && y <= CQC_WALLS[3] + 1; // clear ring around the castle
+  for (let y = CQC_GROVE[1]; y <= CQC_GROVE[3]; y++) for (let x = CQC_GROVE[0]; x <= CQC_GROVE[2]; x++) {
+    if (x >= 47 && x <= 49) continue; // the town road and its verges stay as they are
+    const h = hash(x * 7 + 3, y * 13 + 1); const lane = Math.abs(y - CQC_GATE[1]) <= 1 && x < CQC_WALLS[0];   // open lane to the gate
+    const edge = x === CQC_GROVE[0] || x === CQC_GROVE[2] || y === CQC_GROVE[3] ? 0.5 : 1;                    // thinner at the edge
+    set(x, y, !lane && !near(x, y) && !spawn.has(x * 1000 + y) && h % 100 < 46 * edge ? TREE : GRASS);
+  }
+  for (let y = CQC_TOWER[1]; y <= CQC_WALLS[3]; y++) for (let x = CQC_WALLS[0]; x <= CQC_WALLS[2]; x++) { if (!inRect(CQC_WALLS, x, y) && !inRect(CQC_TOWER, x, y)) continue; set(x, y, cqcIsWall(x, y) ? WALL : FLOOR); }
+  for (let x = 49; x < CQC_GATE[0]; x++) set(x, CQC_GATE[1], PATH);                                         // branch from the road x = 48
+  set(CQC_GATE[0], CQC_GATE[1], FLOOR); set(CROQ_DOOR[0], CROQ_DOOR[1], PORTAL);
+}
+// ---------- tile art (game pixel style: 32 px tiles, flat fills + speckles) ----------
+function cqcGround(ctx: CanvasRenderingContext2D, x: number, y: number, h: number): void {
+  ctx.fillStyle = "#34302d"; ctx.fillRect(x, y, TS, TS);
+  const C = ["#2a2624", "#423c38", "#4c453f", "#2d2926", "#575049"];
+  for (let k = 0; k < 6; k++) { ctx.fillStyle = C[k % 5] ?? "#333"; ctx.fillRect(x + ((h >> (k * 4)) % 29), y + ((h >> (k * 4 + 2)) % 29), k % 2 ? 3 : 2, 2); }
+  if (h % 5 === 0) { ctx.fillStyle = "#5e5238"; const tx = x + (h >> 8) % 24 + 3, ty = y + (h >> 12) % 22 + 6; ctx.fillRect(tx, ty, 1, 3); ctx.fillRect(tx + 2, ty - 1, 1, 4); ctx.fillRect(tx + 4, ty + 1, 1, 2); } // dead grass
+  if (h % 41 === 0) { ctx.fillStyle = "#c8c0b0"; const bx = x + 10 + (h >> 6) % 10, by = y + 14 + (h >> 9) % 10; ctx.fillRect(bx, by, 4, 3); ctx.fillStyle = "#1a1614"; ctx.fillRect(bx + 1, by + 1, 1, 1); ctx.fillRect(bx + 3, by + 1, 1, 1); } // skull
+}
+function cqcCobble(ctx: CanvasRenderingContext2D, x: number, y: number, h: number): void {
+  ctx.fillStyle = "#1e1c1e"; ctx.fillRect(x, y, TS, TS);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const k = (h >> ((r * 4 + c) % 24)) & 3; ctx.fillStyle = k === 0 ? "#3e3a40" : k === 1 ? "#343036" : "#2c292e"; ctx.fillRect(x + c * 8 + 1 + (r % 2), y + r * 8 + 1, 6, 6); }
+}
+function cqcDeadTree(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, now: number): void {
+  cqcGround(ctx, x, y, h); const v = h % 3, sw = Math.sin(now / 1100 + (h % 17)) * 0.8;
+  ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(x + 16, y + 29, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#1c140f"; ctx.beginPath(); ctx.moveTo(x + 10, y + 30); ctx.lineTo(x + 13, y + 26); ctx.lineTo(x + 14.5, y - 4); ctx.lineTo(x + 17.5, y - 4); ctx.lineTo(x + 19, y + 26); ctx.lineTo(x + 22, y + 30); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#3a2c22"; ctx.fillRect(x + 15, y + 2, 1, 24); ctx.fillStyle = "#0c0806"; ctx.fillRect(x + 15, y + 14, 2, 3); // bark + knot hole
+  const br = (x0: number, y0: number, x1: number, y1: number, w: number): void => { ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x + x0, y + y0); ctx.lineTo(x + x1 + sw, y + y1); ctx.stroke(); };
+  ctx.strokeStyle = "#241a13"; br(16, 10, v === 0 ? 2 : 4, v === 1 ? -4 : -1, 2.6); br(16, 6, v === 2 ? 30 : 28, v === 0 ? -6 : -3, 2.6); br(16, -2, 14 + v, -18, 2.2);
+  ctx.strokeStyle = "#3e3026"; br(6, 0, 0, -6, 1.4); br(4, -1, 7, -10, 1.2); br(26, -2, 31, -9, 1.4); br(27, -3, 24, -12, 1.2); br(15, -12, 9, -17, 1); br(16, -12, 22, -19, 1); br(10, 2, 9, -5, 1); br(22, 1, 20, -7, 1);
+  ctx.lineWidth = 1;
+}
+function cqcWall(ctx: CanvasRenderingContext2D, x: number, y: number, wx: number, wy: number, h: number): void {
+  ctx.fillStyle = "#0e0e12"; ctx.fillRect(x, y, TS, TS);
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, TS, TS); ctx.clip();
+  for (let r = 0; r < 4; r++) for (let c = -1; c < 3; c++) { const k = (h >> ((r * 3 + c + 1) % 24)) & 3; ctx.fillStyle = k === 0 ? "#26262f" : k === 1 ? "#1d1d25" : "#191920"; ctx.fillRect(x + c * 16 + (r % 2) * 8 + 1, y + r * 8 + 1, 14, 6); }
+  ctx.restore();
+  ctx.fillStyle = "rgba(140,140,190,0.10)"; ctx.fillRect(x, y, TS, 2);
+  if (!cqcIsWall(wx, wy + 1)) { ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(x, y + 24, TS, 8); }
+  if (!cqcIsWall(wx, wy - 1)) { ctx.fillStyle = "#0a0a0d"; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(x + 1 + k * 10.5, y + 2); ctx.lineTo(x + 6 + k * 10.5, y - 9); ctx.lineTo(x + 11 + k * 10.5, y + 2); ctx.closePath(); ctx.fill(); } }
+}
+function cqcHallFloor(ctx: CanvasRenderingContext2D, x: number, y: number, wx: number, wy: number, h: number): void {
+  ctx.fillStyle = "#1f1c24"; ctx.fillRect(x, y, TS, TS);
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { ctx.fillStyle = (h >> (i * 2 + j)) & 1 ? "#2c2834" : "#27232e"; ctx.fillRect(x + 1 + i * 16, y + 1 + j * 16, 14, 14); }
+  if (wy === CQC_GATE[1] && wx >= CQC_GATE[0] && wx < CROQ_DOOR[0]) { // carpet from the gate to the teleport
+    ctx.fillStyle = "#3e0c2c"; ctx.fillRect(x, y + 5, TS, 22); ctx.fillStyle = "#7a2ed0"; ctx.fillRect(x, y + 7, TS, 2); ctx.fillRect(x, y + 23, TS, 2);
+    ctx.fillStyle = "#5a1a48"; ctx.beginPath(); ctx.moveTo(x + 16, y + 10); ctx.lineTo(x + 22, y + 16); ctx.lineTo(x + 16, y + 22); ctx.lineTo(x + 10, y + 16); ctx.closePath(); ctx.fill();
+  }
+  if (wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] + 1 || wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] - 1 || wx === CROQ_DOOR[0] + 1 && wy === CROQ_DOOR[1]) { ctx.fillStyle = "#3a3646"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "#4a4658"; ctx.fillRect(x + 2, y + 2, TS - 4, 2); } // dais
+}
+function drawCroqCastleTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): boolean {
+  if (!inCastleZone(wx, wy) || wx === 48) return false; const h = hash(wx, wy);
+  if (t === TREE) cqcDeadTree(ctx, x, y, h, now);
+  else if (t === WALL) cqcWall(ctx, x, y, wx, wy, h);
+  else if (t === PATH) cqcCobble(ctx, x, y, h);
+  else if (t === FLOOR) { if (wx === CQC_GATE[0] && wy === CQC_GATE[1]) { cqcCobble(ctx, x, y, h); ctx.fillStyle = "#0a0a0d"; ctx.fillRect(x, y, TS, 4); ctx.fillRect(x, y + 28, TS, 4); ctx.fillStyle = "#2e2e36"; for (let k = 0; k < 4; k++) ctx.fillRect(x + 2 + k * 8, y + 4, 2, 7); } else cqcHallFloor(ctx, x, y, wx, wy, h); }
+  else if (t === PORTAL) { cqcHallFloor(ctx, x, y, wx, wy, h); drawCroquiTile(ctx, "portal", x, y, h, now); }
+  else cqcGround(ctx, x, y, h);
+  return true;
+}
+function croqMiniCol(x: number, y: number, t: number): string | undefined {
+  if (!inCastleZone(x, y)) return undefined;
+  return t === TREE ? "#2a2018" : t === WALL ? "#121218" : t === FLOOR ? "#3a2e44" : t === PATH ? "#4a4448" : t === PORTAL ? "#5fe6dc" : "#3a3634";
+}
+function castleZoneName(x: number, y: number): string { return inCastleHall(x, y) ? "🏰 Torre de Croqui — Recomendado: grupo" : "🌲 Bosque Muerto de la Torre"; }
+// ---------- tall pass (after all tiles, before entities): Orthanc tower, spires, torches, crows, fog ----------
+function cqcTorch(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, h: number): void {
+  const f = 0.75 + 0.25 * Math.sin(now / 70 + h) * Math.sin(now / 113 + h * 2);
+  const gr = ctx.createRadialGradient(x, y, 1, x, y, 34 * f); gr.addColorStop(0, "rgba(255,150,60,0.45)"); gr.addColorStop(1, "rgba(255,120,40,0)"); ctx.fillStyle = gr; ctx.fillRect(x - 36, y - 36, 72, 72);
+  ctx.fillStyle = "#2a2018"; ctx.fillRect(x - 1.5, y, 3, 8); ctx.fillStyle = "#4a4a54"; ctx.fillRect(x - 3, y + 1, 6, 2);
+  ctx.fillStyle = "#ff7a20"; ctx.beginPath(); ctx.moveTo(x - 3, y + 1); ctx.quadraticCurveTo(x, y - 9 * f, x + 3, y + 1); ctx.fill();
+  ctx.fillStyle = "#ffe08a"; ctx.beginPath(); ctx.moveTo(x - 1.2, y + 1); ctx.quadraticCurveTo(x, y - 4 * f, x + 1.2, y + 1); ctx.fill();
+}
+function cqcSpire(ctx: CanvasRenderingContext2D, x: number, y: number, now: number): void { // x,y = tile top-left
+  ctx.fillStyle = "#0c0c10"; ctx.fillRect(x + 4, y - 22, 24, 50); ctx.fillStyle = "#1c1c24"; ctx.fillRect(x + 6, y - 22, 4, 48);
+  ctx.fillStyle = "#08080b"; ctx.beginPath(); ctx.moveTo(x + 1, y - 22); ctx.lineTo(x + 16, y - 58); ctx.lineTo(x + 31, y - 22); ctx.closePath(); ctx.fill();
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + 16 + s * 13, y - 22); ctx.lineTo(x + 16 + s * 17, y - 34); ctx.lineTo(x + 16 + s * 8, y - 24); ctx.closePath(); ctx.fill(); }
+  const w = 0.5 + 0.5 * Math.sin(now / 400 + x); ctx.fillStyle = `rgba(255,140,50,${0.5 + 0.4 * w})`; ctx.fillRect(x + 14, y - 12, 4, 7);
+}
+function cqcOrthanc(ctx: CanvasRenderingContext2D, bx: number, by: number, now: number): void { // bx = centre, by = ground line of the tower
+  const H = 238, top = by - H + 34;
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(bx, by - 4, 84, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#0b0b0f"; ctx.beginPath(); ctx.moveTo(bx - 76, by); ctx.lineTo(bx - 40, top); ctx.lineTo(bx + 40, top); ctx.lineTo(bx + 76, by); ctx.closePath(); ctx.fill();
+  for (let k = -3; k <= 3; k++) { // fluted black shafts
+    const x0 = bx + k * 21, x1 = bx + k * 11; ctx.strokeStyle = k % 2 ? "#23232d" : "#191920"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, by - 2); ctx.lineTo(x1, top + 4); ctx.stroke();
+  }
+  ctx.strokeStyle = "#34343f"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx - 74, by - 1); ctx.lineTo(bx - 39, top + 2); ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = "#08080b"; // four horns crowning the top
+  for (const [a, b, c] of [[-40, -58, -8], [-15, -22, -2], [15, 22, 2], [40, 58, 8]] as Array<[number, number, number]>) {
+    ctx.beginPath(); ctx.moveTo(bx + a - 9, top + 2); ctx.quadraticCurveTo(bx + a + c, top - 22, bx + b, top - 46 - Math.abs(c) * 0.5); ctx.quadraticCurveTo(bx + a + c * 2, top - 18, bx + a + 9, top + 2); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = "#121218"; ctx.fillRect(bx - 44, top - 2, 88, 8); // platform
+  for (let s = 0; s < 10; s++) { const an = now / 600 + (s * Math.PI) / 5; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(now / 200 + s); ctx.fillStyle = s % 2 ? "#5fe6dc" : "#7ab8ff"; ctx.fillRect(bx + Math.cos(an) * 26 - 1.5, top - 14 + Math.sin(an) * 7 - 1.5, 3, 3); } // Croqui's blue rings
+  ctx.globalAlpha = 1;
+  const pul = 0.55 + 0.45 * Math.sin(now / 500); // the seer window + slits
+  const gw = ctx.createRadialGradient(bx, top + 30, 1, bx, top + 30, 22); gw.addColorStop(0, `rgba(95,230,220,${0.55 * pul})`); gw.addColorStop(1, "rgba(95,230,220,0)"); ctx.fillStyle = gw; ctx.fillRect(bx - 24, top + 8, 48, 46);
+  ctx.fillStyle = `rgba(150,255,245,${0.6 + 0.4 * pul})`; ctx.beginPath(); ctx.moveTo(bx - 4, top + 38); ctx.lineTo(bx - 4, top + 26); ctx.lineTo(bx, top + 20); ctx.lineTo(bx + 4, top + 26); ctx.lineTo(bx + 4, top + 38); ctx.closePath(); ctx.fill();
+  for (const [dx, dy] of [[-22, 80], [20, 104], [-30, 140], [28, 160], [-8, 120]] as Array<[number, number]>) { ctx.fillStyle = `rgba(255,130,40,${0.45 + 0.35 * Math.sin(now / 300 + dx)})`; ctx.fillRect(bx + dx - 2, top + dy, 4, 9); }
+  ctx.fillStyle = "#050507"; ctx.beginPath(); ctx.moveTo(bx - 14, by); ctx.lineTo(bx - 14, by - 26); ctx.quadraticCurveTo(bx, by - 42, bx + 14, by - 26); ctx.lineTo(bx + 14, by); ctx.closePath(); ctx.fill(); // great door
+}
+function cqcCrow(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, k: number): void {
+  const f = Math.sin(now / 85 + k * 1.7) * 4; ctx.strokeStyle = "#060608"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x - 6, y - f); ctx.lineTo(x, y); ctx.lineTo(x + 6, y - f); ctx.stroke(); ctx.lineWidth = 1; ctx.fillStyle = "#060608"; ctx.fillRect(x - 1, y - 1, 3, 3);
+}
+function drawCroqCastle(ctx: CanvasRenderingContext2D, cx: number, cy: number, now: number, px: number, py: number): void {
+  drawCastleGloomLater = inCastleZone(px, py) ? (inCastleHall(px, py) ? 2 : 1) : 0;
+  const sx = (wx: number): number => wx * TS - cx, sy = (wy: number): number => wy * TS - cy;
+  const W = VW + 200, Hh = VH + 300; if (sx(CQC_ZONE[2] + 1) < -200 || sx(CQC_ZONE[0]) > W || sy(CQC_ZONE[3] + 1) < -100 || sy(CQC_ZONE[1]) > Hh) return; // (gloom only applies inside the zone, which is then on screen)
+  for (let i = 0; i < 9; i++) { // drifting ash-fog
+    const span = (CQC_GROVE[2] - CQC_GROVE[0] + 1) * TS; const fx = sx(CQC_GROVE[0]) + ((i * 173 + now / (40 + i * 9)) % span), fy = sy(CQC_GROVE[1]) + ((i * 97) % ((CQC_GROVE[3] - CQC_GROVE[1]) * TS));
+    if (inCastleBlock(Math.floor((fx + cx) / TS), Math.floor((fy + cy) / TS))) continue;
+    ctx.fillStyle = "rgba(170,170,180,0.07)"; ctx.beginPath(); ctx.ellipse(fx, fy, 70, 14, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  cqcTorch(ctx, sx(CQC_GATE[0]) + 6, sy(CQC_GATE[1] - 1) + 14, now, 1); cqcTorch(ctx, sx(CQC_GATE[0]) + 6, sy(CQC_GATE[1] + 1) + 12, now, 2);
+  for (const tx of [56, 60, 64]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[1]) + 22, now, tx);
+  for (const tx of [56, 60, 64]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[3]) + 4, now, tx + 9);
+  for (const [px, py] of CQC_PILLARS) { ctx.fillStyle = "#08080b"; ctx.beginPath(); ctx.moveTo(sx(px) + 4, sy(py) + 2); ctx.lineTo(sx(px) + 16, sy(py) - 16); ctx.lineTo(sx(px) + 28, sy(py) + 2); ctx.closePath(); ctx.fill(); }
+  for (const [qx, qy] of [[CQC_WALLS[0], CQC_WALLS[1]], [CQC_WALLS[2], CQC_WALLS[1]], [CQC_WALLS[0], CQC_WALLS[3]], [CQC_WALLS[2], CQC_WALLS[3]]] as Array<[number, number]>) cqcSpire(ctx, sx(qx), sy(qy), now);
+  const bx = sx((CQC_TOWER[0] + CQC_TOWER[2] + 1) / 2), by = sy(CQC_TOWER[3] + 1); cqcOrthanc(ctx, bx, by, now);
+  for (let k = 0; k < 6; k++) { const an = (now / 1500) * (k % 2 ? 1 : -1) + k * 1.1, r = 46 + k * 12; cqcCrow(ctx, bx + Math.cos(an) * r, by - 250 + Math.sin(an) * r * 0.35, now, k); }
+  outlined(ctx, "🏰 Torre de Croqui", sx(CQC_GATE[0]) + 16, sy(CQC_GATE[1]) - 44, "#c8b0ff", "bold 11px sans-serif");
+  outlined(ctx, "✦ Guarida de Croqui", sx(CROQ_DOOR[0]) + 16, sy(CROQ_DOOR[1]) - 8, "#7ffff0", "bold 10px sans-serif");
+  if (drawCastleGloomLater) drawCastleGloom(ctx, VW, drawCastleGloomLater === 2);
+}
+let drawCastleGloomLater = 0;
+function drawCastleGloom(ctx: CanvasRenderingContext2D, W: number, hall: boolean): void { // tint under the entities while you are in the grove/hall
+  ctx.fillStyle = hall ? "rgba(40,10,40,0.18)" : "rgba(20,22,28,0.28)"; ctx.fillRect(0, 0, W, VH);
+  const vg = ctx.createRadialGradient(W / 2, VH / 2, VH * 0.3, W / 2, VH / 2, VH * 0.9); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.55)"); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, VH);
+}
+
 // --- Dibujo ---
 function drawDimTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
   const h = hash(wx, wy);
@@ -2136,6 +2902,7 @@ function drawVortex(ctx: CanvasRenderingContext2D, x: number, y: number, R: numb
   ctx.restore(); ctx.lineWidth = 1;
 }
 function drawDimOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  if ((g.dim && g.dim.home === "croq") || (g.croq && g.croq.fx)) return;
   const W = viewW(g), cx = Math.round(g.camX), cy = Math.round(g.camY);
   for (const w of g.warns) if (w.name === "Explosión de Galaxias" && w.cells.length > 0) { // telegrafiado grande: anillo de estrellas y «¡ESQUIVA!»
     let sx = 0, sy = 0; for (const c of w.cells) { sx += c[0]; sy += c[1]; } const mx = (sx / w.cells.length) * TS + 16 - cx, my = (sy / w.cells.length) * TS + 16 - cy;
@@ -2291,7 +3058,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g) };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g), nq: saveNq(g), dm: g.demonSeen ? 1 : undefined };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -2343,7 +3110,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]) } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]), nq: readNq(raw["nq"]), dm: raw["dm"] === 1 ? 1 : undefined } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -2364,7 +3131,7 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); loadNq(g, d.nq); g.demonSeen = d.dm === 1; let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -2470,7 +3237,7 @@ function update(g: Game, now: number): void {
   autoAttack(g, now);
   const reg = regionOf(p.x, p.y);
   for (const m of g.byRegion[reg] ?? []) stepMon(g, m, now);
-  stepMinion(g, now);
+  stepMinion(g, now); demonNotice(g, now);
   const keep: Proj[] = [];
   for (const pr of g.projs) {
     if (now < pr.born + pr.dur) { keep.push(pr); continue; }
@@ -2517,6 +3284,7 @@ function update(g: Game, now: number): void {
 // ===================== Dibujo: mundo =====================
 const TILE_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#2f6f2c", 2: "#2a5fa8", 3: "#6b6158", 4: "#8a6f4e", 5: "#cfc6b8", 6: "#4a4038", 7: "#5a4b3c", 8: "#d8c48a", 9: "#a88a5a", 10: "#d8c48a", 11: "#2a1440", 12: "#d8d2c4", 13: "#8a6a2a" };
 function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
+  if (drawCroqTile(ctx, t, x, y, wx, wy, now)) return;
   if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
@@ -2620,6 +3388,7 @@ function drawBrute(ctx: CanvasRenderingContext2D, x: number, y: number, body: st
   ctx.restore();
 }
 function drawMonster(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): void {
+  if (drawCroqMon(ctx, m, x, y, now)) return;
   const ph = walkPhase(m, now); const id = m.def.id;
   if (m.def.look) { drawLook(ctx, m.def.look, x, y, now, ph, !!m.def.boss, m.enraged); return; }
   if (id === "rat") {
@@ -2883,6 +3652,15 @@ function iconURL(key: string, size = 32, rarity: IcoRar = "com", opt?: IcoOpt): 
   const cv = document.createElement("canvas"); cv.width = size; cv.height = size; const cx = cv.getContext("2d"); if (!cx) return "";
   drawIcon(cx, key, 0, 0, size, rarity, 0, opt); const u = cv.toDataURL("image/png"); ICO_URL[ck] = u; return u;
 }
+// Croqui item icons — paste AFTER the edisar-icons block (edisar-items/edisar-icons.paste.ts). No imports.
+// Adds a "teal" material, a Ferumbras' Hat shape (hd_ferum) and icon specs for the 13 croq_* items.
+Object.assign(ICO_MAT, { teal: "053a3a 0c7a78 17b8b0 5fe6dc c8fff8" });
+Object.assign(ICO_SHP, { hd_ferum: "...........22...|..........2..3..|.........23..3..|........234.32..|........2343....|.......23443....|.......234433...|......2344433...|......23444332..|.....cdddWyddc..|.....ccccycccc..|..1223344443322.|.12233444443322.|..112222222211..|................|................" });
+Object.assign(ICO_DEF, {
+  croq_wand: "wand_c teal purple ice", croq_hat: "hd_ferum purple lotus lotus", croq_robe: "bd_robe teal purple sapph", croq_legs: "lg_skirt teal purple purple",
+  croq_boots: "ft_wing teal dleather sapph", croq_ring: "rg_band sapph silver ice", croq_amulet: "am_gem teal dleather amethyst", croq_orb: "orb_b obsid purple ice",
+  croq_blade: "swd_c fire crimson teal", croq_bow: "bow_c iron crimson fire", croq_dag: "dag_c fire black teal", croq_shield: "shd_c teal purple fire", croq_mail: "bd_cuirass fire crimson teal",
+});
 const ICON_KEYS: string[] = Object.keys(ICO_DEF);
 // ===================== /Edisar item icons =====================
 
@@ -3081,6 +3859,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   ctx.fillStyle = "#000"; ctx.fillRect(0, 0, VW, VH);
   const tx0 = Math.floor(cx / TS), ty0 = Math.floor(cy / TS);
   for (let ty = ty0; ty <= ty0 + VH_T; ty++) for (let tx = tx0; tx <= tx0 + VW_T; tx++) drawTile(ctx, tileAt(g, tx, ty), tx * TS - cx, ty * TS - cy, tx, ty, now);
+  drawCroqCastle(ctx, cx, cy, now, p.x, p.y);
   const vis = (x: number, y: number): boolean => x * TS - cx > -TS * 2 && x * TS - cx < VW + TS && y * TS - cy > -TS * 2 && y * TS - cy < VH + TS;
   for (const f of g.fields) if (vis(f.x, f.y)) { const x = f.x * TS - cx, y = f.y * TS - cy; const fl = Math.sin(now / 90 + f.x * 3 + f.y) * 3; ctx.fillStyle = "rgba(255,120,20,0.45)"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "rgba(255,220,80,0.7)"; ctx.beginPath(); ctx.moveTo(x + 8, y + 26); ctx.lineTo(x + 16, y + 6 + fl); ctx.lineTo(x + 24, y + 26); ctx.fill(); }
   const reg = regionOf(p.x, p.y);
@@ -3106,7 +3885,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     hpBar(ctx, x + 4, top, 24, m.hp / m.def.hp); outlined(ctx, m.def.name, x + 16, top - 2, m.def.boss ? "#ffd34d" : m.def.id === "boss" ? "#ff9a5a" : "#e8e8e8", m.def.boss ? "bold 10px sans-serif" : "9px sans-serif");
     const dbf = monDebuffs(g, m, now); if (dbf) drawDebuffs(ctx, dbf, x + 16, top - 18);
   } }); }
-  const mi = g.minion; if (mi) { const [mx, my] = drawPos(mi, now); ents.push({ y: my, draw: () => { const x = mx * TS - cx, y = my * TS - cy; ctx.globalAlpha = 0.85; drawBrute(ctx, x, y, "#3a2a4a", "#1a1022", true, 0.8, walkPhase(mi, now)); ctx.globalAlpha = 1; outlined(ctx, "Esbirro", x + 16, y - 2, "#d0a0ff", "9px sans-serif"); } }); }
+  const mi = g.minion; if (mi) { const [mx, my] = drawPos(mi, now); ents.push({ y: my, draw: () => { const x = mx * TS - cx, y = my * TS - cy; if (mi.demon) { drawDemon(ctx, x, y, now, walkPhase(mi, now), mi.face, now < mi.nextAtk - DEMON.ATK_MS + 350); outlined(ctx, DEMON.NAME, x + 16, y - 8, "#ff9a5a", "bold 9px sans-serif"); } else { ctx.globalAlpha = 0.85; drawBrute(ctx, x, y, "#3a2a4a", "#1a1022", true, 0.8, walkPhase(mi, now)); ctx.globalAlpha = 1; outlined(ctx, "Esbirro", x + 16, y - 2, "#d0a0ff", "9px sans-serif"); } } }); }
   const [px, py] = drawPos(p, now);
   ents.push({ y: py, draw: () => {
     const x = px * TS - cx, y = py * TS - cy; const c = g.cls;
@@ -3165,7 +3944,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (lt.note) { ctx.fillStyle = "#c8c8c8"; ctx.fillText(lt.note, 10, y0 + 21 + n * 14, w - 12); }
     ctx.globalAlpha = 1;
   }
-  drawDimOverlay(ctx, g, now);
+  drawCroqOverlay(ctx, g, now); drawDimOverlay(ctx, g, now);
   if (now - g.statusAt < 4500 && g.status) { ctx.globalAlpha = clamp((4500 - (now - g.statusAt)) / 600, 0, 1); outlined(ctx, g.status, viewW(g) / 2, BAR_Y - 20, g.statusColor, "bold 12px sans-serif"); ctx.globalAlpha = 1; }
   drawPowerBar(ctx, g, now, binds);
   if (g.bigMap) drawBigMap(ctx, g, now, "sans-serif");
@@ -3188,7 +3967,7 @@ function buildMini(tiles: Uint8Array): HTMLCanvasElement | null {
   const x2 = c.getContext("2d"); if (!x2) return null;
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const t = tiles[y * MW + x] ?? 6; const H = t === MARBLE ? HOUSES[regionOf(x, y) - 1] : undefined;
-    x2.fillStyle = H ? H.tint : (MINI_COL[t] ?? "#000"); x2.fillRect(x * MINI_PX, y * MINI_PX, MINI_PX, MINI_PX);
+    x2.fillStyle = H ? H.tint : (croqMiniCol(x, y, t) ?? MINI_COL[t] ?? "#000"); x2.fillRect(x * MINI_PX, y * MINI_PX, MINI_PX, MINI_PX);
   }
   MINI_CACHE = c; return c;
 }
@@ -3508,6 +4287,7 @@ function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
       <CoinPreview g={g} {...prev} />
       <div style={{ fontWeight: 700, fontSize: 11 }}>{n}</div>
       {owns(g, id) ? <button style={gbtn(worn)} onClick={() => act(() => wearCosmetic(g, id, !worn))}>{worn ? "✓ Puesto (quitar)" : "Usar"}</button>
+        : p <= 0 ? <div data-croqonly={id} style={{ fontSize: 11, fontWeight: 700, color: th.text.secondary, padding: "4px 0" }}>🔥 Solo de Croqui</div>
         : <button style={gbtn(true, c.coins < p)} onClick={() => act(() => { buyCosmetic(g, id); })}>Comprar {price(p)}</button>}
     </div>);
   const utilCard = (u: UtilId, extra: string, can: boolean) => { const it = UTILS[u]; return (
@@ -3840,7 +4620,7 @@ function HudWindow(props: { g: Game; th: Theme; win: "skills" | "quests" | "keys
           <div style={{ color: th.text.secondary, marginBottom: 4 }}>{props.listening ? `Pulsa una tecla para «${ACTIONS.find((a: { id: Action; label: string }) => a.id === props.listening?.act)?.label ?? ""}» (Esc cancela)…` : "Cambiar reemplaza las teclas; + añade otra."}</div>
           {ACTIONS.map((a: { id: Action; label: string }) => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0", borderBottom: `1px solid ${th.border.subtle}` }}>
-              <span style={{ flex: 1 }}>{a.id.startsWith("power") ? `${a.label}: ${g.cls.powers[Number(a.id.slice(5)) - 1]?.name ?? ""}` : a.label}</span>
+              <span style={{ flex: 1 }}>{a.id.startsWith("power") ? `${a.label}: ${(() => { const pw = g.cls.powers[Number(a.id.slice(5)) - 1]; return pw ? powName(g, pw) : ""; })()}` : a.label}</span>
               <span style={{ fontFamily: th.font.mono, fontSize: 11 }}>{props.binds[a.id].map(keyLabel).join(", ") || "—"}</span>
               <button style={btn(th, props.listening?.act === a.id && props.listening.mode === "set", true)} onClick={() => props.setListening({ act: a.id, mode: "set" })}>Cambiar</button>
               <button style={btn(th, props.listening?.act === a.id && props.listening.mode === "add", true)} onClick={() => props.setListening({ act: a.id, mode: "add" })}>+</button>
@@ -4173,7 +4953,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1, minWidth: 200 }}>
             <button style={btn(th, true)} onClick={() => doAct("attack")}>⚔️ Atacar</button>
             <button style={btn(th)} onClick={() => doAct("nextTarget")}>Sig. objetivo</button>
-            {g.cls.powers.map((pw: Power, i: number) => <button key={i} style={btn(th)} onClick={() => doAct(SLOT_ACTS[i] ?? "power1")}>{i + 1}. {short(pw.name)}</button>)}
+            {g.cls.powers.map((pw: Power, i: number) => <button key={i} data-pow={i} style={btn(th)} title={powTip(g, pw)} onClick={() => doAct(SLOT_ACTS[i] ?? "power1")}>{i + 1}. {pw.kind === "summon" && demonOn(g) ? "😈 Demonio" : short(pw.name)}</button>)}
             <button style={btn(th)} onClick={() => doAct("hpPot")}>❤️ Vida ({hpPots(g.p)})</button>
             <button style={btn(th)} onClick={() => doAct("manaPot")}>💧 Maná ({manaPots(g.p)})</button>
             <button style={btn(th, g.shopOpen)} onClick={() => doAct("shop")}>🛒 Tienda</button>
