@@ -9,7 +9,7 @@ type HatStyle = "hood" | "pointy" | "horns" | "cap" | "mask" | "helm";
 type Look = "staff" | "bow" | "sword" | "axe" | "club" | "dagger" | "none";
 type MonId = string;
 type MoveAct = "up" | "down" | "left" | "right" | "ul" | "ur" | "dl" | "dr";
-type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins";
+type Action = MoveAct | "power1" | "power2" | "power3" | "power4" | "hpPot" | "manaPot" | "attack" | "nextTarget" | "clearTarget" | "shop" | "afk" | "map" | "fullscreen" | "keys" | "coins" | "mount";
 type Binds = Record<Action, string[]>;
 type Slot = "head" | "body" | "legs" | "feet" | "weapon" | "off" | "amulet" | "ring";
 type WType = "sword" | "axe" | "club" | "dagger" | "rod" | "wand" | "staff" | "bow" | "shield" | "quiver" | "orb" | "armor" | "jewel";
@@ -99,14 +99,14 @@ const ACTIONS: Array<{ id: Action; label: string }> = [
   { id: "power1", label: "Poder 1" }, { id: "power2", label: "Poder 2" }, { id: "power3", label: "Poder 3" }, { id: "power4", label: "Poder 4" },
   { id: "hpPot", label: "Poción de vida" }, { id: "manaPot", label: "Poción de maná" },
   { id: "attack", label: "Atacar al más cercano" }, { id: "nextTarget", label: "Siguiente objetivo" }, { id: "clearTarget", label: "Quitar objetivo / cerrar" },
-  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" },
+  { id: "shop", label: "Abrir tienda" }, { id: "afk", label: "Modo AFK" }, { id: "map", label: "Mapa completo" }, { id: "fullscreen", label: "Pantalla completa" }, { id: "keys", label: "Ventana de atajos" }, { id: "coins", label: "Tienda de Edisar Coins" }, { id: "mount", label: "Montar / desmontar" },
 ];
 const DEFAULT_BINDS: Binds = {
   up: ["KeyW", "ArrowUp", "Numpad8"], down: ["KeyS", "ArrowDown", "Numpad2"], left: ["KeyA", "ArrowLeft", "Numpad4"], right: ["KeyD", "ArrowRight", "Numpad6"],
   ul: ["KeyQ", "Numpad7"], ur: ["KeyE", "Numpad9"], dl: ["KeyZ", "Numpad1"], dr: ["KeyC", "Numpad3"],
   power1: ["F1", "Digit1"], power2: ["F2", "Digit2"], power3: ["F3", "Digit3"], power4: ["F4", "Digit4"],
   hpPot: ["F5", "Digit5"], manaPot: ["F6", "Digit6"], attack: ["Space"], nextTarget: ["Tab"], clearTarget: ["Escape"],
-  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"],
+  shop: ["KeyT", "Enter"], afk: ["KeyG"], map: ["KeyM"], fullscreen: ["KeyP"], keys: ["KeyH"], coins: ["KeyK"], mount: ["KeyR"],
 };
 const MOVE_VEC: Record<MoveAct, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0], ul: [-1, -1], ur: [1, -1], dl: [-1, 1], dr: [1, 1] };
 const DIRS8: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]];
@@ -571,7 +571,7 @@ function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) =
   if (goal(sx, sy)) return null;
   BFS_PREV.fill(-1); OCC.fill(0);
   for (const m of regionMons(g, sx, sy)) if (m.alive) OCC[m.y * MW + m.x] = 1;
-  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1;
+  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1; OCC[STABLE_Y * MW + STABLE_X] = 1;
   const start = sy * MW + sx; BFS_PREV[start] = start;
   let head = 0, tail = 0, found = -1; BFS_Q[tail++] = start;
   while (head < tail && head < maxNodes && found < 0) {
@@ -865,7 +865,7 @@ function killMon(g: Game, m: Mon, now: number): void {
     }
   }
   if (got.length > 0) bossLoot(g, m, got, now);
-  if (bigBoss) coinDrop(g, m, now);
+  if (bigBoss) { coinDrop(g, m, now); mountDrop(g, m, now); }
   if (g.target === m.id) g.target = -1;
   addExp(g, exp, now);
   if (m.def.house) houseKill(g, m, now);
@@ -1039,7 +1039,7 @@ type DragSrc = { kind: "bag"; uid: number } | { kind: "eq"; slot: Slot; uid: num
 type DropDst = { kind: "bag"; k: number } | { kind: "eq"; slot: Slot } | { kind: "tile"; x: number; y: number } | { kind: "feet" };
 function dropTileOk(g: Game, x: number, y: number): boolean {
   const p = g.p; const t = tileAt(g, x, y);
-  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1)) && !(x === DARIO_X && (y === DARIO_Y || y === DARIO_Y - 1)) && !(x === DEPOT_X && y === DEPOT_Y);
+  return walkable(t) && t !== PORTAL && cheb(x, y, p.x, p.y) <= DROP_RANGE && regionOf(x, y) === regionOf(p.x, p.y) && !(x === NPC_X && (y === NPC_Y || y === NPC_Y - 1)) && !(x === DARIO_X && (y === DARIO_Y || y === DARIO_Y - 1)) && !(x === DEPOT_X && y === DEPOT_Y) && !(x === STABLE_X && (y === STABLE_Y || y === STABLE_Y - 1));
 }
 // Tira un objeto de la mochila (número = índice) o del equipo (ranura). Si la casilla no sirve o está lejos, cae a tus pies.
 function dropItem(g: Game, from: number | Slot, x: number | null, y: number | null, now: number): boolean {
@@ -1274,13 +1274,13 @@ function tryStep(g: Game, dx: number, dy: number, now: number): boolean {
   p.face = dirFrom(dx, dy);
   const nx = p.x + dx, ny = p.y + dy;
   if (!canPlayerEnter(g, nx, ny)) return false;
-  p.fx = p.x; p.fy = p.y; p.x = nx; p.y = ny; p.moveStart = now; p.moveDur = stepTime(g) * (dx !== 0 && dy !== 0 ? DIAG_MUL : 1) * (now < p.slowUntil ? 1.8 : 1);
+  p.fx = p.x; p.fy = p.y; p.x = nx; p.y = ny; p.moveStart = now; p.moveDur = (stepTime(g) / mountMul(g)) * (dx !== 0 && dy !== 0 ? DIAG_MUL : 1) * (now < p.slowUntil ? 1.8 : 1);
   afterMove(g, now); return true;
 }
 function walkStep(g: Game, now: number): void {
   const wg = g.walkGoal; if (!wg) return; const p = g.p;
   const goal = (x: number, y: number): boolean => wg.open ? cheb(x, y, wg.x, wg.y) <= (wg.x === DEPOT_X && wg.y === DEPOT_Y ? 1 : 2) : x === wg.x && y === wg.y;
-  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
+  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (wg.x === STABLE_X && wg.y === STABLE_Y) { mt(g).open = true; mt(g).msg = ""; if (g.dep) g.dep.open = false; } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
   const st = bfsStep(g, p.x, p.y, goal, 20000);
   if (!st || !tryStep(g, st[0], st[1], now)) { g.walkGoal = null; setStatus(g, "No hay camino hasta allí.", now); }
 }
@@ -1288,6 +1288,7 @@ function clickTile(g: Game, x: number, y: number, now: number): void {
   if (Math.abs(x - NPC_X) <= 0 && Math.abs(y - NPC_Y) <= 0) { requestShop(g, now); return; }
   if (x === DARIO_X && y === DARIO_Y) { requestExchange(g, now); return; }
   if (x === DEPOT_X && y === DEPOT_Y) { requestDepot(g, now); return; }
+  if (x === STABLE_X && y === STABLE_Y) { requestStable(g, now); return; }
   const m = monAt(g, x, y); if (m) { g.target = m.id; g.chase = true; return; }
   if (walkable(tileAt(g, x, y))) { g.walkGoal = { x, y, open: false }; g.pending = null; g.chase = false; }
 }
@@ -1520,11 +1521,12 @@ function runAction(g: Game, a: Action, now: number): void {
     case "power3": castPower(g, 2, now); break; case "power4": castPower(g, 3, now); break;
     case "hpPot": usePotion(g, "hp", now); break; case "manaPot": usePotion(g, "mana", now); break;
     case "attack": case "nextTarget": targetNearest(g, now); g.chase = true; break;
-    case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open)) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
+    case "clearTarget": if (g.shopOpen || g.bigMap || (!!g.cs && (g.cs.open || g.cs.exOpen)) || (!!g.dep && g.dep.open) || (!!g.mt && g.mt.open)) { g.shopOpen = false; g.bigMap = false; if (g.cs) { g.cs.open = false; g.cs.exOpen = false; } if (g.dep) g.dep.open = false; if (g.mt) g.mt.open = false; } else { g.target = -1; g.walkGoal = null; g.chase = false; } break;
     case "shop": if (g.shopOpen) g.shopOpen = false; else requestShop(g, now); break;
     case "afk": toggleAfk(g, now); break;
     case "map": g.bigMap = !g.bigMap; break;
     case "coins": { const c = cs(g); c.open = !c.open; c.msg = ""; break; }
+    case "mount": toggleMount(g, now); break;
     default: break;
   }
 }
@@ -1550,7 +1552,8 @@ type CoinCat = "cosmetic" | "mount" | "premium" | "util";
 interface Outfit { id: string; n: string; robe: string; trim: string; price: number; }
 interface Aura { id: string; n: string; c: [number, number, number]; price: number; }
 interface NameCol { id: string; n: string; c: string; price: number; }
-interface MountDef { id: string; n: string; price: number; speed: number; soon: boolean; } // monturas: llegan en la próxima versión
+type MountKind = "donkey" | "horse" | "wolf" | "dragon" | "boar" | "bull" | "lion" | "pegasus";
+interface MountDef { id: string; n: string; price: number; speed: number; src: "gold" | "coins" | "boss"; kind: MountKind; body: string; dark: string; mane: string; mon?: string; chance?: number; } // speed = % más rápido montado
 const OUTFITS: Outfit[] = [
   { id: "o_carmesi", n: "Túnica carmesí", robe: "#8a1c2a", trim: "#ffd34d", price: 40 },
   { id: "o_noche", n: "Manto de medianoche", robe: "#1c2a5a", trim: "#9be8ff", price: 40 },
@@ -1572,9 +1575,14 @@ const NAMECOLS: NameCol[] = [
   { id: "n_heaven", n: "Nombre Heaven", c: "#fff0a8", price: 60 },
 ];
 const MOUNTS: MountDef[] = [
-  { id: "m_caballo", n: "Caballo pardo", price: 150, speed: 15, soon: true },
-  { id: "m_lobo", n: "Lobo de las nieves", price: 250, speed: 20, soon: true },
-  { id: "m_dragon", n: "Dragoncillo de fuego", price: 400, speed: 25, soon: true },
+  { id: "m_burro", n: "Burro de carga", price: 1500, speed: 20, src: "gold", kind: "donkey", body: "#8a8279", dark: "#4a443e", mane: "#3a342e" },
+  { id: "m_caballo", n: "Caballo pardo", price: 150, speed: 25, src: "coins", kind: "horse", body: "#8a5a32", dark: "#4a2e16", mane: "#2a1a0c" },
+  { id: "m_lobo", n: "Lobo de las nieves", price: 250, speed: 30, src: "coins", kind: "wolf", body: "#e4ecf2", dark: "#8a9aa8", mane: "#c8d4de" },
+  { id: "m_dragon", n: "Dragoncillo de fuego", price: 400, speed: 35, src: "coins", kind: "dragon", body: "#c8402a", dark: "#6a1a10", mane: "#ffb040" },
+  { id: "m_jabali", n: "Jabalí de guerra", price: 0, speed: 25, src: "boss", mon: "boss", chance: 0.1, kind: "boar", body: "#5a3a26", dark: "#2a1a10", mane: "#1a100a" },
+  { id: "m_toro", n: "Toro de Tauro", price: 0, speed: 30, src: "boss", mon: "h2boss", chance: 0.12, kind: "bull", body: "#6a4426", dark: "#3a2414", mane: "#d8a93a" },
+  { id: "m_leon", n: "León de Nemea", price: 0, speed: 35, src: "boss", mon: "h4boss", chance: 0.08, kind: "lion", body: "#d8a040", dark: "#8a5a1a", mane: "#8a3a10" },
+  { id: "m_corcel", n: "Corcel de Sagitario", price: 0, speed: 40, src: "boss", mon: "h8boss", chance: 0.06, kind: "pegasus", body: "#f4f0e8", dark: "#a8a090", mane: "#ffd34d" },
 ];
 type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename";
 const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string }> = {
@@ -1593,7 +1601,7 @@ interface Game { cs?: CoinState; }
 function newCS(): CoinState { return { coins: 0, owned: [], outfit: "", aura: "", ncol: "", premUntil: 0, xpLeft: 0, xpT: 0, bagX: 0, scrolls: 0, afkMin: "com", open: false, exOpen: false, exWalk: false, msg: "", msgBad: false, earned: 0 }; }
 function cs(g: Game): CoinState { if (!g.cs) g.cs = newCS(); return g.cs; }
 function bagMax(g: Game): number { return BAG_MAX + (g.cs ? g.cs.bagX : 0); }
-function isNpcAt(x: number, y: number): boolean { return (x === NPC_X && y === NPC_Y) || (x === DARIO_X && y === DARIO_Y) || (x === DEPOT_X && y === DEPOT_Y); }
+function isNpcAt(x: number, y: number): boolean { return (x === NPC_X && y === NPC_Y) || (x === DARIO_X && y === DARIO_Y) || (x === DEPOT_X && y === DEPOT_Y) || (x === STABLE_X && y === STABLE_Y); }
 function premOn(g: Game, wall?: number): boolean { return !!g.cs && g.cs.premUntil > (wall ?? Date.now()); }
 function expMul(g: Game): number { const c = g.cs; if (!c) return 1; return 1 + (premOn(g) ? PREM_EXP : 0) + (c.xpLeft > 0 ? XP_BOOST : 0); }
 const RAR_RANK: Record<Rarity, number> = { com: 0, rar: 1, epi: 2, hea: 3 };
@@ -1703,6 +1711,116 @@ function loadCS(g: Game, s: SaveCS | undefined): void {
   c.coins = s.coins; c.owned = [...s.owned]; c.outfit = s.outfit; c.aura = s.aura; c.ncol = s.ncol; c.premUntil = s.premUntil; c.xpLeft = s.xpLeft; c.bagX = s.bagX; c.scrolls = s.scrolls; c.afkMin = s.afkMin; c.earned = s.earned;
 }
 
+// ===================== Monturas (estilo Tibia) =====================
+// Se compran con Edisar Coins, una barata con oro (Tomás, en el establo del pueblo) y otras se doman venciendo a ciertos jefes.
+const STABLE_X = 41, STABLE_Y = 39 + OY; const STABLE_NAME = "Tomás, el mozo de cuadra";
+interface MountState { owned: string[]; active: string; riding: boolean; open: boolean; msg: string; msgBad: boolean; flip: boolean; }
+interface Game { mt?: MountState; }
+function mt(g: Game): MountState { if (!g.mt) g.mt = { owned: [], active: "", riding: false, open: false, msg: "", msgBad: false, flip: false }; return g.mt; }
+function mountDef(id: string): MountDef | undefined { return MOUNTS.find((m: MountDef) => m.id === id); }
+function ownsMount(g: Game, id: string): boolean { return !!g.mt && g.mt.owned.includes(id); }
+function riding(g: Game): MountDef | null { const s = g.mt; if (!s || !s.riding || !s.owned.includes(s.active)) return null; return mountDef(s.active) ?? null; }
+// Sólo cambia cuánto dura cada paso: el camino, las colisiones y las diagonales son las mismas
+function mountMul(g: Game): number { const d = riding(g); return d ? 1 + d.speed / 100 : 1; }
+function mtMsg(g: Game, text: string, bad?: boolean): void { const s = mt(g); s.msg = text; s.msgBad = !!bad; }
+function mountHow(d: MountDef): string {
+  if (d.src === "coins") return `Tienda de Edisar Coins: 🪙 ${d.price}`;
+  if (d.src === "gold") return `${STABLE_NAME}: 💰 ${d.price.toLocaleString("es-MX")} de oro`;
+  const m = MONS[d.mon ?? ""]; return `Se doma al vencer a ${m ? m.name : "un jefe"} (${Math.round((d.chance ?? 0) * 100)}% por victoria)`;
+}
+function toggleMount(g: Game, now: number): void {
+  const s = mt(g);
+  if (s.riding) { s.riding = false; setStatus(g, "Te bajaste de la montura.", now); return; }
+  const first = s.owned[0];
+  if (first === undefined) { s.open = true; mtMsg(g, "Aún no tienes monturas: cómpralas con Tomás o en la Tienda de Coins, o dómalas venciendo jefes.", true); setStatus(g, "Aún no tienes monturas.", now); return; }
+  if (!s.owned.includes(s.active)) s.active = first;
+  s.riding = true; const d = mountDef(s.active); if (d) setStatus(g, `Montas ${d.n} (+${d.speed}% de velocidad).`, now, "#ffe08a");
+}
+function chooseMount(g: Game, id: string, now: number): boolean {
+  const s = mt(g); const d = mountDef(id); if (!d || !s.owned.includes(id)) return false;
+  s.active = id; s.riding = true; mtMsg(g, `Montas ${d.n} (+${d.speed}% de velocidad).`); setStatus(g, `Montas ${d.n}.`, now, "#ffe08a"); return true;
+}
+function grantMount(g: Game, id: string, why: string, now: number): boolean {
+  const s = mt(g); const d = mountDef(id); if (!d || s.owned.includes(id)) return false;
+  s.owned.push(id); if (!s.owned.includes(s.active)) s.active = id;
+  addLog(g, `🐎 ¡Nueva montura: ${d.n}! (${why})`); pfloat(g, `🐎 ${d.n}`, "#ffe08a", now, -26);
+  setStatus(g, `¡Conseguiste la montura ${d.n}! Móntala desde «🐎 Monturas».`, now, "#ffe08a"); mtMsg(g, `¡${d.n} ya es tuya!`); return true;
+}
+function buyMountCoins(g: Game, id: string, now: number): boolean {
+  const d = mountDef(id); if (!d || d.src !== "coins") return false;
+  if (ownsMount(g, id)) { coinMsg(g, "Ya tienes esa montura.", true); mtMsg(g, "Ya tienes esa montura.", true); return false; }
+  if (!spend(g, d.price)) { mtMsg(g, cs(g).msg, true); return false; }
+  grantMount(g, id, "Tienda de Edisar Coins", now); coinMsg(g, `Compraste ${d.n} por ${d.price} coins. Móntala desde «🐎 Monturas».`); return true;
+}
+function stableNear(g: Game): boolean { return regionOf(g.p.x, g.p.y) === 0 && cheb(g.p.x, g.p.y, STABLE_X, STABLE_Y) <= 2; }
+function buyMountGold(g: Game, id: string, now: number): boolean {
+  const d = mountDef(id); if (!d || d.src !== "gold") return false;
+  if (ownsMount(g, id)) { mtMsg(g, "Ya tienes esa montura.", true); return false; }
+  if (!stableNear(g)) { mtMsg(g, `Cómprala con ${STABLE_NAME}, en la esquina de Villa Esmeralda.`, true); return false; }
+  if (g.p.gold < d.price) { mtMsg(g, `Te falta oro: cuesta ${d.price.toLocaleString("es-MX")} y tienes ${g.p.gold.toLocaleString("es-MX")}.`, true); return false; }
+  g.p.gold -= d.price; return grantMount(g, id, `comprada a ${STABLE_NAME}`, now);
+}
+function requestStable(g: Game, now: number): void {
+  const s = mt(g);
+  if (stableNear(g)) { s.open = true; s.msg = ""; g.walkGoal = null; if (g.dep) g.dep.open = false; return; }
+  if (regionOf(g.p.x, g.p.y) !== 0) { s.open = true; mtMsg(g, "Tomás está en el establo de Villa Esmeralda.", true); return; }
+  g.walkGoal = { x: STABLE_X, y: STABLE_Y, open: true }; if (g.cs) g.cs.exWalk = false; g.chase = false; setStatus(g, "Caminando hacia el establo de Tomás...", now);
+}
+// Botín de jefes: cada montura domable tiene su jefe y su probabilidad
+function mountDrop(g: Game, m: Mon, now: number, r?: number): boolean {
+  for (const d of MOUNTS) if (d.src === "boss" && d.mon === m.def.id && !ownsMount(g, d.id) && (r ?? Math.random()) < (d.chance ?? 0)) return grantMount(g, d.id, `domada tras vencer a ${m.def.name}`, now);
+  return false;
+}
+interface SaveMT { owned: string[]; active: string; riding: boolean; }
+interface SaveData { mt?: SaveMT; }
+function saveMt(g: Game): SaveMT | undefined { const s = g.mt; if (!s || s.owned.length === 0) return undefined; return { owned: [...s.owned], active: s.active, riding: s.riding }; }
+function readMt(v: unknown): SaveMT | undefined {
+  if (!isObj(v)) return undefined; const o = v["owned"]; const owned: string[] = [];
+  if (Array.isArray(o)) for (const x of o) if (typeof x === "string" && mountDef(x) && !owned.includes(x)) owned.push(x);
+  const first = owned[0]; if (first === undefined) return undefined; const a = v["active"];
+  return { owned, active: typeof a === "string" && owned.includes(a) ? a : first, riding: v["riding"] === true };
+}
+function loadMt(g: Game, s: SaveMT | undefined): void { if (!s) return; const t = mt(g); t.owned = [...s.owned]; t.active = s.active; t.riding = s.riding; }
+function mtFlip(g: Game, face: Dir): boolean { const s = mt(g); if (face === 3) s.flip = true; else if (face === 1) s.flip = false; return s.flip; }
+// Dibujo: la montura mira a la derecha (o a la izquierda si flip); el jinete va encima
+function drawMount(ctx: CanvasRenderingContext2D, d: MountDef, x: number, y: number, flip: boolean, phase: number, now: number): void {
+  ctx.save(); if (flip) { ctx.translate(x * 2 + 32, 0); ctx.scale(-1, 1); }
+  const lg = phase === 1 ? 2 : phase === 2 ? -2 : 0; const k = d.kind; const b = d.body, dk = d.dark, mn = d.mane;
+  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(x + 16, y + 29, 13, 3, 0, 0, Math.PI * 2); ctx.fill();
+  if (k === "dragon" || k === "pegasus") { const w = Math.round(Math.sin(now / 160) * 3); ctx.fillStyle = mn; ctx.beginPath(); ctx.moveTo(x + 10, y + 15); ctx.lineTo(x + 4, y + 3 + w); ctx.lineTo(x + 19, y + 13); ctx.closePath(); ctx.fill(); }
+  const short = k === "boar" || k === "wolf" || k === "lion"; const ly = short ? 23 : 21, lh = short ? 6 : 8;
+  ctx.fillStyle = dk; ctx.fillRect(x + 7 + lg, y + ly, 3, lh); ctx.fillRect(x + 11 - lg, y + ly, 3, lh); ctx.fillRect(x + 20 + lg, y + ly, 3, lh); ctx.fillRect(x + 24 - lg, y + ly, 3, lh);
+  ctx.fillStyle = mn; if (k === "wolf" || k === "lion") ctx.fillRect(x + 1, y + 14, 5, 4); else ctx.fillRect(x + 3, y + 15, 3, 8);
+  ctx.fillStyle = b; ctx.fillRect(x + 5, y + (short ? 16 : 14), 22, short ? 8 : 9); ctx.fillStyle = dk; ctx.fillRect(x + 6, y + 22, 20, 1);
+  if (k === "horse" || k === "donkey" || k === "pegasus") {
+    ctx.fillStyle = b; ctx.fillRect(x + 22, y + 8, 5, 9); ctx.fillRect(x + 24, y + 6, 7, 5);
+    ctx.fillStyle = mn; ctx.fillRect(x + 21, y + 6, 2, 9); ctx.fillRect(x + 24, y + (k === "donkey" ? 1 : 3), 2, k === "donkey" ? 5 : 3);
+    ctx.fillStyle = dk; ctx.fillRect(x + 29, y + 9, 2, 2);
+  } else if (k === "wolf" || k === "lion") {
+    if (k === "lion") { ctx.fillStyle = mn; ctx.fillRect(x + 20, y + 8, 10, 11); }
+    ctx.fillStyle = b; ctx.fillRect(x + 23, y + 10, 7, 7); ctx.fillRect(x + 29, y + 13, 3, 3);
+    if (k === "wolf") { ctx.fillRect(x + 23, y + 7, 2, 3); ctx.fillRect(x + 27, y + 7, 2, 3); }
+  } else if (k === "boar" || k === "bull") {
+    ctx.fillStyle = b; ctx.fillRect(x + 25, y + 13, 6, 8); ctx.fillStyle = dk; ctx.fillRect(x + 29, y + 17, 3, 3);
+    ctx.fillStyle = "#f4ecd8"; if (k === "boar") { ctx.fillRect(x + 30, y + 19, 2, 3); } else { ctx.fillRect(x + 24, y + 10, 2, 4); ctx.fillRect(x + 29, y + 10, 2, 4); }
+    ctx.fillStyle = mn; ctx.fillRect(x + 7, y + 13, 17, 3);
+  } else {
+    ctx.fillStyle = b; ctx.fillRect(x + 23, y + 7, 4, 9); ctx.fillRect(x + 25, y + 4, 7, 5); ctx.fillStyle = mn;
+    for (let s = 0; s < 4; s++) ctx.fillRect(x + 7 + s * 4, y + 12, 2, 2);
+    const fl = Math.sin(now / 90) > 0.6; if (fl) { ctx.fillStyle = "#ffb040"; ctx.fillRect(x + 32, y + 6, 3, 2); }
+  }
+  ctx.fillStyle = "#222"; ctx.fillRect(x + (k === "boar" || k === "bull" ? 28 : 27), y + (k === "boar" || k === "bull" ? 15 : k === "wolf" || k === "lion" ? 12 : 7), 2, 2);
+  ctx.fillStyle = "#7a2a1a"; ctx.fillRect(x + 11, y + (short ? 14 : 12), 10, 4); ctx.fillStyle = "#d8a93a"; ctx.fillRect(x + 11, y + (short ? 17 : 15), 10, 1);
+  ctx.restore();
+}
+function drawRider(ctx: CanvasRenderingContext2D, g: Game, d: MountDef, x: number, y: number, face: Dir, phase: number, flip: boolean, now: number, robe: string, trim: string): void {
+  const bob = phase === 0 ? 0 : 1; drawMount(ctx, d, x, y - bob, flip, phase, now);
+  ctx.save(); ctx.beginPath(); ctx.rect(x - 16, y - 40, 64, 58 - bob); ctx.clip();
+  drawHuman(ctx, x, y - 8 - bob, robe, trim, g.cls.hat, lookOf(g), face, 0, hasShield(g), weaponInfo(g).elem); ctx.restore();
+  ctx.fillStyle = robe; ctx.fillRect(x + (flip ? 17 : 11), y + 15 - bob, 4, 6); ctx.fillStyle = "#3a2a1a"; ctx.fillRect(x + (flip ? 17 : 11), y + 20 - bob, 4, 2);
+  ctx.save(); ctx.beginPath(); ctx.rect(flip ? x - 6 : x + 22, y - 2, 16, 20); ctx.clip(); drawMount(ctx, d, x, y - bob, flip, phase, now); ctx.restore(); // cabeza y cuello por delante del jinete
+}
+
 // ===================== Depósito (estilo Tibia): baúl junto al templo =====================
 const DEPOT_X = 41, DEPOT_Y = 29 + OY; const DEPOT_MAX = 80;
 interface DepotState { items: Inst[]; open: boolean; msg: string; msgBad: boolean; }
@@ -1790,7 +1908,7 @@ function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   return { v: SAVE_VER, name: p.name, cls: g.cls.id, level: p.level, exp: p.exp, hp: Math.max(1, Math.round(p.hp)), mana: Math.max(0, Math.round(p.mana)), maxHp: maxHp(g), maxMana: maxMana(g),
     gold: p.gold, hpPot: p.hpPot, manaPot: p.manaPot, magicLevel: p.sk.magic.lvl, sk, eq, bag: p.bag.map(saveItem), binds: cloneBinds(binds),
     x: p.x, y: p.y, deaths: g.deaths, kills: g.kills, nextUid: g.nextUid, savedAt: savedAt ?? Date.now(),
-    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem) };
+    hpPot2: p.hpPot2, manaPot2: p.manaPot2, cleared: g.cleared, quests: g.quests.map((q: QuestSt) => ({ ...q })), bossKills: [...g.bossKills], mz: g.miniZoom ?? 1, cs: saveCS(g), dep: dep(g).items.map(saveItem), mt: saveMt(g) };
 }
 function fnv(s: string): string { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, "0"); }
 function b64enc(s: string): string { const bytes = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0); return btoa(bin); }
@@ -1829,6 +1947,7 @@ function validateSave(raw: unknown): DecodeResult {
   if (isObj(bRaw)) for (const a of ACTIONS) { const arr = bRaw[a.id]; if (Array.isArray(arr) && arr.every((c: unknown) => typeof c === "string" && c.length > 0 && c.length < 40)) binds[a.id] = (arr as string[]).slice(0, 6); }
   if (isObj(bRaw) && !Array.isArray(bRaw["keys"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "keys" && binds[a.id].includes("KeyH"))) binds.keys = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["coins"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "coins" && binds[a.id].includes("KeyK"))) binds.coins = [];
+  if (isObj(bRaw) && !Array.isArray(bRaw["mount"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "mount" && binds[a.id].includes("KeyR"))) binds.mount = [];
   const x = intIn(raw["x"], 0, MW - 1), y0 = intIn(raw["y"], 0, MH - 1); if (x === null || y0 === null) return bad("la posición");
   const y = ver === 1 ? Math.min(MH - 1, y0 + OY) : y0; // las partidas v1 usaban el mapa sin el Santuario
   const hpPot2 = intIn(raw["hpPot2"], 0, 1e6) ?? 0, manaPot2 = intIn(raw["manaPot2"], 0, 1e6) ?? 0, cleared = intIn(raw["cleared"], 0, NH) ?? 0;
@@ -1840,7 +1959,7 @@ function validateSave(raw: unknown): DecodeResult {
   const c = CLASSES[cls as ClassId];
   const tmp = newGame(c, name); const lv = Math.max(1, levelFor(exp));
   tmp.p.level = lv; for (const s of SLOTS) { const si = eq[s]; tmp.p.eq[s] = si ? { uid: si.uid, id: si.id, rar: si.rar } : null; } refreshStats(tmp);
-  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]) } };
+  return { ok: true, data: { v: SAVE_VER, name, cls: c.id, level: lv, exp, hp, mana, maxHp: maxHp(tmp), maxMana: maxMana(tmp), gold, hpPot, manaPot, magicLevel: sk.magic.lvl, sk, eq, bag, binds, x, y, deaths, kills, nextUid, savedAt, hpPot2, manaPot2, cleared, quests, bossKills, mz, cs: readCS(raw["cs"]), dep: readDep(raw["dep"]), mt: readMt(raw["mt"]) } };
 }
 function decodeSave(code: string): DecodeResult {
   const s = code.replace(/\s+/g, "");
@@ -1861,7 +1980,7 @@ function gameFromSave(d: SaveData): Game {
   for (const s of SLOTS) { const i = d.eq[s]; p.eq[s] = i ? { uid: i.uid, id: i.id, rar: i.rar } : null; }
   loadCS(g, d.cs); p.bag = d.bag.slice(0, bagMax(g)).map((i: SaveItem) => ({ uid: i.uid, id: i.id, rar: i.rar }));
   g.deaths = d.deaths; g.kills = d.kills; g.miniZoom = miniZoomClamp(d.mz ?? 1);
-  loadDep(g, d.dep); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
+  loadDep(g, d.dep); loadMt(g, d.mt); let mu = 0; for (const s of SLOTS) mu = Math.max(mu, p.eq[s]?.uid ?? 0); for (const i of p.bag) mu = Math.max(mu, i.uid); for (const i of dep(g).items) mu = Math.max(mu, i.uid);
   g.nextUid = Math.max(d.nextUid, mu + 1);
   refreshStats(g); p.hp = clamp(d.hp, 1, maxHp(g)); p.mana = clamp(d.mana, 0, maxMana(g));
   let spot: [number, number] | null = canPlayerEnter(g, d.x, d.y) ? [d.x, d.y] : null;
@@ -2248,6 +2367,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   ents.push({ y: NPC_Y, draw: () => { const x = NPC_X * TS - cx, y = NPC_Y * TS - cy; drawHuman(ctx, x, y, "#c0508a", "#ffd34d", "hood", "none", 2, 0, false, "holy"); outlined(ctx, "Rosa 🛒", x + 16, y - 4, "#ffb0e0", "bold 10px sans-serif"); } });
   if (reg === 0 && vis(DARIO_X, DARIO_Y)) ents.push({ y: DARIO_Y, draw: () => { const x = DARIO_X * TS - cx, y = DARIO_Y * TS - cy; drawHuman(ctx, x, y, "#2a5a6a", "#ffd34d", "cap", "none", 2, 0, false, "holy"); outlined(ctx, "Darío 🪙", x + 16, y - 4, "#ffe08a", "bold 10px sans-serif"); } });
   if (reg === 0 && vis(DEPOT_X, DEPOT_Y)) ents.push({ y: DEPOT_Y, draw: () => { const x = DEPOT_X * TS - cx, y = DEPOT_Y * TS - cy; drawDepot(ctx, x, y); outlined(ctx, "Depósito 📦", x + 16, y - 1, "#f0c070", "bold 10px sans-serif"); } });
+  if (reg === 0 && vis(STABLE_X, STABLE_Y)) ents.push({ y: STABLE_Y, draw: () => { const x = STABLE_X * TS - cx, y = STABLE_Y * TS - cy; ctx.fillStyle = "#d8b850"; ctx.fillRect(x + 1, y + 19, 10, 10); ctx.fillStyle = "#a88a30"; ctx.fillRect(x + 1, y + 22, 10, 1); ctx.fillRect(x + 1, y + 26, 10, 1); drawHuman(ctx, x + 3, y, "#5a6a2a", "#8a5a32", "cap", "none", 2, 0, false, "phys"); outlined(ctx, "Tomás 🐴", x + 16, y - 4, "#d8f0a0", "bold 10px sans-serif"); } });
   for (const m of regionMons(g, p.x, p.y)) if (m.alive) { const [mx, my] = drawPos(m, now); if (!vis(mx, my)) continue; ents.push({ y: my, draw: () => {
     const x = mx * TS - cx, y = my * TS - cy;
     if (t === m) { ctx.strokeStyle = "#ff2a2a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, TS - 2, TS - 2); ctx.lineWidth = 1; }
@@ -2262,7 +2382,8 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     const x = px * TS - cx, y = py * TS - cy; const c = g.cls;
     if (now < p.evadeUntil) ctx.globalAlpha = 0.55;
     if (g.cs && g.cs.aura) drawAura(ctx, g.cs.aura, x, y, now);
-    const [robe, trim] = outfitColors(g); drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
+    const [robe, trim] = outfitColors(g); const md = riding(g);
+    if (md) drawRider(ctx, g, md, x, y, p.face, walkPhase(p, now), mtFlip(g, p.face), now, robe, trim); else drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
     ctx.globalAlpha = 1;
     if (now < p.defUntil) { ctx.strokeStyle = "rgba(160,210,255,0.8)"; ctx.beginPath(); ctx.arc(x + 16, y + 17, 16, 0, Math.PI * 2); ctx.stroke(); }
     if (now - p.hitAt < 150) { ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(x, y, TS, TS); }
@@ -2345,7 +2466,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   const dot = (x: number, y: number, c: string, r: number): void => { ctx.fillStyle = "#000"; ctx.fillRect(ox + x * s - r - 1, oy + y * s - r - 1, r * 2 + 2, r * 2 + 2); ctx.fillStyle = c; ctx.fillRect(ox + x * s - r, oy + y * s - r, r * 2, r * 2); };
   const reg = regionOf(g.p.x, g.p.y); const R = Math.max(2, labels ? s : Math.min(s, 4));
   if (reg === 0) {
-    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R);
+    dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R); dot(STABLE_X + 0.5, STABLE_Y + 0.5, "#a8d060", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
     for (const H of HOUSES) {
       const d = DOORS[H.n - 1]; if (!d) continue; dot(d.x + 0.5, d.y + 0.5, doorColor(g, H.n), R);
@@ -2644,10 +2765,15 @@ function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
           {sec("Color del nombre")}<div style={grid}>{NAMECOLS.map((n: NameCol) => cosCard(n.id, n.n, n.price, { outfit: c.outfit, aura: c.aura, ncol: n.id }, c.ncol === n.id))}</div>
         </Fragment>}
         {cat === "mount" && <Fragment>
-          <div style={{ fontSize: 11, color: th.text.secondary, marginBottom: 4 }}>🐎 Las monturas llegan en la próxima versión: te harán caminar más rápido.</div>
-          <div style={grid}>{MOUNTS.map((m: MountDef) => (
-            <div key={m.id} style={{ ...card, opacity: 0.75 }} data-coinitem={m.id}><div style={{ fontSize: 22 }}>🐎</div><div style={{ fontWeight: 700, fontSize: 11 }}>{m.n}</div>
-              <div style={{ fontSize: 10, color: th.text.secondary }}>+{m.speed} de velocidad</div><button style={gbtn(false, true)} disabled>Próximamente · {price(m.price)}</button></div>))}</div>
+          <div style={{ fontSize: 11, color: th.text.secondary, marginBottom: 4 }}>🐎 Montado caminas más rápido (+20% a +40%). Elige y monta la tuya en «🐎 Monturas». También hay una barata con oro (Tomás, en el establo) y otras se doman venciendo a ciertos jefes.</div>
+          <div style={grid}>{MOUNTS.map((m: MountDef) => { const own = ownsMount(g, m.id), on = riding(g) === m; return (
+            <div key={m.id} style={{ ...card, opacity: m.src === "coins" || own ? 1 : 0.8 }} data-coinitem={m.id}><MountPreview g={g} d={m} />
+              <div style={{ fontWeight: 700, fontSize: 11 }}>{m.n}</div>
+              <div style={{ fontSize: 10, color: th.text.success }}>+{m.speed}% de velocidad</div>
+              {own ? <button style={gbtn(on)} onClick={() => act(() => { if (on) mt(g).riding = false; else chooseMount(g, m.id, performance.now()); })}>{on ? "✓ Montando" : "✓ Tuya · Montar"}</button>
+                : m.src === "coins" ? <button style={gbtn(true, c.coins < m.price)} onClick={() => act(() => { buyMountCoins(g, m.id, performance.now()); })}>Comprar {price(m.price)}</button>
+                : <div style={{ fontSize: 10, color: th.text.secondary }}>{mountHow(m)}</div>}
+            </div>); })}</div>
         </Fragment>}
         {cat === "premium" && <div style={grid}>{utilCard("premium", premTxt, true)}</div>}
         {cat === "util" && <div style={grid}>
@@ -2726,6 +2852,53 @@ function DepotWindow(props: { g: Game; th: Theme; refresh: () => void; dnd: DepD
         </div>
       </div>}
       <div data-depmsg="1" style={{ fontSize: 11, minHeight: 14, color: d.msgBad ? th.text.danger : th.text.success }}>{d.msg}</div>
+    </div>
+  );
+}
+
+// ===== Monturas: vista previa y ventana =====
+function MountPreview(props: { g: Game; d: MountDef; size?: number }) {
+  const ref = useRef<HTMLCanvasElement | null>(null); const sz = props.size ?? 46;
+  useEffect(() => {
+    const c = ref.current; if (!c) return; let raf = 0; const g = props.g, d = props.d;
+    const draw = (): void => {
+      const ctx = c.getContext("2d"); if (!ctx) return; const now = performance.now();
+      ctx.setTransform(c.width / 40, 0, 0, c.height / 48, 0, 0); ctx.clearRect(0, 0, 40, 48);
+      const [robe, trim] = outfitColors(g); drawRider(ctx, g, d, 2, 16, 1, Math.floor(now / 220) % 3, false, now, robe, trim);
+      raf = requestAnimationFrame(draw);
+    };
+    draw(); return () => cancelAnimationFrame(raf);
+  }, [props.d, props.g]);
+  return <canvas ref={ref} width={80} height={96} style={{ width: sz, height: Math.round((sz * 48) / 40), imageRendering: "pixelated", display: "block", margin: "0 auto" }} />;
+}
+function MountsWindow(props: { g: Game; th: Theme; refresh: () => void; keyName: string }) {
+  const { g, th } = props; const s = mt(g); const act = (f: () => void): void => { f(); props.refresh(); };
+  const { gold, frame, card, gbtn } = coinStyles(th); const cur = riding(g); const near = stableNear(g);
+  const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 5 };
+  const list = [...MOUNTS].sort((a: MountDef, b: MountDef) => Number(ownsMount(g, b.id)) - Number(ownsMount(g, a.id)));
+  return (
+    <div data-mounts="1" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => { const t = e.target as HTMLElement; if (t.tagName === "BUTTON") e.preventDefault(); }}
+      style={{ ...frame, inset: "auto", left: 8, top: 40, width: "min(56%, 430px)", maxHeight: "calc(100% - 110px)", zIndex: 6, gap: 5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <b style={{ flex: 1, color: gold, fontSize: 15 }}>🐎 Monturas <span data-mtcount={s.owned.length} style={{ fontSize: 11 }}>({s.owned.length}/{MOUNTS.length})</span></b>
+        <button data-mtride="1" style={gbtn(!!cur, s.owned.length === 0)} onClick={() => act(() => toggleMount(g, performance.now()))}>{cur ? "Bajar" : "Montar"} ({props.keyName})</button>
+        <button style={gbtn(false)} onClick={() => act(() => { s.open = false; })}>Cerrar ✕</button>
+      </div>
+      <div style={{ fontSize: 10, color: th.text.secondary }}>{cur ? <Fragment>Montas <b style={{ color: gold }}>{cur.n}</b>: caminas un {cur.speed}% más rápido.</Fragment> : "Montado caminas más rápido, también dentro de las casas."} Tecla «{props.keyName}» para montar o bajar (cámbiala en «⌨️ Atajos»).</div>
+      <div style={{ overflowY: "auto", minHeight: 0, flex: "1 1 auto", padding: 2 }}><div style={grid}>
+        {list.map((m: MountDef) => { const own = ownsMount(g, m.id), on = cur === m; return (
+          <div key={m.id} data-mount={m.id} data-own={own ? "1" : "0"} style={{ ...card, opacity: own ? 1 : 0.8, borderColor: on ? th.text.warning : th.border.strong }}>
+            <MountPreview g={g} d={m} size={40} />
+            <div style={{ fontWeight: 700, fontSize: 11 }}>{m.n}</div>
+            <div style={{ fontSize: 10, color: th.text.success }}>+{m.speed}% de velocidad</div>
+            {own ? <button data-mtpick={m.id} style={gbtn(on)} onClick={() => act(() => { if (on) s.riding = false; else chooseMount(g, m.id, performance.now()); })}>{on ? "✓ Montando" : "Montar"}</button>
+              : m.src === "coins" ? <button data-mtbuy={m.id} style={gbtn(true, cs(g).coins < m.price)} onClick={() => act(() => { buyMountCoins(g, m.id, performance.now()); })}>Comprar 🪙 {m.price}</button>
+              : m.src === "gold" ? (near ? <button data-mtbuy={m.id} style={gbtn(true, g.p.gold < m.price)} onClick={() => act(() => { buyMountGold(g, m.id, performance.now()); })}>Comprar 💰 {m.price.toLocaleString("es-MX")}</button>
+                : <button data-mtgo={m.id} style={gbtn(false)} onClick={() => act(() => requestStable(g, performance.now()))} title={mountHow(m)}>Ir con Tomás · 💰 {m.price.toLocaleString("es-MX")}</button>)
+              : <div style={{ fontSize: 10, color: th.text.secondary }}>{mountHow(m)}</div>}
+          </div>); })}
+      </div></div>
+      <div data-mtmsg="1" style={{ fontSize: 11, minHeight: 14, color: s.msgBad ? th.text.danger : th.text.success }}>{s.msg}</div>
     </div>
   );
 }
@@ -2903,6 +3076,7 @@ function HudPanel(props: { g: Game; th: Theme; refresh: () => void; miniRef: { c
           {winBtn("log", "📖 Registro")}
           <button data-coinbtn="1" style={btn(th, cs(g).open, true)} onClick={() => act(() => { const c = cs(g); c.open = !c.open; c.msg = ""; })} title="Tienda de Edisar Coins (K)">🪙 Coins</button>
           <button data-depbtn="1" style={btn(th, !!g.dep && g.dep.open, true)} onClick={() => act(() => { if (g.dep && g.dep.open) g.dep.open = false; else requestDepot(g, performance.now()); })} title="Depósito (baúl junto al templo)">📦 Depósito</button>
+          <button data-mountbtn="1" style={btn(th, !!g.mt && g.mt.open, true)} onClick={() => act(() => { const s = mt(g); s.open = !s.open; s.msg = ""; if (s.open && g.dep) g.dep.open = false; })} title="Monturas: elige y monta">🐎 Monturas</button>
           <button style={{ ...btn(th, props.full, true), gridColumn: "1 / -1" }} onClick={props.onFull} title="Tecla P">{props.full ? "✕ Salir de pantalla completa" : "⛶ Pantalla completa"}</button>
         </div>
         <div data-afkmin={cs(g).afkMin} style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap", marginBottom: 5, fontSize: 10 }} title="Qué objetos recoge el modo AFK (el oro se recoge siempre)">
@@ -2998,7 +3172,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       if (saveOpenRef.current) { if (e.code === "Escape") { e.preventDefault(); saveOpenRef.current = false; setSaveView(null); } return; }
       const L = listenRef.current;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
-      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
+      if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -3086,7 +3260,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     const tx = Math.floor((px + g.camX) / TS), ty = Math.floor((py + g.camY) / TS);
     const gi = floorAt(g, tx, ty);
     if (gi && !monAt(g, tx, ty) && cheb(tx, ty, g.p.x, g.p.y) <= DROP_RANGE && regionOf(tx, ty) === regionOf(g.p.x, g.p.y)) { startDrag(e.clientX, e.clientY, { kind: "floor", gi }, () => { clickTile(g, tx, ty, performance.now()); refresh(); }); return; }
-    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else clickTile(g, tx, ty, now);
+    if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === STABLE_X && (ty === STABLE_Y || ty === STABLE_Y - 1)) requestStable(g, now); else clickTile(g, tx, ty, now);
     refresh();
   };
   const hold = (d: MoveAct, on: boolean): void => { if (on) { if (!g.heldDirs.includes(d)) g.heldDirs.push(d); } else g.heldDirs = g.heldDirs.filter((x: MoveAct) => x !== d); };
@@ -3114,6 +3288,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {g.shopOpen && <ShopOverlay g={g} th={th} refresh={refresh} tip={hoverTip} />}
           {g.cs && g.cs.exOpen && <ExchangeOverlay g={g} th={th} refresh={refresh} />}
           {g.cs && g.cs.open && <CoinStore g={g} th={th} refresh={refresh} />}
+          {g.mt && g.mt.open && <MountsWindow g={g} th={th} refresh={refresh} keyName={binds.mount[0] ? keyLabel(binds.mount[0]) : "—"} />}
           {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
             <div ref={placeTip} style={{ position: "absolute", left: 0, top: 0, zIndex: 30, pointerEvents: "none", display: "flex", gap: 10, background: th.bg.elevated, color: th.text.primary, border: `1px solid ${th.border.strong}`, borderRadius: 8, padding: 8, fontSize: 11, fontFamily: th.font.family, boxShadow: `0 4px 14px ${th.border.strong}` }}>
@@ -3137,6 +3312,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
             <button style={btn(th)} onClick={() => doAct("manaPot")}>💧 Maná ({manaPots(g.p)})</button>
             <button style={btn(th, g.shopOpen)} onClick={() => doAct("shop")}>🛒 Tienda</button>
             <button style={btn(th, !!g.cs && g.cs.open)} onClick={() => doAct("coins")}>🪙 Coins</button>
+            <button data-ridebtn="1" style={btn(th, !!riding(g))} onClick={() => doAct("mount")}>🐎 {riding(g) ? "Bajar" : "Montar"}</button>
             <button style={btn(th, g.afk)} onClick={() => doAct("afk")}>{g.afk ? "● AFK" : "🤖 AFK"}</button>
             <button style={btn(th, g.bigMap)} onClick={() => doAct("map")}>🗺️ Mapa</button>
             <button style={btn(th)} onClick={() => doAct("clearTarget")}>Esc</button>
@@ -3151,6 +3327,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <br />🔍 <b>Comparar objetos</b>: pasa el ratón sobre un objeto (mochila, suelo o tienda) para compararlo con lo que llevas puesto: ▲ verde mejor, ▼ rojo peor. Mantén Mayús para ver tu objeto equipado al lado. En táctil, tócalo para ver la comparación en el detalle. Un ▲ verde en la casilla marca una mejora para ti.
           <br />🪙 <b>Edisar Coins (prueba)</b>: tecla K o botón «🪙 Coins» abre la tienda (cosméticos, premium, mochila, pergaminos, poción de experiencia, cambio de nombre; monturas próximamente). Sin pagos reales: se ganan jugando, con «Modo prueba» o con el Cambista Darío junto a la fuente (1 Edisar Coin = 10,000 de oro). En el HUD, «🤖 AFK recoge» elige si el AFK recoge todo o sólo objetos Raros (azul), Épicos (morado) y Heaven; el oro se recoge siempre.
           <br />📦 <b>Depósito</b>: el baúl junto al templo guarda hasta 80 objetos. Tócalo (o camina hasta él) para abrirlo y arrastra objetos entre la mochila y el depósito, o usa «📦 Guardar» / «⬆ Sacar». Sólo se abre en Villa Esmeralda.
+          <br />🐎 <b>Monturas</b>: tecla R (o «🐎 Montar») para montar o bajar; «🐎 Monturas» abre la ventana para elegir cuál. Montado caminas de +20% a +40% más rápido, también dentro de las casas. Tomás, en la esquina del pueblo, vende el Burro de carga por oro; otras están en la Tienda de Coins y algunas se doman venciendo jefes (Rey Minotauro, Aldebarán, Aioria, Aioros).
           <br />⛶ <b>Pantalla completa</b>: botón ⛶ o tecla P (se puede cambiar en «Atajos»). Si el navegador no la permite, el juego ocupa toda la página; «✕ Salir» o Esc para volver.
         </div>}
       </div>

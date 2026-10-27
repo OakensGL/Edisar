@@ -28,7 +28,7 @@ await clickIn('[data-coinitem="a_oro"]', "Comprar"); await clickIn('[data-coinit
 check("aura + name color bought", (await attr("[data-coinbal]", "data-coinbal")) === String(260 - 80 - 30));
 await page.mouse.move(5, 5); await sleep(500);
 await page.screenshot({ path: path.join(root, "shots/coin-store.png") });
-await clickIn("[data-coinstore]", "Monturas"); await sleep(200); check("mounts tab: Próximamente", await page.evaluate(() => document.querySelector("[data-coinstore]").innerText.includes("Próximamente")));
+await clickIn("[data-coinstore]", "Monturas"); await sleep(200); check("mounts tab: mounts for sale", await page.evaluate(() => document.querySelector("[data-coinstore]").innerText.includes("+25% de velocidad") && !!document.querySelector('[data-coinitem="m_caballo"]')));
 await clickIn("[data-coinstore]", "Utilidades"); await sleep(200);
 await clickIn('[data-coinitem="bag"]', "Comprar"); await sleep(250);
 check("bigger backpack: 26 slots", await page.evaluate(() => document.body.innerText.includes("Mochila (0/26)") || /\/26\)/.test(document.body.innerText)));
