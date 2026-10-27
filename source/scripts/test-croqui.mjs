@@ -31,6 +31,7 @@ await seed((d) => { const L = 70; d.level = L; d.exp = Math.round((50 / 3) * (L 
 await page.reload(); await sleep(600); await cont(); await sleep(1500);
 const croq = () => ev(() => { const g = globalThis.__edisarG.current; const m = (g.byRegion[13] || []).find((x) => x.def.id === "croqui"); return m ? { hp: m.hp, max: m.def.hp, atk: m.def.atk, alive: m.alive, x: m.x, y: m.y } : null; });
 const c0 = await croq(); check("Croqui spawned in region 13", !!c0 && c0.alive, JSON.stringify(c0));
+check("v2 balance: solo HP ≥ 1.3M (v1 795k) and atk ≥ 2× Saga (v1 1.7×)", !!c0 && c0.max >= 1300000 && c0.atk >= 700, `${c0 && c0.max} PV · atk ${c0 && c0.atk}`);
 // --- Torre de Croqui (overworld, south of Villa Esmeralda) ---
 const OYv = 32, DOOR = [65, OYv + 48], GATE = [53, OYv + 48];
 const map = await ev(([door, gate]) => { const g = globalThis.__edisarG.current; const W = 352, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 11, 12]);
@@ -90,13 +91,26 @@ check("back in the lair after the dimension, phase 2", (await zone()).includes("
 await ev(() => { const g = globalThis.__edisarG.current; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); m.hp = Math.round(m.def.hp * 0.19); g.p.hp = 1e6; g.st.arm = 1e5; });
 await sleep(800); const mana0 = await ev(() => { const g = globalThis.__edisarG.current; g.p.mana = g.cls.manaBase + (g.p.level - 1) * g.cls.manaPer + g.st.mana; return g.p.mana; });
 check("red HP: phase 3 + enraged", await ev(() => { const g = globalThis.__edisarG.current; return g.croq?.phase === 3 && g.byRegion[13].find((x) => x.def.id === "croqui").enraged; }));
-await sleep(500); await shot("croqui-redhp.png");
+await sleep(1600); await shot("croqui-redhp.png");
 let siph = false; const t2 = Date.now();
 while (!siph && Date.now() - t2 < 60000) { await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; g.st.arm = 1e5; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); if (m && m.hp < m.def.hp * 0.15) m.hp = Math.round(m.def.hp * 0.19); }); await sleep(150); siph = await ev(() => (globalThis.__edisarG.current.croq?.siphonUntil ?? 0) > performance.now()); }
 check("Sifón Arcano (mana beam) fires in red HP", siph); if (siph) { await sleep(700); await shot("croqui-siphon.png"); }
 const mana1 = await ev(() => globalThis.__edisarG.current.p.mana); check("mana is drained", mana1 < mana0, `${Math.round(mana0)} → ${Math.round(mana1)}`);
 let orbs = false; const tOrb = Date.now(); while (!orbs && Date.now() - tOrb < 10000) { orbs = await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; return (g.croq?.orbs.length ?? 0) > 0; }); if (!orbs) await sleep(200); }
 check("mana orbs appear", orbs);
+// --- LLAMA FINAL (<5%): faster casts, every area attack comes with an aimed Bola de Fuego; telegraphs never under 0.55 s ---
+await ev(() => { const g = globalThis.__edisarG.current; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); m.hp = Math.round(m.def.hp * 0.04); g.p.hp = 1e6; g.st.arm = 1e5; if (g.croq) g.croq.siphonUntil = 0; });
+const AREA = ["Nova de Magma", "Anillo Infernal", "Cruz de Fuego", "Equis Ardiente", "Ola Ígnea", "Lluvia del Fénix", "Sol Negro", "Supernova Turquesa"];
+let fin = null, combo = false, minTele = 1e9, finShot = false; const tFin = Date.now();
+while ((!fin || !combo) && Date.now() - tFin < 25000) {
+  const r = await ev((AREA) => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; g.st.arm = 1e5; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); if (m && m.alive && m.hp < m.def.hp * 0.02) m.hp = Math.round(m.def.hp * 0.04);
+    const ws = g.warns.filter((w) => w.name !== "Chispa tricolor" && w.name !== "Apocalipsis"); return { fin: g.croq?.final ? (JSON.stringify(g.log.slice(-40)).includes("LLAMA FINAL") ? "LLAMA FINAL (registro)" : g.status) : null, combo: ws.some((w) => w.name === "Bola de Fuego Mayor") && ws.some((w) => AREA.includes(w.name)), mt: Math.min(1e9, ...ws.map((w) => w.at - w.born)) }; }, AREA);
+  if (r.fin && !fin) fin = r.fin; if (r.fin) minTele = Math.min(minTele, r.mt); if (r.combo) { combo = true; if (!finShot) { await shot("croqui-final.png"); finShot = true; } }
+  await sleep(120);
+}
+check("<5%: LLAMA FINAL", !!fin && /LLAMA FINAL/.test(fin), fin || "");
+check("combo: an aimed Bola de Fuego lands during an area attack", combo);
+check("every telegraph stays ≥ 0.55 s even in LLAMA FINAL", minTele >= 550, `min ${minTele} ms`);
 const bag0 = await ev(() => globalThis.__edisarG.current.p.bag.length), gold0 = await ev(() => globalThis.__edisarG.current.p.gold);
 const killOnce = () => ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; g.st.arm = 1e5; if (g.croq) g.croq.siphonUntil = 0; const m = g.byRegion[13].find((x) => x.def.id === "croqui"); if (!m.alive) return; m.hp = 1; const p = g.p; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]) { const x = m.x + dx, y = m.y + dy; if (g.tiles[y * 352 + x] === 12 && !g.byRegion[13].some((o) => o.alive && o.x === x && o.y === y)) { p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = 0; break; } } g.target = m.id; });
 await ev(() => { globalThis.__edisarG.current.p.bag = []; });

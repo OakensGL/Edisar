@@ -2437,15 +2437,18 @@ const CROQ_DIM_THEME = { tint: "rgba(20,110,120,0.22)", edge: "rgba(60,0,40,0.65
 // Needs the hooks listed in SPEC.md §9 (applied automatically by tools/integrate.mjs).
 // ---------- 1) Constants: tune everything here ----------
 const CROQ = {
-  HP_X_SAGA: 9, ATK_X_SAGA: 1.7, ATK_MS: 1200, SPEED: 460, EXP_MUL: 0.2, PARTY: 1, // PARTY = number of players (co-op): HP × (0.6 + 0.4·n)
-  GAP: [1400, 2600] as [number, number], CD_JITTER: 0.35, FIRST_RAIN_MS: 20000,
-  P2_AT: 0.5, P2_GAP: 0.8,                                   // 50%: Otra Dimensión, then casts 20% more often
-  RAGE_AT: 0.2, RAGE_GAP: 0.6, RAGE_CD: 0.7, RAGE_DMG: 1.25, RAGE_TELE: 0.85, // <20%: VIDA ROJA
-  DRAIN_PASSIVE: 0.015, SIPHON_TICK: 0.06, SIPHON_MS: 3000, SIPHON_RANGE: 7, SIPHON_HEAL: 0.001,
-  ORB_EVERY: 8000, ORB_LIFE: 8000, ORB_MANA: 0.18,
-  SUMMON_EVERY: [16000, 22000] as [number, number], SUMMON_N: 2, SUMMON_CAP: 4, SUMMON_CAP_RAGE: 6, CHEER_N: 3, CHEER_DMG: 1.15,
-  HARD_ENRAGE_MS: 900000, APOC_EVERY: 6000, APOC_DMG: 3.0,
-  DIM_MS: 25000, DIM_RAIN_MS: 1800,
+  HP_X_SAGA: 10, ATK_X_SAGA: 2.0, ATK_MS: 1050, SPEED: 460, EXP_MUL: 0.2, EXP_HP_X: 9, PARTY: 1, // PARTY = number of players (co-op): HP × (CO_A + CO_B·n); exp stays on the v1 HP (×9)
+  CO_A: 1.2, CO_B: 0.3,                                  // co-op HP scaling (was 0.6 + 0.4·n)
+  GAP: [1100, 2000] as [number, number], CD_JITTER: 0.35, FIRST_RAIN_MS: 16000, TELE_MIN: 550, SAFE_TELE_MIN: 1400, // no telegraph is ever shorter than 0.55 s (1.4 s when you must run to a refuge)
+  P2_AT: 0.5, P2_GAP: 0.75, COMBO_P2: 0.35, COMBO_P3: 0.6,       // 50%: Otra Dimensión, then casts 25% more often; COMBO = a Bola de Fuego aimed at you on top of an area attack
+  RAGE_AT: 0.2, RAGE_GAP: 0.55, RAGE_CD: 0.65, RAGE_DMG: 1.35, RAGE_TELE: 0.8, // <20%: VIDA ROJA
+  FINAL_AT: 0.05, FINAL_GAP: 0.4, FINAL_CD: 0.5, FINAL_DMG: 1.3, FINAL_TELE: 0.7, // <5%: LLAMA FINAL (every area attack comes with a combo)
+  TGT_DMG: 2.1, AREA_DMG: 0.55, // aimed attacks (Bola, Lanza, Meteoro, Triple: in a group only the target eats them) hit much harder; area attacks are more frequent and combined, so each hit is a bit lighter (1.1× vs 1.7× Saga atk in v1)
+  DRAIN_PASSIVE: 0.025, SIPHON_TICK: 0.08, SIPHON_MS: 3500, SIPHON_RANGE: 7, SIPHON_HEAL: 0.0015,
+  ORB_EVERY: 12000, ORB_LIFE: 6000, ORB_MANA: 0.14,
+  SUMMON_EVERY: [12000, 17000] as [number, number], SUMMON_N: 3, SUMMON_CAP: 6, SUMMON_CAP_RAGE: 8, CHEER_N: 2, CHEER_DMG: 1.3, VQ_HP: 1.3, VQ_ATK: 1.3,
+  HARD_ENRAGE_MS: 600000, APOC_EVERY: 5000, APOC_DMG: 3.0, APOC_WARN_MS: 120000,
+  DIM_MS: 30000, DIM_RAIN_MS: 1300, DIM_SHADES: [[14, 8], [17, 13], [15, 11], [18, 9], [21, 7], [22, 12]] as Array<[number, number]>,
   RAR: [0.2, 0.4, 0.4] as [number, number, number], DROP_N: 8, UNIQUE_HEA: 0.5, POOL_MIN_LVL: 54, POOL_UNIQUE: 0.25,
   GOLD: [25000, 40000] as [number, number], COINS: [5, 12] as [number, number], FIRST_COINS: 50, OUTFIT_P: 0.08, AURA_P: 0.1, MOUNT_P: 0.05,
 };
@@ -2493,16 +2496,16 @@ function buildCroqLair(m: Uint8Array): void {
 // ---------- 3) Monster defs (calibrated on Saga / House 12) ----------
 const CROQ_ID = "croqui", VENEQ_ID = "venequito";
 const CROQ_SHADE_LOOK: MonLook = { body: "shadow", c1: "#0c5a5a", c2: "#04161a", c3: "#ff8a2a", s: 1, horn: "none", glyph: "", alpha: 0.85 };
-function croqHpFor(n: number): number { const saga = MONS.h12boss?.hp ?? 88387; return Math.round(saga * CROQ.HP_X_SAGA * (0.6 + 0.4 * Math.max(1, n))); }
+function croqHpFor(n: number): number { const saga = MONS.h12boss?.hp ?? 88387; return Math.round(saga * CROQ.HP_X_SAGA * (CROQ.CO_A + CROQ.CO_B * Math.max(1, n))); }
 (function croqDefs(): void {
   const st = HSTAT[NH - 1] ?? { hp: 1584, atk: 265 }; const sagaAtk = MONS.h12boss?.atk ?? 358; const hp = croqHpFor(CROQ.PARTY); const atk = Math.round(sagaAtk * CROQ.ATK_X_SAGA);
-  MONS[CROQ_ID] = { id: CROQ_ID, name: "Croqui", hp, exp: Math.round(hp * CROQ.EXP_MUL), atk, speed: CROQ.SPEED, gold: 0, respawn: 600000, armored: true, drop: 1, dropN: 0, lootLvl: 74, rar: CROQ.RAR, atkMs: CROQ.ATK_MS,
+  MONS[CROQ_ID] = { id: CROQ_ID, name: "Croqui", hp, exp: Math.round((MONS.h12boss?.hp ?? 88387) * CROQ.EXP_HP_X * CROQ.EXP_MUL), atk, speed: CROQ.SPEED, gold: 0, respawn: 600000, armored: true, drop: 1, dropN: 0, lootLvl: 74, rar: CROQ.RAR, atkMs: CROQ.ATK_MS,
     boss: { specials: [], phase2: "", clone: "" } };
-  const vq: MonDef = { id: VENEQ_ID, name: "Venequito", hp: Math.round(st.hp * 0.9), exp: 300, atk: Math.round(st.atk * 0.8), speed: 380, gold: 40, respawn: 0, armored: false, drop: 0.08, dropN: 1, lootLvl: 62, rar: [0.3, 0.1, 0.02], atkMs: 1600 };
+  const vq: MonDef = { id: VENEQ_ID, name: "Venequito", hp: Math.round(st.hp * CROQ.VQ_HP), exp: 300, atk: Math.round(st.atk * CROQ.VQ_ATK), speed: 380, gold: 40, respawn: 0, armored: false, drop: 0.08, dropN: 1, lootLvl: 62, rar: [0.3, 0.1, 0.02], atkMs: 1600 };
   MONS[VENEQ_ID] = vq;
   MONS.croq_guard = { ...vq, id: "croq_guard", name: "Venequito centinela", hp: Math.round(st.hp * 1.4), exp: 900, atk: Math.round(st.atk * 0.95), respawn: 30000, gold: 120, drop: 0.12 };
-  MONS.croq_shade = { ...vq, id: "croq_shade", name: "Sombra ígnea", hp: Math.round(st.hp * 1.8), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(st.atk * 1.05), speed: 430, look: CROQ_SHADE_LOOK };
-  MONS.croq_echo = { ...vq, id: "croq_echo", name: "Eco de Croqui", hp: Math.round(st.hp * 6), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(atk * 0.45), speed: 520 };
+  MONS.croq_shade = { ...vq, id: "croq_shade", name: "Sombra ígnea", hp: Math.round(st.hp * 2.4), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(st.atk * 1.05), speed: 430, look: CROQ_SHADE_LOOK };
+  MONS.croq_echo = { ...vq, id: "croq_echo", name: "Eco de Croqui", hp: Math.round(st.hp * 8), exp: 0, gold: 0, drop: 0, dropN: 0, atk: Math.round(atk * 0.5), speed: 520 };
 })();
 // ---------- 4) Unique loot, cosmetics, mount ----------
 const CROQ_UNIQUES = ["croq_wand", "croq_hat", "croq_robe", "croq_legs", "croq_boots", "croq_ring", "croq_amulet", "croq_orb", "croq_blade", "croq_bow", "croq_dag", "croq_shield", "croq_mail"];
@@ -2527,12 +2530,12 @@ MOUNTS.push({ id: "m_croqui", n: "Dragón turquesa de Croqui", price: 0, speed: 
 interface CqOrb { x: number; y: number; until: number; }
 interface CqRain { safe: Array<[number, number]>; at: number; born: number; label: string; }
 interface CroqSt { phase: 1 | 2 | 3; start: number; nextCast: number; cd: Partial<Record<CqPow, number>>; nextSummon: number; castUntil: number; dimAt: number; dimDone: boolean;
-  siphonUntil: number; siphonNext: number; drainNext: number; orbs: CqOrb[]; nextOrb: number; apocNext: number; rain: CqRain | null; fx: { at: number; kind: "pre" | "in" | "out" } | null; }
+  siphonUntil: number; siphonNext: number; drainNext: number; orbs: CqOrb[]; nextOrb: number; apocNext: number; rain: CqRain | null; fx: { at: number; kind: "pre" | "in" | "out" } | null; final?: boolean; }
 interface Game { croq?: CroqSt | null; croqGate?: number; }
 interface DimSt { home?: "gem" | "croq"; }
 let CROQ_DIM_ON = false; // set each tick: Otra Dimensión uses Croqui's theme
 function croqSt(g: Game, now: number): CroqSt {
-  if (!g.croq) g.croq = { phase: 1, start: now, nextCast: now + 2500, cd: { lluvia: now + CROQ.FIRST_RAIN_MS, ola: now + 12000 }, nextSummon: now + 9000, castUntil: 0, dimAt: 0, dimDone: false,
+  if (!g.croq) g.croq = { phase: 1, start: now, nextCast: now + 2500, cd: { lluvia: now + CROQ.FIRST_RAIN_MS, ola: now + 10000 }, nextSummon: now + 7000, castUntil: 0, dimAt: 0, dimDone: false,
     siphonUntil: 0, siphonNext: 0, drainNext: 0, orbs: [], nextOrb: 0, apocNext: 0, rain: null, fx: null };
   return g.croq;
 }
@@ -2550,6 +2553,10 @@ function croqTick(g: Game, m: Mon, now: number): void {
     st.phase = 3; m.enraged = true; st.nextOrb = now + 3000; st.drainNext = now + 1000; st.nextCast = Math.min(st.nextCast, now + 800);
     addFloat(g, m.x * TS + 16, m.y * TS - 40, "¡VIDA ROJA!", "#ff3030", now); setStatus(g, "¡Croqui arde en VIDA ROJA! Más poderes, más rápidos… y te roba el maná.", now, "#ff6060"); addLog(g, "⚠ Croqui entra en VIDA ROJA.");
   }
+  if (st.phase === 3 && !st.final && f <= CROQ.FINAL_AT) {
+    st.final = true; st.nextCast = Math.min(st.nextCast, now + 600); st.nextSummon = Math.min(st.nextSummon, now + 1500);
+    addFloat(g, m.x * TS + 16, m.y * TS - 52, "¡LLAMA FINAL!", "#ff2020", now); setStatus(g, "☄ ¡LLAMA FINAL! Cada ataque de área trae una Bola de Fuego. ¡Esquiva y remata!", now, "#ff4040"); addLog(g, "☄ Croqui desata su LLAMA FINAL.");
+  }
   if (st.phase === 3) {
     if (now >= st.drainNext) { st.drainNext = now + 1000; p.mana = Math.max(0, p.mana - maxMana(g) * CROQ.DRAIN_PASSIVE); }
     if (now >= st.nextOrb) { st.nextOrb = now + CROQ.ORB_EVERY; for (let t = 0; t < 30; t++) { const c: [number, number] = [CROQ_ARENA[0] + Math.floor(Math.random() * 24), CROQ_ARENA[1] + Math.floor(Math.random() * 16)]; if (croqArena(g, c) && cheb(c[0], c[1], m.x, m.y) >= 3) { st.orbs.push({ x: c[0], y: c[1], until: now + CROQ.ORB_LIFE }); break; } } }
@@ -2563,35 +2570,41 @@ function croqTick(g: Game, m: Mon, now: number): void {
   if (st.apocNext && now >= st.apocNext) { st.apocNext = now + CROQ.APOC_EVERY; croqWarnAll(g, m, now, "Apocalipsis", 2000, CROQ.APOC_DMG, CROQ.APOC_DMG, [], true); }
 }
 function shoutCq(g: Game, m: Mon, text: string, now: number, col: string): void { addFloat(g, m.x * TS + 16, m.y * TS - 34, text, col, now); setStatus(g, `Croqui: «${text}»`, now, col); }
-function croqA(g: Game, m: Mon): number { const st = g.croq; return m.def.atk * (st && st.phase === 3 ? CROQ.RAGE_DMG : 1) * (croqVeneqs(g) >= CROQ.CHEER_N ? CROQ.CHEER_DMG : 1); }
+function croqA(g: Game, m: Mon): number { const st = g.croq; return m.def.atk * (st && st.phase === 3 ? CROQ.RAGE_DMG : 1) * (st?.final ? CROQ.FINAL_DMG / CROQ.RAGE_DMG : 1) * (croqVeneqs(g) >= CROQ.CHEER_N ? CROQ.CHEER_DMG : 1); }
 function croqWarn(g: Game, m: Mon, now: number, cells: Array<[number, number]>, tele: number, lo: number, hi: number, name: string, delay = 0): void {
-  const A = croqA(g, m); const k = g.croq?.phase === 3 ? CROQ.RAGE_TELE : 1; const at = now + delay + Math.round(tele * k);
+  const A = croqA(g, m); const k = g.croq?.final ? CROQ.FINAL_TELE : g.croq?.phase === 3 ? CROQ.RAGE_TELE : 1; const at = now + delay + Math.max(CROQ.TELE_MIN, Math.round(tele * k));
   g.warns.push({ cells: cells.filter((c: [number, number]) => croqArena(g, c)), at, born: now + delay, min: Math.round(A * lo), max: Math.round(A * hi), elem: "fire", name });
   if (g.warns.length > 40) g.warns.shift();
 }
 function croqWarnAll(g: Game, m: Mon, now: number, name: string, tele: number, lo: number, hi: number, safe: Array<[number, number]>, full: boolean): void {
   const cells: Array<[number, number]> = []; const key = new Set(safe.map((c: [number, number]) => c[0] * 1000 + c[1]));
   for (let y = CROQ_ARENA[1]; y <= CROQ_ARENA[3]; y++) for (let x = CROQ_ARENA[0]; x <= CROQ_ARENA[2]; x++) if (!key.has(x * 1000 + y)) cells.push([x, y]);
-  croqWarn(g, m, now, cells, tele, lo, hi, name); const st = croqSt(g, now); st.rain = { safe, at: now + tele, born: now, label: full ? `¡${name}! No hay refugio` : `¡${name}! Busca un refugio ✓` };
+  croqWarn(g, m, now, cells, tele, lo, hi, name); const w = g.warns[g.warns.length - 1]; const at = Math.max(w ? w.at : now + tele, now + CROQ.SAFE_TELE_MIN); if (w) w.at = at; // time to reach a refuge from anywhere
+  const st = croqSt(g, now); st.rain = { safe, at, born: now, label: full ? `¡${name}! No hay refugio` : `¡${name}! Busca un refugio ✓` };
 }
+const CROQ_VQ_AT: Array<[number, number]> = [[-2, 1], [2, 1], [0, -2], [0, 2]];
+const CROQ_AIMED: CqPow[] = ["bola", "lanza", "meteoro", "triple"];
+const CROQ_AREA: CqPow[] = ["nova", "anillo", "cruz", "equis", "ola", "lluvia", "solnegro", "supernova"]; // combos: a Bola aimed at you lands first (shorter telegraph), then the area attack
 function croquiThink(g: Game, m: Mon, now: number, d: number): boolean {
   const p = g.p; const st = croqSt(g, now); if (st.dimAt) return true;
   if (now >= st.nextSummon && croqVeneqs(g) < (st.phase === 3 ? CROQ.SUMMON_CAP_RAGE : CROQ.SUMMON_CAP)) {
     st.nextSummon = now + roll(CROQ.SUMMON_EVERY[0], CROQ.SUMMON_EVERY[1]) * (st.phase === 3 ? 0.7 : 1);
-    for (let k = 0; k < CROQ.SUMMON_N; k++) { const v = spawnTemp(g, MONS[VENEQ_ID], m.x + (k ? 2 : -2), m.y + 1, now); if (v) v.angryUntil = now + 120000; }
+    for (let k = 0; k < CROQ.SUMMON_N; k++) { const o = CROQ_VQ_AT[k % CROQ_VQ_AT.length] ?? [2, 1]; const v = spawnTemp(g, MONS[VENEQ_ID], m.x + o[0], m.y + o[1], now); if (v) v.angryUntil = now + 120000; }
     shoutCq(g, m, "¡Venequitos, a mí!", now, "#ffd21e"); st.castUntil = now + 500; m.spec[0] = st.castUntil; return true;
   }
   if (now < st.nextCast) return false;
   const ready = (Object.keys(CROQ_POW) as CqPow[]).filter((k: CqPow) => { const P = CROQ_POW[k]; return P.ph <= st.phase && now >= (st.cd[k] ?? 0) && (k !== "sifon" || (d <= CROQ.SIPHON_RANGE && los(g, m.x, m.y, p.x, p.y))); });
   let sum = 0; for (const k of ready) sum += CROQ_POW[k].w; if (sum <= 0) return false;
   let r = Math.random() * sum; let pick: CqPow = ready[0] ?? "bola"; for (const k of ready) { r -= CROQ_POW[k].w; if (r <= 0) { pick = k; break; } }
-  const P = CROQ_POW[pick]; const gapK = st.phase === 3 ? CROQ.RAGE_GAP : st.phase === 2 ? CROQ.P2_GAP : 1;
-  st.cd[pick] = now + jit(P.cd * (st.phase === 3 ? CROQ.RAGE_CD : 1), CROQ.CD_JITTER); st.nextCast = now + Math.round(roll(CROQ.GAP[0], CROQ.GAP[1]) * gapK);
+  const P = CROQ_POW[pick]; const gapK = st.final ? CROQ.FINAL_GAP : st.phase === 3 ? CROQ.RAGE_GAP : st.phase === 2 ? CROQ.P2_GAP : 1;
+  st.cd[pick] = now + jit(P.cd * (st.final ? CROQ.FINAL_CD : st.phase === 3 ? CROQ.RAGE_CD : 1), CROQ.CD_JITTER); st.nextCast = now + Math.round(roll(CROQ.GAP[0], CROQ.GAP[1]) * gapK);
   st.castUntil = now + 600; m.spec[0] = st.castUntil; m.face = dirFrom(p.x - m.x, p.y - m.y); shoutCq(g, m, `¡${P.n}!`, now, st.phase === 3 ? "#ff6040" : "#ffb040");
-  croqCast(g, m, pick, now); return true;
+  croqCast(g, m, pick, now);
+  if (st.phase >= 2 && CROQ_AREA.includes(pick) && Math.random() < (st.final ? 1 : st.phase === 3 ? CROQ.COMBO_P3 : CROQ.COMBO_P2)) { croqCast(g, m, "bola", now); addFloat(g, m.x * TS + 16, m.y * TS - 46, "+ ¡Bola de Fuego!", "#ffb040", now); }
+  return true;
 }
 function croqCast(g: Game, m: Mon, k: CqPow, now: number): void {
-  const p = g.p; const P = CROQ_POW[k]; const W = (cells: Array<[number, number]>, delay = 0, tele = P.tele, lo = P.lo, hi = P.hi): void => croqWarn(g, m, now, cells, tele, lo, hi, P.n, delay);
+  const p = g.p; const P = CROQ_POW[k]; const K = CROQ_AIMED.includes(k) ? CROQ.TGT_DMG : CROQ.AREA_DMG; const W = (cells: Array<[number, number]>, delay = 0, tele = P.tele, lo = P.lo * K, hi = P.hi * K): void => croqWarn(g, m, now, cells, tele, lo, hi, P.n, delay);
   const disc = (cx: number, cy: number, r: number): Array<[number, number]> => circle(cx, cy, r * r + r);
   switch (k) {
     case "bola": W([[p.x, p.y], [p.x + 1, p.y], [p.x - 1, p.y], [p.x, p.y + 1], [p.x, p.y - 1]]); break;
@@ -2607,12 +2620,12 @@ function croqCast(g: Game, m: Mon, k: CqPow, now: number): void {
     case "lluvia": { const safe: Array<[number, number]> = []; const n = roll(5, 7);
       for (let t = 0; t < 80 && safe.length < n * 5; t++) { const x = roll(CROQ_ARENA[0] + 1, CROQ_ARENA[2] - 1), y = roll(CROQ_ARENA[1] + 1, CROQ_ARENA[3] - 1); const dd = cheb(x, y, p.x, p.y);
         if (dd >= 3 && dd <= 9 && croqArena(g, [x, y]) && !safe.some((c: [number, number]) => cheb(c[0], c[1], x, y) <= 2)) safe.push([x, y], [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); }
-      croqWarnAll(g, m, now, P.n, g.croq?.phase === 3 ? 1300 : P.tele, P.lo, P.hi, safe, false); break; }
+      croqWarnAll(g, m, now, P.n, g.croq?.phase === 3 ? 1300 : P.tele, P.lo * K, P.hi * K, safe, false); break; }
     case "ola": { const horiz = Math.random() < 0.5; const gap = horiz ? roll(CROQ_ARENA[1] + 1, CROQ_ARENA[3] - 1) : roll(CROQ_ARENA[0] + 1, CROQ_ARENA[2] - 1); const fwd = Math.random() < 0.5;
       const a0 = horiz ? CROQ_ARENA[0] : CROQ_ARENA[1], a1 = horiz ? CROQ_ARENA[2] : CROQ_ARENA[3], b0 = horiz ? CROQ_ARENA[1] : CROQ_ARENA[0], b1 = horiz ? CROQ_ARENA[3] : CROQ_ARENA[2];
       for (let s = 0; s <= (a1 - a0) / 2; s++) { const a = fwd ? a0 + s * 2 : a1 - s * 2; const c: Array<[number, number]> = [];
         for (let b = b0; b <= b1; b++) if (Math.abs(b - gap) > 1) for (const aa of [a, a + (fwd ? 1 : -1)]) c.push(horiz ? [aa, b] : [b, aa]); W(c, s * 220); } break; }
-    case "solnegro": { const safe: Array<[number, number]> = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) safe.push([m.x + dx, m.y + dy]); croqWarnAll(g, m, now, P.n, P.tele, P.lo, P.hi, safe, false); break; }
+    case "solnegro": { const safe: Array<[number, number]> = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) safe.push([m.x + dx, m.y + dy]); croqWarnAll(g, m, now, P.n, P.tele, P.lo * K, P.hi * K, safe, false); break; }
     case "sifon": { const st = croqSt(g, now); st.siphonUntil = now + CROQ.SIPHON_MS; st.siphonNext = now + 500; setStatus(g, "¡Sifón Arcano! Aléjate más de 7 casillas o ponte detrás de un pilar.", now, "#7fc8ff"); break; }
     case "supernova": W(disc(m.x, m.y, 3)); W(circle(m.x, m.y, 56).filter((c: [number, number]) => (c[0] - m.x) ** 2 + (c[1] - m.y) ** 2 > 9), 900); break;
   }
@@ -2628,7 +2641,7 @@ function croqEnterDim(g: Game, m: Mon, now: number): void {
   const p = g.p; if (g.dim || inDim(p.x, p.y)) return; const st = croqSt(g, now); st.dimDone = true; st.fx = { at: now, kind: "in" };
   const ret: [number, number] = [p.x, p.y]; placePlayer(g, DIM_START[0], DIM_START[1], now);
   g.dim = { until: now + CROQ.DIM_MS, start: now, ret, n: 1, rainAt: now + 2500, by: "Croqui", home: "croq" };
-  for (const [x, y] of [[14, 8], [17, 13], [15, 11], [18, 9]] as Array<[number, number]>) { const s = spawnTemp(g, MONS.croq_shade, DIM_X0 + x, DIM_Y0 + y, now); if (s) { s.angryUntil = now + CROQ.DIM_MS + 5000; s.nextAtk = now + 1500; } }
+  for (const [x, y] of CROQ.DIM_SHADES) { const s = spawnTemp(g, MONS.croq_shade, DIM_X0 + x, DIM_Y0 + y, now); if (s) { s.angryUntil = now + CROQ.DIM_MS + 5000; s.nextAtk = now + 1500; } }
   const e = spawnTemp(g, MONS.croq_echo, DIM_X0 + 27, DIM_Y0 + 8, now); if (e) { e.angryUntil = now + CROQ.DIM_MS + 5000; e.nextAtk = now + 2000; }
   specialHit(g, roll(Math.round(m.def.atk * 0.25), Math.round(m.def.atk * 0.45)), now);
   setStatus(g, `¡Croqui: «Otra Dimensión»! Llega a la grieta ✦ o resiste ${Math.round(CROQ.DIM_MS / 1000)} s.`, now, "#7ffff0"); addLog(g, "🌀 Croqui te mandó a su Otra Dimensión.");
@@ -2653,7 +2666,7 @@ function croqDimTick(g: Game, now: number): void {
   if (foes.length === 0 && now - d.start > 1000) { croqLeaveDim(g, now, "Venciste a las sombras ígneas."); return; }
   if (now >= d.until) { croqLeaveDim(g, now, "Resististe: la dimensión se cierra."); return; }
   if (now >= d.rainAt) { d.rainAt = now + CROQ.DIM_RAIN_MS; const A = MONS[CROQ_ID]?.atk ?? 600;
-    g.warns.push({ cells: circle(p.x, p.y, 2).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), at: now + 1100, born: now, min: Math.round(A * 0.45), max: Math.round(A * 0.7), elem: "fire", name: "Lluvia de brasas" }); }
+    g.warns.push({ cells: circle(p.x, p.y, 2).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), at: now + 1000, born: now, min: Math.round(A * 0.6), max: Math.round(A * 0.9), elem: "fire", name: "Lluvia de brasas" }); }
 }
 // ---------- 8) Portal, zone name, reset, kill/loot ----------
 function croqPortal(g: Game, now: number): boolean {
@@ -2702,8 +2715,10 @@ function drawCroqOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): v
   const rn = st.rain; if (rn && now < rn.at + 300) { for (const c of rn.safe) drawCroquiSafeTile(ctx, c[0] * TS - cx, c[1] * TS - cy, now); drawFireRainOverlay(ctx, W, VH, clamp((now - rn.born) / Math.max(1, rn.at - rn.born), 0, 1), now, rn.label); } else st.rain = null;
   const boss = (g.byRegion[CROQ_R] ?? []).find((m: Mon) => m.alive && m.def.id === CROQ_ID);
   if (boss && st.siphonUntil > now) { const [bx, by] = drawPos(boss, now), [px, py] = drawPos(p, now); drawManaBeam(ctx, bx * TS + 16 - cx, by * TS - 4 - cy, px * TS + 16 - cx, py * TS + 10 - cy, now, 1); }
-  if (st.apocNext) { const left = Math.ceil((st.apocNext - now) / 1000); if (now >= st.start + CROQ.HARD_ENRAGE_MS) outlined(ctx, `☠ APOCALIPSIS en ${left} s`, W / 2, 96, "#ff4040", "bold 13px sans-serif"); }
-  if (croqVeneqs(g) >= CROQ.CHEER_N) outlined(ctx, "¡Ánimo tricolor! Croqui +15% daño", W / 2, 112, "#ffd21e", "bold 11px sans-serif");
+  if (st.apocNext) { const left = Math.ceil((st.apocNext - now) / 1000); if (now >= st.start + CROQ.HARD_ENRAGE_MS) outlined(ctx, `☠ APOCALIPSIS en ${left} s`, W / 2, 96, "#ff4040", "bold 13px sans-serif");
+    else if (st.apocNext - now <= CROQ.APOC_WARN_MS) outlined(ctx, `☠ Apocalipsis en ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`, W / 2, 96, "#ff8060", "bold 12px sans-serif"); }
+  if (st.final) outlined(ctx, "☄ LLAMA FINAL", W / 2, 128, "#ff3030", "bold 12px sans-serif");
+  if (croqVeneqs(g) >= CROQ.CHEER_N) outlined(ctx, `¡Ánimo tricolor! Croqui +${Math.round((CROQ.CHEER_DMG - 1) * 100)}% daño`, W / 2, 112, "#ffd21e", "bold 11px sans-serif");
 }
 function drawCroqFx(ctx: CanvasRenderingContext2D, g: Game, now: number): boolean { // Croqui-themed Otra Dimensión overlay; true = handled
   const st = g.croq; const W = viewW(g); const T = CROQ_DIM_THEME;
