@@ -194,8 +194,19 @@ const TIER_LV = [30, 38, 46, 54, 62];
 const TIER_N = ["de bronce celeste", "de plata lunar", "de oro solar", "de oricalco", "del Zodiaco"];
 function addLoot(d: ItemDef): void { d.loot = true; ITEMS.push(d); ITEM[d.id] = d; }
 // Varita de Entrenamiento (solo Tienda de Coins): daño muy bajo (la mitad que la Varita de brasas), x2 entrenamiento de nivel mágico
-const TWAND = "twand", TWAND_PRICE = 80;
-{ const d = it(TWAND, "Varita de Entrenamiento", "weapon", "wand", 1, ["druid", "sorc", "warlock"], 0, { atk: 7, range: 4, elem: "fire" }); ITEMS.push(d); ITEM[d.id] = d; }
+// v24: + Espada de Entrenamiento (caballero: espada y escudo x2) y Arco de Entrenamiento (arquero: distancia x2); todas con cargas
+const TWAND = "twand", TSWORD = "tsword", TBOW = "tbow", TWAND_PRICE = 25, TRAIN_CH = 500;
+for (const d of [it(TWAND, "Varita de Entrenamiento", "weapon", "wand", 1, ["druid", "sorc", "warlock"], 0, { atk: 7, range: 4, elem: "fire" }), it(TSWORD, "Espada de Entrenamiento", "weapon", "sword", 1, ["knight"], 0, { atk: 7 }), it(TBOW, "Arco de Entrenamiento", "weapon", "bow", 1, ["archer"], 0, { atk: 7, range: 5, elem: "arrow" })]) { ITEMS.push(d); ITEM[d.id] = d; }
+const TRAIN_W: Record<string, string> = { [TWAND]: "x2 entrenamiento de nivel mágico", [TSWORD]: "x2 entrenamiento de espada y escudo", [TBOW]: "x2 entrenamiento de distancia" };
+const TRAIN_OF: Record<string, string> = { twand: TWAND, tsword: TSWORD, tbow: TBOW };
+const TRAIN_VOC: Record<string, string> = { twand: "druida, hechicero y brujo", tsword: "caballero", tbow: "arquero" };
+function isTrainW(id: string): boolean { return Object.prototype.hasOwnProperty.call(TRAIN_W, id); }
+interface Inst { ch?: number; }
+function useCharge(g: Game, now: number): void {
+  const w = g.p.eq.weapon; if (!w || !isTrainW(w.id)) return;
+  w.ch = (w.ch ?? TRAIN_CH) - 1;
+  if (w.ch <= 0) { const n = ITEM[w.id]?.name ?? ""; g.p.eq.weapon = null; refreshStats(g); setStatus(g, `${n}: se agotaron las cargas y desapareció.`, now, "#ff9a5a"); addLog(g, `${n} se gastó (0 cargas). Vuelve a comprarla en la Tienda de Coins.`); }
+}
 function addTier(t: number): void {
   const L = TIER_LV[t] ?? 30, nm = TIER_N[t] ?? "", a = Math.round(1.45 * L + 8), k = t + 1, pr = Math.round(60 * L);
   const add = (id: string, name: string, slot: Slot, wt: WType, voc: ClassId[] | null, o: ItemOpt): void => addLoot(it(`${id}_t${k}`, `${name} ${nm}`, slot, wt, L, voc, pr, o));
@@ -308,7 +319,7 @@ const MONS: Record<MonId, MonDef> = {
   wasp: { id: "wasp", name: "Avispa", hp: 35, exp: 24, atk: 18, speed: 380, gold: 8, respawn: 20000, armored: false, drop: 0.06, dropN: 1, lootLvl: 12, rar: [0.12, 0.02, 0] },
   mino: { id: "mino", name: "Minotauro", hp: 100, exp: 50, atk: 40, speed: 560, gold: 25, respawn: 30000, armored: true, drop: 0.1, dropN: 1, lootLvl: 20, rar: [0.2, 0.05, 0.003] },
   guard: { id: "guard", name: "Guardia minotauro", hp: 185, exp: 160, atk: 75, speed: 600, gold: 50, respawn: 45000, armored: true, drop: 0.15, dropN: 1, lootLvl: 30, rar: [0.25, 0.08, 0.01] },
-  boss: { id: "boss", name: "Rey Minotauro", hp: 1500, exp: 1500, atk: 130, speed: 620, gold: 400, respawn: 180000, armored: true, drop: 1, dropN: 2, lootLvl: 99, rar: [0.45, 0.3, 0.15] },
+  boss: { id: "boss", name: "Rey Minotauro", hp: 1500, exp: 1500, atk: 130, speed: 620, gold: 400, respawn: 180000, armored: true, drop: 1, dropN: 2, lootLvl: 30, rar: [0.45, 0.3, 0.15] }, // v24: botín hasta nivel 30 (antes 99)
 };
 const SPAWNS: Array<[MonId, number, number]> = [
   ["rat", 36, 24], ["rat", 60, 24], ["rat", 36, 44], ["rat", 60, 44], ["rat", 44, 23], ["rat", 52, 45], ["rat", 34, 34], ["rat", 62, 30],
@@ -397,7 +408,7 @@ for (const H of HOUSES) {
       rar: [0.12 + i * 0.012, 0.025 + i * 0.006, 0.002 + i * 0.0012], house: H.n, look: ms[1], afk: Math.max(1, R - 2) };
   });
   const gm = H.n === NH; const bhp = Math.round(st.hp * (30 + 1.5 * i) * (gm ? GEM_BHP : 1)), batk = Math.round(st.atk * 1.35 * (gm ? GEM_BATK : 1));
-  MONS[`h${H.n}boss`] = { id: `h${H.n}boss`, name: H.boss, hp: bhp, exp: Math.round(bhp * 0.25), atk: batk, speed: 520, gold: Math.round(150 + R * 25), respawn: 240000, armored: true, drop: 1, dropN: 2 + Math.floor(i / 4), lootLvl: R + 12,
+  MONS[`h${H.n}boss`] = { id: `h${H.n}boss`, name: H.boss, hp: bhp, exp: Math.round(bhp * 0.25), atk: batk, speed: 520, gold: Math.round(150 + R * 25), respawn: 240000, armored: true, drop: 1, dropN: 2 + Math.floor(i / 4), lootLvl: H.n < NH ? R + 6 : R + 12,
     rar: [0.4, 0.22 + 0.02 * i, 0.03 + 0.025 * i], house: H.n, look: H.look, atkMs: 1500, boss: { specials: H.specials, phase2: "", clone: H.n === NH ? "h12clone1" : "" } };
   if (H.n === NH) {
     const k2hp = Math.round(bhp * GEM_KHP), k2atk = Math.round(batk * GEM_KATK); const kl = saint("#7a0a3a", "♊", "none", "#c8a030", "#5a3a0a");
@@ -639,7 +650,7 @@ function itemDesc(i: Inst): string {
   add("atk", "Ataque"); add("def", "Defensa"); add("arm", "Armadura"); add("magic", "Magia +"); add("hp", "Vida +"); add("mana", "Maná +"); add("speed", "Velocidad +");
   if (d.slot === "weapon") parts.push(`alcance ${d.range}`);
   if (d.wt === "sword") parts.push("equilibrada"); if (d.wt === "axe") parts.push("lenta pero fuerte"); if (d.wt === "club") parts.push("+30 % contra blindados"); if (d.wt === "dagger" && d.slot === "weapon") parts.push("muy rápida");
-  if (d.id === TWAND) parts.push("x2 entrenamiento de nivel mágico");
+  if (isTrainW(d.id)) parts.push(`${TRAIN_W[d.id] ?? ""} · cargas ${i.ch ?? TRAIN_CH}/${TRAIN_CH}`);
   parts.push(`nivel ${d.lvl}`);
   parts.push(d.voc ? d.voc.map((v: ClassId) => CLASSES[v].name).join("/") : "todas las vocaciones");
   return parts.join(" · ");
@@ -800,7 +811,7 @@ function skillNeed(g: Game, k: SkillId): number {
 }
 function trainSkill(g: Game, k: SkillId, amt: number, now: number): void {
   if (!(amt > 0)) return;
-  if (k === "magic" && g.p.eq.weapon?.id === TWAND) amt *= 2; // Varita de Entrenamiento
+  const tw = g.p.eq.weapon?.id; if ((k === "magic" && tw === TWAND) || ((k === "melee" || k === "shield") && tw === TSWORD) || (k === "dist" && tw === TBOW)) amt *= 2; // armas de entrenamiento
   const s = g.p.sk[k]; s.tries += amt;
   let guard = 0;
   while (guard < 5 && s.tries >= skillNeed(g, k)) {
@@ -829,7 +840,7 @@ function addExp(g: Game, amt: number, now: number): void {
   }
 }
 function rollItem(g: Game, def: MonDef): Inst | null {
-  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && d.id !== TWAND && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id));
+  let pool = ITEMS.filter((d: ItemDef) => d.lvl <= def.lootLvl && !isTrainW(d.id) && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id));
   if (def.house) { const hi = pool.filter((d: ItemDef) => d.lvl >= def.lootLvl - 18); if (hi.length > 0 && Math.random() < 0.75) pool = hi; }
   if (def.uw) pool = uwPool(def, pool);
   if (Math.random() < 0.7) { const mine = pool.filter((d: ItemDef) => d.voc === null || d.voc.includes(g.cls.id)); if (mine.length > 0) pool = mine; }
@@ -899,7 +910,7 @@ function questReward(n: number): { exp: number; gold: number; item: string } {
   return { exp: Math.round((expFor(R + 3) - expFor(R)) * 0.3), gold: Math.round(150 * Math.pow(n, 1.5) * (n === NH ? 1.3 : 1)), item: n === NH ? "Armadura Dorada de Géminis (Heaven)" : n >= 4 ? "objeto épico de tu vocación" : "objeto raro de tu vocación" };
 }
 function rewardItem(g: Game, maxLvl: number, rar: Rarity): Inst | null {
-  const pool = ITEMS.filter((d: ItemDef) => d.id !== TWAND && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
+  const pool = ITEMS.filter((d: ItemDef) => !isTrainW(d.id) && d.id !== "gemini_gold" && !isCroqItem(d.id) && !isHadesItem(d.id) && d.lvl <= maxLvl && (d.voc === null || d.voc.includes(g.cls.id))).sort((a: ItemDef, b: ItemDef) => b.lvl - a.lvl);
   const top = pool.slice(0, 8); const d = top[Math.floor(Math.random() * top.length)]; if (!d) return null;
   return { uid: g.nextUid++, id: d.id, rar };
 }
@@ -1212,7 +1223,8 @@ function castPower(g: Game, i: number, now: number): boolean {
   if (now < p.gcd) return false;
   if (p.mana < pw.mana) { setStatus(g, `No tienes suficiente maná para ${pw.name}.`, now); return false; }
   const mul = powerMul(g, pw.school); const wAtk = pw.school === "melee" || pw.school === "dist" ? weaponInfo(g).atk * 0.5 : 0;
-  const lo = Math.round(pw.min * mul + wAtk), hi = Math.round(pw.max * mul + wAtk);
+  const wm = pw.school === "magic" ? spellWandAdd(g, pw) : 0; // v24: los hechizos de ataque escalan con la vara/varita
+  const lo = Math.round(pw.min * mul + wAtk + wm * mul), hi = Math.round(pw.max * mul + wAtk + wm * mul);
   const t = curTarget(g); const offensive = pw.kind === "strike" || pw.kind === "drain" || pw.kind === "slow" || pw.kind === "dot" || pw.kind === "blink";
   if (offensive && (!t || !inReach(g, t, pw.range))) { setStatus(g, t ? "El objetivo está fuera de alcance." : "Necesitas un objetivo (Espacio).", now); return false; }
   if (offensive && isSafe(p.x, p.y)) { setStatus(g, "No puedes atacar en la zona segura.", now); return false; }
@@ -1234,7 +1246,7 @@ function castPower(g: Game, i: number, now: number): boolean {
       if (pw.school === "dist") trainSkill(g, "dist", 2, now); break;
     }
     case "wave": {
-      if (t) p.face = dirFrom(t.x - p.x, t.y - p.y);
+      if (g.turnFace !== undefined && now - (g.turnAt ?? -1e9) < 4000) p.face = g.turnFace; else if (t) p.face = dirFrom(t.x - p.x, t.y - p.y);
       const dx = dxOf(p.face), dy = dyOf(p.face); const cells: Array<[number, number]> = [];
       for (let k = 1; k <= WAVE_LEN; k++) { const w = k === 1 ? 0 : k === 2 ? 1 : 2; for (let j = -w; j <= w; j++) cells.push([p.x + dx * k + dy * j, p.y + dy * k + dx * j]); }
       hitCells(g, cells, lo, hi, pw.elem, now, false); break;
@@ -1289,13 +1301,19 @@ function castPower(g: Game, i: number, now: number): boolean {
   addFloat(g, p.x * TS + 16, p.y * TS - 12, pw.words, "#ffe9a8", now);
   return true;
 }
+// v24: los hechizos de ataque suman el ataque de la vara/varita (golpe/drenar ×0,45; área/ola ×0,25) y el golpe básico de vara/varita baja a ×0,55
+const WAND_HIT = 0.55;
+function spellWandAdd(g: Game, pw: Power): number {
+  const w = weaponInfo(g); if (w.school !== "magic") return 0;
+  return w.atk * (pw.kind === "strike" || pw.kind === "drain" ? 0.45 : pw.kind === "area" || pw.kind === "wave" ? 0.25 : 0);
+}
 function autoAttack(g: Game, now: number): void {
   const p = g.p; const t = curTarget(g); if (!t || now < p.nextAuto || isSafe(p.x, p.y)) return;
   const w = weaponInfo(g); if (!inReach(g, t, w.range)) return;
   if (w.mana > 0 && p.mana < w.mana) return;
   const base = roll(Math.ceil(w.atk * 0.4), Math.max(1, w.atk)) * powerMul(g, w.school);
-  p.nextAuto = now + w.interval; p.face = dirFrom(t.x - p.x, t.y - p.y);
-  if (w.school === "magic") { p.mana -= w.mana; trainSkill(g, "magic", w.mana, now); fire(g, t, Math.round(base), w.elem, now, 0, 0); return; }
+  p.nextAuto = now + w.interval; p.face = dirFrom(t.x - p.x, t.y - p.y); useCharge(g, now);
+  if (w.school === "magic") { p.mana -= w.mana; trainSkill(g, "magic", w.mana, now); fire(g, t, Math.round(base * WAND_HIT), w.elem, now, 0, 0); return; }
   const dmg = Math.round(base * physMul(g, t, w.elem));
   if (w.range > 1) { trainSkill(g, "dist", 1, now); fire(g, t, dmg, w.elem, now, 0, 0); }
   else { trainSkill(g, "melee", 1, now); hitMon(g, t, dmg, w.elem, now, 0); }
@@ -1537,12 +1555,13 @@ function afkReady(g: Game, i: number, now: number, reserve: number): boolean {
   const pw = g.cls.powers[i]; if (!pw) return false;
   return !powLocked(g, pw) && now >= (g.p.cd[i] ?? 0) && now >= g.p.gcd && g.p.mana >= pw.mana + reserve;
 }
-const AFK_MIN_LVL: Record<string, number> = { rat: 1, rotworm: 4, troll: 3, wasp: 5, mino: 14, guard: 22, boss: 40 };
+const AFK_MIN_LVL: Record<string, number> = { rat: 1, rotworm: 4, troll: 3, wasp: 5, mino: 8, guard: 14, boss: 40 };
 function afkOk(g: Game, m: Mon): boolean {
   if (m.def.monk && !inTr(g.p.x, g.p.y)) return false;
   const r = regionOf(m.x, m.y); if (r !== regionOf(g.p.x, g.p.y)) return false;
   if ((m.def.boss || m.def.id === "boss") && !g.afkBoss && r > 0) return false;
   const rt = HRT[r - 1]; if (r > 0 && rt && inRect(rt.room, m.x, m.y) && !g.afkBoss) return false;
+  if (m.def.id !== "boss" && !m.def.boss && cheb(m.x, m.y, g.p.x, g.p.y) <= 1) return true; // v24: siempre se defiende de lo que tiene al lado
   return g.p.level >= (AFK_MIN_LVL[m.def.id] ?? m.def.afk ?? 1) || now0(m);
 }
 function now0(m: Mon): boolean { return m.angryUntil > performance.now() && cheb(m.x, m.y, m.sx, m.sy) < 99 && m.def.id !== "boss"; }
@@ -1605,9 +1624,10 @@ function afkThink(g: Game, now: number): void {
   }
   // 6) Sin objetivo: ir hacia el monstruo vivo más cercano del mapa
   if (!free || g.walkGoal) return;
-  let goal: Mon | null = null; let gd = 999;
-  for (const m of near) { if (!m.alive || !afkOk(g, m)) continue; const d = cheb(m.x, m.y, p.x, p.y); if (d < gd) { gd = d; goal = m; } }
-  if (!goal) return; const gm = goal;
+  // v24: se queda en su zona (p. ej. la cueva del minotauro) esperando a que reaparezcan, en vez de irse a otra
+  const zn = zoneName(g, p.x, p.y); let goal: Mon | null = null; let gd = 999; let zoneHas = false;
+  for (const m of near) { if (!afkOk(g, m)) continue; const same = zoneName(g, m.sx, m.sy) === zn; if (same) zoneHas = true; if (!m.alive) continue; const d = cheb(m.x, m.y, p.x, p.y) + (same ? 0 : 500); if (d < gd) { gd = d; goal = m; } }
+  if (!goal || (zoneHas && gd >= 500)) return; const gm = goal;
   const st = bfsStep(g, p.x, p.y, (x: number, y: number) => cheb(x, y, gm.x, gm.y) <= 3 && !isSafe(x, y), 5000);
   if (st) tryStep(g, st[0], st[1], now);
 }
@@ -1686,7 +1706,7 @@ const MOUNTS: MountDef[] = [
   { id: "m_corcel", n: "Corcel de Sagitario", price: 0, speed: 40, src: "boss", mon: "h8boss", chance: 0.06, kind: "pegasus", body: "#f4f0e8", dark: "#a8a090", mane: "#ffd34d" },
   { id: "m_unicornio", n: "Unicornio de bronce", price: 0, speed: 35, src: "quest", kind: "horse", body: "#c89a5a", dark: "#6a4a26", mane: "#f4e8c8" },
 ];
-type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename" | "twand";
+type UtilId = "premium" | "bag" | "scroll" | "scroll5" | "xp" | "rename" | "twand" | "tsword" | "tbow";
 const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string }> = {
   premium: { n: `Premium ${PREM_DAYS} días`, d: `+${Math.round(PREM_EXP * 100)}% de experiencia por cazar y los objetos raros, épicos y Heaven brillan en el suelo.`, price: 250, icon: "👑" },
   bag: { n: `Mochila ampliada (+${BAG_STEP} casillas)`, d: `Más espacio en la mochila (hasta ${BAG_CAP} casillas).`, price: 150, icon: "🎒" },
@@ -1694,7 +1714,9 @@ const UTILS: Record<UtilId, { n: string; d: string; price: number; icon: string 
   scroll5: { n: "Pergaminos de regreso ×5", d: "Paquete de 5 pergaminos.", price: 12, icon: "📜" },
   xp: { n: "Poción de experiencia (1 h)", d: `+${Math.round(XP_BOOST * 100)}% de experiencia por cazar durante 1 hora de juego (se acumula hasta 5 h).`, price: 25, icon: "⚗️" },
   rename: { n: "Cambio de nombre", d: "Elige un nombre nuevo para tu personaje.", price: 100, icon: "✒️" },
-  twand: { n: "Varita de Entrenamiento", d: "Druida, hechicero y brujo, nivel 1. Daño muy bajo (para entrenar, no para cazar): x2 entrenamiento de nivel mágico mientras la llevas equipada.", price: TWAND_PRICE, icon: "🪄" },
+  twand: { n: "Varita de Entrenamiento", d: `Druida, hechicero y brujo, nivel 1. Daño muy bajo (para entrenar, no para cazar): x2 entrenamiento de nivel mágico mientras la llevas equipada. ${TRAIN_CH} cargas.`, price: TWAND_PRICE, icon: "🪄" },
+  tsword: { n: "Espada de Entrenamiento", d: `Caballero, nivel 1. Daño muy bajo: x2 entrenamiento de espada y escudo mientras la llevas equipada. ${TRAIN_CH} cargas.`, price: TWAND_PRICE, icon: "🗡️" },
+  tbow: { n: "Arco de Entrenamiento", d: `Arquero, nivel 1. Daño muy bajo: x2 entrenamiento de distancia mientras lo llevas equipado. ${TRAIN_CH} cargas.`, price: TWAND_PRICE, icon: "🏹" },
 };
 interface CoinState {
   coins: number; owned: string[]; outfit: string; aura: string; ncol: string; premUntil: number; xpLeft: number; xpT: number; bagX: number; scrolls: number; afkMin: Rarity;
@@ -1746,14 +1768,14 @@ function buyUtil(g: Game, u: UtilId, now: number, newName?: string): boolean {
   if (u === "bag" && c.bagX >= BAG_STEP * BAG_BUYS) { coinMsg(g, "Tu mochila ya tiene el tamaño máximo.", true); return false; }
   if (u === "xp" && c.xpLeft + XP_BOOST_MS > XP_BOOST_MAX) { coinMsg(g, "Ya tienes el máximo de 5 h de poción de experiencia.", true); return false; }
   let nm = "";
-  if (u === "twand") { if (!ITEM[TWAND]?.voc?.includes(g.cls.id)) { coinMsg(g, "Solo para druida, hechicero y brujo.", true); return false; } if (g.p.bag.length >= bagMax(g)) { coinMsg(g, "La mochila está llena.", true); return false; } }
+  if (TRAIN_OF[u]) { if (!ITEM[TRAIN_OF[u] ?? ""]?.voc?.includes(g.cls.id)) { coinMsg(g, `Solo para ${TRAIN_VOC[u] ?? ""}.`, true); return false; } if (g.p.bag.length >= bagMax(g)) { coinMsg(g, "La mochila está llena.", true); return false; } }
   if (u === "rename") { nm = (newName ?? "").trim().replace(/\s+/g, " "); if (!/^[A-Za-zÀ-ÿ0-9 ]{2,16}$/.test(nm)) { coinMsg(g, "Escribe un nombre de 2 a 16 letras o números.", true); return false; } if (nm === g.p.name) { coinMsg(g, "Ese ya es tu nombre.", true); return false; } }
   if (!spend(g, it.price)) return false;
   if (u === "premium") { const base = Math.max(Date.now(), c.premUntil); c.premUntil = base + PREM_DAYS * 86400000; coinMsg(g, `¡Premium activo hasta el ${new Date(c.premUntil).toLocaleDateString("es-MX")}!`); }
   else if (u === "bag") { c.bagX += BAG_STEP; coinMsg(g, `Mochila ampliada: ahora tiene ${bagMax(g)} casillas.`); }
   else if (u === "scroll" || u === "scroll5") { const n = u === "scroll" ? 1 : 5; c.scrolls += n; coinMsg(g, `Compraste ${n} pergamino${n > 1 ? "s" : ""} de regreso (tienes ${c.scrolls}).`); }
   else if (u === "xp") { c.xpLeft += XP_BOOST_MS; coinMsg(g, `Poción de experiencia activa: ${Math.round(c.xpLeft / 60000)} min restantes.`); }
-  else if (u === "twand") { g.p.bag.push({ uid: g.nextUid++, id: TWAND, rar: "com" }); coinMsg(g, "Compraste la Varita de Entrenamiento: está en tu mochila (x2 entrenamiento de nivel mágico al equiparla)."); }
+  else if (TRAIN_OF[u]) { const id = TRAIN_OF[u] ?? TWAND; g.p.bag.push({ uid: g.nextUid++, id, rar: "com", ch: TRAIN_CH }); coinMsg(g, `Compraste ${ITEM[id]?.name ?? id}: está en tu mochila (${TRAIN_W[id] ?? ""} al equiparla, ${TRAIN_CH} cargas).`); }
   else if (u === "rename") { const old = g.p.name; g.p.name = nm; coinMsg(g, `Ahora te llamas ${nm} (antes ${old}).`); setStatus(g, `¡Ahora te llamas ${nm}!`, now, "#ffd34d"); }
   return true;
 }
@@ -3974,7 +3996,7 @@ function drawDepot(ctx: CanvasRenderingContext2D, x: number, y: number): void {
 
 // ===================== Guardado (código de partida) =====================
 const SAVE_VER = 2; const SAVE_PREFIX = "EDISAR2"; const LS_KEY = "edisar.autosave.v1";
-interface SaveItem { uid: number; id: string; rar: Rarity; st: Partial<Stats>; }
+interface SaveItem { uid: number; id: string; rar: Rarity; st: Partial<Stats>; ch?: number; }
 interface SaveData {
   v: number; name: string; cls: ClassId; level: number; exp: number; hp: number; mana: number; maxHp: number; maxMana: number;
   gold: number; hpPot: number; manaPot: number; magicLevel: number; sk: Record<SkillId, SkillVal>;
@@ -3982,7 +4004,7 @@ interface SaveData {
 }
 interface SaveData { hpPot2: number; manaPot2: number; cleared: number; quests: QuestSt[]; bossKills: number[]; mz?: number; }
 type DecodeResult = { ok: true; data: SaveData } | { ok: false; error: string };
-function saveItem(i: Inst): SaveItem { const st: Partial<Stats> = {}; for (const k of STAT_KEYS) { const v = istat(i, k); if (v) st[k] = v; } return { uid: i.uid, id: i.id, rar: i.rar, st }; }
+function saveItem(i: Inst): SaveItem { const st: Partial<Stats> = {}; for (const k of STAT_KEYS) { const v = istat(i, k); if (v) st[k] = v; } return { uid: i.uid, id: i.id, rar: i.rar, st, ...(i.ch !== undefined ? { ch: i.ch } : {}) }; }
 function snapshot(g: Game, binds: Binds, savedAt?: number): SaveData {
   const p = g.p; const eq = {} as Record<Slot, SaveItem | null>;
   for (const s of SLOTS) { const i = p.eq[s]; eq[s] = i ? saveItem(i) : null; }
@@ -4003,7 +4025,7 @@ function readItem(v: unknown): Inst | null {
   if (!isObj(v)) return null; const id = v["id"], rar = v["rar"], uid = intIn(v["uid"], 0, 1e9);
   if (typeof id !== "string" || !ITEM[id] || uid === null) return null;
   if (typeof rar !== "string" || !Object.prototype.hasOwnProperty.call(RAR, rar)) return null;
-  return { uid, id, rar: rar as Rarity };
+  const ch = intIn(v["ch"], 1, 1e6); return ch !== null ? { uid, id, rar: rar as Rarity, ch } : { uid, id, rar: rar as Rarity };
 }
 function validateSave(raw: unknown): DecodeResult {
   const bad = (what: string): DecodeResult => ({ ok: false, error: `El código está dañado (${what} no es válido). Asegúrate de copiarlo completo, sin cambiar nada.` });
@@ -4472,8 +4494,8 @@ function iconKey(id: string, wt?: string, slot?: string): string {
 /** Potions (PotKind) → icon key */
 function potIconKey(k: string): string { return k === "mana" ? "pot_mana" : k === "hp2" ? "pot_hp2" : k === "mana2" ? "pot_mana2" : k === "xp" ? "pot_xp" : "pot_hp"; }
 /** Coin-shop utilities (UtilId) → icon key */
-ICO_DEF[TWAND] = "wand_a gold wood sapph";
-function utilIconKey(u: string): string { return u === "twand" ? TWAND : u === "premium" ? "premium" : u === "bag" ? "bag" : u === "scroll" || u === "scroll5" ? "scroll" : u === "xp" ? "pot_xp" : u === "rename" ? "quill" : "unknown"; }
+ICO_DEF[TWAND] = "wand_a gold wood sapph"; ICO_DEF[TSWORD] = "swd_a gold leather sapph"; ICO_DEF[TBOW] = "bow_a gold wood sapph";
+function utilIconKey(u: string): string { return TRAIN_OF[u] ? TRAIN_OF[u] ?? TWAND : u === "premium" ? "premium" : u === "bag" ? "bag" : u === "scroll" || u === "scroll5" ? "scroll" : u === "xp" ? "pot_xp" : u === "rename" ? "quill" : "unknown"; }
 /** Quest collectibles (HouseQuest.item / NQDef.item names) → icon key */
 function questIconKey(name: string): string {
   const n = name.toLowerCase();
@@ -5130,7 +5152,7 @@ function monkStep(g: Game, m: Mon, now: number): void {
   const p = g.p; const lastHit = m.angryUntil - 15000;
   if (m.hp < m.def.hp && now - lastHit > 3000) m.hp = m.def.hp; // se recupera del todo si dejas de golpearlo 3 s
   const d = cheb(m.x, m.y, p.x, p.y);
-  if (d <= 1 && now < m.angryUntil && !gmInvis(g) && now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); }
+  if (d <= 1 && now < m.angryUntil && g.target === m.id && !gmInvis(g) && now >= m.nextAtk) { m.nextAtk = now + atkInterval(m); m.face = dirFrom(p.x - m.x, p.y - m.y); monsterAttack(g, m, now); }
   else if (d <= 4) m.face = dirFrom(p.x - m.x, p.y - m.y);
 }
 // ---------- Clic para caminar (estilo Tibia) ----------
@@ -5178,7 +5200,7 @@ async function gmKeyOk(k: string): Promise<boolean> {
 async function runCmd(g: Game, txt: string, now: number): Promise<string> {
   const raw = txt.trim(); const t = raw.toLowerCase().replace(/\s+/g, " ");
   if (t === "/gm off" || t === "gm off") { if (gmOn(g)) setGm(g, false, now); return "Modo GM desactivado."; }
-  const m = /^\/?gm(?:\s+(\S+))?$/i.exec(raw); if (!m) return "Comando desconocido.";
+  const m = /^\/?gm(?:\s+(\S+))?$/i.exec(raw); if (!m) { if (raw.startsWith("/")) return "Comando desconocido."; chatSay(g, raw, now); return ""; }
   if (gmOn(g)) { gmSt(g).open = true; return "Panel GM abierto. «gm off» lo desactiva."; }
   if (!m[1]) return "🔑 Escribe la clave después de «gm ».";
   if (!(await gmKeyOk(m[1]))) return "Clave incorrecta.";
@@ -5365,7 +5387,15 @@ function drawV22Floor(ctx: CanvasRenderingContext2D, g: Game, now: number): void
   if (wg && !wg.open && mk && mk[0] === wg.x && mk[1] === wg.y && v22Vis(g, mk[0], mk[1])) { const x = sx(mk) + 16, y = sy(mk) + 16; const r = 6 + Math.sin(now / 150) * 1.5; ctx.strokeStyle = "#ffe066"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
 }
 /** Sobre todo: etiquetas de los portales y efectos de los poderes de nivel 100 / Cadenas. */
+// v24: chat — el texto normal va al registro y como globo sobre el jugador (estilo Tibia)
+interface Game { say?: { t: string; at: number }; turnFace?: Dir; turnAt?: number; }
+function chatSay(g: Game, txt: string, now: number): void { const t = txt.slice(0, 120); g.say = { t, at: now }; addLog(g, `💬 ${g.p.name}: ${t}`); }
+function drawSay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  const s = g.say; if (!s || now - s.at > 5000) return; const [tx, ty] = drawPos(g.p, now); const x = tx * TS - g.camX + 16, y = ty * TS - g.camY - 24;
+  outlined(ctx, `${g.p.name} dice:`, x, y - 12, "#ffe94a", "bold 10px sans-serif"); outlined(ctx, s.t.length > 60 ? `${s.t.slice(0, 58)}…` : s.t, x, y, "#ffe94a", "bold 11px sans-serif");
+}
 function drawV22Overlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
+  drawSay(ctx, g, now);
   const cx = g.camX, cy = g.camY; const lab = (q: [number, number], t: string, col: string): void => { if (v22Vis(g, q[0], q[1])) outlined(ctx, t, q[0] * TS - cx + 16, q[1] * TS - cy - 4, col, "bold 10px sans-serif"); };
   const open = g.cleared >= NH;
   lab(TP_TEMPLE, open ? "✦ Portal al Inframundo" : "🔒 Portal al Inframundo", open ? "#d8a0ff" : "#a898b8");
@@ -5440,7 +5470,7 @@ function ItemTipBody(props: { g: Game; th: Theme; inst: Inst; plain?: boolean })
           </div>))}
         {c.rows.length === 0 && <div style={{ color: th.text.tertiary }}>Sin estadísticas</div>}
       </div>
-      {inst.id === TWAND && <div style={{ color: th.text.success, fontWeight: 700 }}>✦ x2 entrenamiento de nivel mágico</div>}
+      {isTrainW(inst.id) && <div data-charges="1" style={{ color: th.text.success, fontWeight: 700 }}>✦ {TRAIN_W[inst.id]} · cargas: {inst.ch ?? TRAIN_CH}/{TRAIN_CH}</div>}
       {!plain && c.cur && c.def.slot === "weapon" && <div style={{ color: th.text.tertiary, fontSize: 10 }}>Daño por minuto: {Math.round((cmpStats(inst).atk * cmpStats(inst).aps))} frente a {Math.round(cmpStats(c.cur).atk * cmpStats(c.cur).aps)}</div>}
     </div>
   );
@@ -5706,7 +5736,7 @@ function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
           {utilCard("scroll", `Tienes ${c.scrolls}`, true)}
           {utilCard("scroll5", "", true)}
           {utilCard("rename", `Ahora: ${g.p.name}`, true)}
-          {utilCard("twand", ITEM[TWAND]?.voc?.includes(g.cls.id) ? "x2 entrenamiento de nivel mágico" : "Solo druida, hechicero y brujo", !!ITEM[TWAND]?.voc?.includes(g.cls.id))}
+          {(["twand", "tsword", "tbow"] as UtilId[]).map((u: UtilId) => { const id = TRAIN_OF[u] ?? TWAND; const ok = !!ITEM[id]?.voc?.includes(g.cls.id); return <span key={u} style={{ display: "contents" }}>{utilCard(u, ok ? `${TRAIN_W[id] ?? ""} · ${TRAIN_CH} cargas` : `Solo ${TRAIN_VOC[u] ?? ""}`, ok)}</span>; })}
         </div>}
       </div>
       <div style={{ fontSize: 10, color: th.text.tertiary }}>Tecla para abrir/cerrar: se puede cambiar en «⌨️ Atajos».</div>
@@ -6007,11 +6037,11 @@ function HudWindow(props: { g: Game; th: Theme; win: "skills" | "quests" | "keys
       </div>
       <div style={{ overflowY: "auto", padding: 8, minHeight: 0 }}>
         {tab === "skills" && <div>
-          {([["Nivel", String(p.level)], ["Experiencia", p.exp.toLocaleString("es-MX")], ["Para subir", Math.max(0, expFor(p.level + 1) - p.exp).toLocaleString("es-MX")], ["Vida", `${Math.round(p.hp)} / ${maxHp(g)}`], ["Maná", `${Math.round(p.mana)} / ${maxMana(g)}`], ["Ataque arma", String(weaponInfo(g).atk)], ["Armadura", String(g.st.arm)], ["Defensa", String(g.st.def)], ["Magia extra", `+${g.st.magic}`], ["Muertes", String(g.deaths)]] as Array<[string, string]>).map((r: [string, string]) => <div key={r[0]} style={rowS}><span>{r[0]}</span><b>{r[1]}</b></div>)}
+          {([["Nivel", String(p.level)], ["Experiencia", p.exp.toLocaleString("es-MX")], ["Para subir", Math.max(0, expFor(p.level + 1) - p.exp).toLocaleString("es-MX")], ["Vida", `${Math.round(p.hp)} / ${maxHp(g)}`], ["Maná", `${Math.round(p.mana)} / ${maxMana(g)}`], ["Ataque arma", String(weaponInfo(g).atk)], ["Armadura", String(g.st.arm)], ["Defensa", String(g.st.def)], ["Muertes", String(g.deaths)]] as Array<[string, string]>).map((r: [string, string]) => <div key={r[0]} style={rowS}><span>{r[0]}</span><b>{r[1]}</b></div>)}
           <div style={{ borderTop: `1px solid ${th.border.subtle}`, margin: "6px 0" }} />
           {SKILL_IDS.map((k: SkillId) => (
             <div key={k} style={{ marginBottom: 4 }}>
-              <div style={rowS}><span>{SKILL_NAMES[k]}</span><b>{p.sk[k].lvl}</b></div>
+              <div style={rowS}><span>{SKILL_NAMES[k]}</span><b data-sk={k}>{k === "magic" && g.st.magic > 0 ? <>{p.sk.magic.lvl + g.st.magic} <span style={{ color: th.text.success }}>(+{g.st.magic})</span></> : p.sk[k].lvl}</b></div>
               <div style={{ height: 4, background: th.border.weak, borderRadius: 2 }}><div style={{ height: 4, width: `${Math.round(skillPct(g, k) * 100)}%`, background: th.text.success, borderRadius: 2 }} /></div>
             </div>))}
         </div>}
@@ -6238,6 +6268,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
       if (L) { e.preventDefault(); if (e.code !== "Escape") { const b = cloneBinds(bindsRef.current); assignKey(b, L.act, e.code, L.mode); setBinds(b); } setListening(null); return; }
       if (e.code === "Escape" && fullRef.current && !document.fullscreenElement && !gg.shopOpen && !gg.bigMap && !(gg.cs && (gg.cs.open || gg.cs.exOpen)) && !(gg.dep && gg.dep.open) && !(gg.mt && gg.mt.open) && !(gg.nq && (gg.nq.log || gg.nq.talk)) && gg.target < 0) { e.preventDefault(); onFullRef.current(); return; }
       if ((e.code === "Enter" || e.code === "NumpadEnter" || (e.key === "/" && !actionFor(bindsRef.current, e.code))) && !e.repeat) { e.preventDefault(); gg.heldDirs = []; setCmd(""); return; }
+      if (e.ctrlKey && /^Arrow(Up|Down|Left|Right)$/.test(e.code)) { e.preventDefault(); const f: Dir = e.code === "ArrowUp" ? 0 : e.code === "ArrowRight" ? 1 : e.code === "ArrowDown" ? 2 : 3; gg.heldDirs = []; gg.walkGoal = null; gg.p.face = f; gg.turnFace = f; gg.turnAt = performance.now(); return; }
       const a = actionFor(bindsRef.current, e.code); if (!a) return;
       e.preventDefault();
       if (a === "fullscreen") { if (!e.repeat) onFullRef.current(); return; }
@@ -6357,7 +6388,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           {g.nq && g.nq.talk && <NpcDialog g={g} th={th} refresh={refresh} />}
           {g.gm && g.gm.on && g.gm.open && <GmWindow g={g} th={th} refresh={refresh} />}
           {cmd !== null && <input data-cmd="1" aria-label="Chat y comandos" autoFocus autoComplete="off" type={/^\/?gm\s/i.test(cmd) && !/^\/?gm\s+off$/i.test(cmd) ? "password" : "text"} value={cmd} placeholder="Escribe un comando… (Enter: enviar · Esc: cerrar)" onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: 8, bottom: 56, zIndex: 8, width: "min(70%, 420px)", background: th.bg.base, color: th.text.primary, border: `2px solid ${th.text.warning}`, borderRadius: 4, padding: "5px 8px", fontFamily: th.font.mono, fontSize: 13 }}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setCmd(e.target.value)} onBlur={() => setCmd(null)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") { const c = cmd.trim(); if (/^\/?gm$/i.test(c) && !gmOn(g)) { setCmd("gm "); setStatus(g, "🔑 Escribe la clave y pulsa Enter.", performance.now(), "#ffd34d"); refresh(); return; } setCmd(null); if (c) void runCmd(g, c, performance.now()).then((out: string) => { setStatus(g, out, performance.now(), out === "Clave incorrecta." ? "#ff9a5a" : "#ffd34d"); refresh(); }); } else if (e.key === "Escape") setCmd(null); }} />}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCmd(e.target.value)} onBlur={() => setCmd(null)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") { const c = cmd.trim(); if (/^\/?gm$/i.test(c) && !gmOn(g)) { setCmd("gm "); setStatus(g, "🔑 Escribe la clave y pulsa Enter.", performance.now(), "#ffd34d"); refresh(); return; } setCmd(null); if (c) void runCmd(g, c, performance.now()).then((out: string) => { if (out) setStatus(g, out, performance.now(), out === "Clave incorrecta." ? "#ff9a5a" : "#ffd34d"); refresh(); }); } else if (e.key === "Escape") setCmd(null); }} />}
           {g.mt && g.mt.open && <MountsWindow g={g} th={th} refresh={refresh} keyName={binds.mount[0] ? keyLabel(binds.mount[0]) : "—"} />}
           {g.dep && g.dep.open && <DepotWindow g={g} th={th} refresh={refresh} dnd={{ start: startDrag, used: dnd.used, tip: hoverTip }} />}
           {tip && tipLive && (() => { const cmp = compareItem(g, tip.inst); const cur = cmp && !tip.plain && cmp.verdict !== "same" ? cmp.cur : null; return (
