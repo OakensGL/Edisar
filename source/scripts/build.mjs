@@ -10,6 +10,11 @@ const PATCHES = [
     repl: "const autoIv = window.setInterval(autosave, 30000); const __unSave: () => void = ((globalThis as any).__edisarHookSave ? (globalThis as any).__edisarHookSave(autosave) : () => undefined);" },
   { name: "save on hide/close (cleanup)", find: "window.clearInterval(autoIv);", repl: "window.clearInterval(autoIv); __unSave();" },
 ];
+// v25: dist usa el arte del título a 1280 px (el lienzo lleva uno ligero de 768 px) y, si existe, la música del título.
+if (fs.existsSync(P("assets/title-art-hq.webp"))) PATCHES.push({ name: "title art HQ", find: 'const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");',
+  repl: `const TITLE_ART = "data:image/webp;base64,${fs.readFileSync(P("assets/title-art-hq.webp")).toString("base64")}";` });
+for (const [ext, mime] of [["mp3", "audio/mpeg"], ["ogg", "audio/ogg"], ["m4a", "audio/mp4"]]) if (fs.existsSync(P(`assets/title-music.${ext}`))) {
+  PATCHES.push({ name: "title music", find: 'const TITLE_MUSIC = "";', repl: `const TITLE_MUSIC = "data:${mime};base64,${fs.readFileSync(P(`assets/title-music.${ext}`)).toString("base64")}";` }); break; }
 // Test-only build (TESTHOOK=1 → dist-test/index.html): exposes the live game ref so headless tests can set up a boss phase quickly.
 const TEST = !!process.env.TESTHOOK;
 if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef;" });

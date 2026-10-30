@@ -1,0 +1,3 @@
+Título – música: "Space City" de MintoDog (CC0), https://opengameart.org/content/space-city
+Recodificada a MP3 96 kbps. Para cambiarla, sustituye assets/title-music.mp3 (o .ogg/.m4a) y vuelve a construir.
+Arte del título: assets/title-art-hq.webp (1280x720).
