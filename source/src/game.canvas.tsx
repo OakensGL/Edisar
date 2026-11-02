@@ -49,7 +49,7 @@ interface Ground { x: number; y: number; inst: Inst; until: number; boss?: boole
 interface LootToast { title: string; lines: Array<[string, string]>; note: string; at: number; }
 interface Minion extends Mover { until: number; nextAtk: number; min: number; max: number; }
 interface Game {
-  cls: ClassDef; tiles: Uint8Array; p: Player; mons: Mon[]; projs: Proj[]; floats: Floater[]; fx: AreaFx[];
+  cls: ClassDef; tiles: Uint8Array; under?: Uint8Array; p: Player; mons: Mon[]; projs: Proj[]; floats: Floater[]; fx: AreaFx[];
   fields: Field[]; ground: Ground[]; minion: Minion | null; st: Stats;
   target: number; log: string[]; status: string; statusAt: number; statusColor: string;
   heldDirs: MoveAct[]; pending: [number, number] | null; walkGoal: { x: number; y: number; open: boolean } | null;
@@ -66,6 +66,7 @@ const DIM_X0 = 4, DIM_Y0 = OW_H + 4, DIM_W = 34, DIM_H = 22; // Otra Dimensión:
 const GEM_BHP = 1.2, GEM_BATK = 1.0, GEM_KHP = 0.8, GEM_KATK = 1.1; // Saga y Kanon (sobre la curva de las Casas)
 const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 3; /* v22: era 5 (×0,6) */ const DIAG_MUL = 1.4; const BAG_MAX = 20;
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
+const LAVA = 14, SNOW = 15, WOODF = 16, STONEF = 17, BRICK = 18, WWALL = 19, BUSH = 20; // v26: tiles nuevos (sobre todo para el editor de mapas)
 const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
 const PLAYER_T = -7;
 const NPC_NAME = "Rosa la mercader";
@@ -461,14 +462,91 @@ function moveVec(held: MoveAct[]): [number, number] | null {
 }
 function expFor(L: number): number { return Math.round((50 / 3) * (L * L * L - 6 * L * L + 17 * L - 12)); }
 function levelFor(exp: number): number { let L = 1; while (L < 500 && expFor(L + 1) <= exp) L++; return L; }
-function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL; }
-function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL; }
+function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL || t === SNOW || t === WOODF || t === STONEF; }
+function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL || t === BRICK || t === WWALL; }
 function regionOf(x: number, y: number): number { if (x >= UW_X0) return UW_R0 + clamp(Math.floor(y / HH), 0, 2) * 3 + clamp(Math.floor((x - UW_X0) / HW), 0, 2); if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
 function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r >= UW_R0) { const i = r - UW_R0; return [UW_X0 + (i % 3) * HW, Math.floor(i / 3) * HH, HW, HH]; } if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
 function inRect(q: [number, number, number, number], x: number, y: number): boolean { return x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]; }
 function isSafe(x: number, y: number): boolean { return x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1; }
 
 // ===================== Mapa =====================
+// ---------- v26: catálogo de tiles (lo comparten el juego y el editor de mapas) ----------
+// spr = índices en assets/tileset.png (atlas de 8 columnas × 32 px; Dungeon Crawl Stone Soup, CC0 + madera/nieve dibujadas a mano).
+interface TileInfo { id: number; n: string; layer: "floor" | "obj"; spr: number[]; under?: number; }
+const TILE_INFO: TileInfo[] = [
+  { id: GRASS, n: "Hierba", layer: "floor", spr: [0, 1, 2] },
+  { id: PATH, n: "Tierra / camino", layer: "floor", spr: [4, 5] },
+  { id: FLOOR, n: "Empedrado (villa)", layer: "floor", spr: [6, 7] },
+  { id: STONEF, n: "Suelo de piedra", layer: "floor", spr: [20, 21] },
+  { id: WOODF, n: "Suelo de madera", layer: "floor", spr: [22, 23] },
+  { id: TEMPLE, n: "Mármol del templo", layer: "floor", spr: [8, 9] },
+  { id: MARBLE, n: "Mármol de las Casas", layer: "floor", spr: [39, 8] },
+  { id: SAND, n: "Arena", layer: "floor", spr: [10, 11] },
+  { id: CAVE, n: "Suelo de cueva", layer: "floor", spr: [16, 17] },
+  { id: SNOW, n: "Nieve", layer: "floor", spr: [18, 19] },
+  { id: WATER, n: "Agua (no se pisa)", layer: "floor", spr: [12, 13] },
+  { id: LAVA, n: "Lava (no se pisa)", layer: "floor", spr: [14, 15] },
+  { id: WALL, n: "Muro de piedra", layer: "obj", spr: [24, 25], under: STONEF },
+  { id: BRICK, n: "Muro de ladrillo", layer: "obj", spr: [26, 27], under: STONEF },
+  { id: WWALL, n: "Muro de madera", layer: "obj", spr: [32, 33], under: WOODF },
+  { id: HWALL, n: "Muro dorado (Casas)", layer: "obj", spr: [28, 29], under: MARBLE },
+  { id: ROCK, n: "Roca de cueva", layer: "obj", spr: [30, 31], under: CAVE },
+  { id: TREE, n: "Árbol", layer: "obj", spr: [34, 35], under: GRASS },
+  { id: BUSH, n: "Arbusto", layer: "obj", spr: [37, 38], under: GRASS },
+  { id: BOULDER, n: "Piedra grande", layer: "obj", spr: [36], under: SAND },
+  { id: PORTAL, n: "Portal", layer: "obj", spr: [], under: MARBLE },
+];
+const TILE_BY_ID: Array<TileInfo | undefined> = []; for (const ti of TILE_INFO) TILE_BY_ID[ti.id] = ti;
+const TILE_N = 21; const OBJ_NONE = 255;
+// ---------- v26: mapas exportados por el editor (editor.html) ----------
+// Formato JSON: { format: "edisar-map", v: 1, name, w, h, floor: RLE, obj: RLE (255 = vacío), marks: [...] }. RLE = "id" o "id*veces" separados por comas.
+interface MapMark { k: "spawn" | "npc" | "portal"; x: number; y: number; m?: string; n?: string; tx?: number; ty?: number; }
+interface EdMap { tiles: Uint8Array; under: Uint8Array; marks: MapMark[]; name: string; }
+const MAP_FILE = ""; // build.mjs mete aquí assets/map.json si existe (mapa publicado para todos)
+const MAP_LS = "edisar.map.v1"; // mapa cargado desde el panel GM (solo en este navegador)
+function rleEnc(a: ArrayLike<number>): string { const out: string[] = []; let i = 0; while (i < a.length) { const v = a[i] ?? 0; let n = 1; while (i + n < a.length && a[i + n] === v) n++; out.push(n > 1 ? `${v}*${n}` : String(v)); i += n; } return out.join(","); }
+function rleDec(str: string, len: number): Uint8Array | null {
+  const a = new Uint8Array(len); let i = 0;
+  for (const tok of str.split(",")) { if (!tok) continue; const k = tok.indexOf("*"); const v = Number(k < 0 ? tok : tok.slice(0, k)), n = k < 0 ? 1 : Number(tok.slice(k + 1)); if (!Number.isInteger(v) || v < 0 || v > 255 || !Number.isInteger(n) || n < 1 || i + n > len) return null; a.fill(v, i, i + n); i += n; }
+  return i === len ? a : null;
+}
+function parseMapFile(txt: string): EdMap | string {
+  let d: unknown; try { d = JSON.parse(txt); } catch { return "El archivo no es un JSON válido."; }
+  const o = d as { format?: unknown; w?: unknown; h?: unknown; floor?: unknown; obj?: unknown; marks?: unknown; name?: unknown } | null;
+  if (!o || o.format !== "edisar-map") return "No es un mapa de Edisar (falta format: \"edisar-map\").";
+  if (o.w !== MW || o.h !== MH) return `El mapa debe medir ${MW}×${MH} (este mide ${String(o.w)}×${String(o.h)}).`;
+  if (typeof o.floor !== "string" || typeof o.obj !== "string") return "Faltan las capas floor / obj.";
+  const fl = rleDec(o.floor, MW * MH), ob = rleDec(o.obj, MW * MH); if (!fl || !ob) return "Las capas del mapa están dañadas.";
+  const tiles = new Uint8Array(MW * MH), under = new Uint8Array(MW * MH);
+  for (let i = 0; i < tiles.length; i++) { const f = fl[i] ?? GRASS, b = ob[i] ?? OBJ_NONE; const fo = f < TILE_N ? f : GRASS; under[i] = fo; tiles[i] = b !== OBJ_NONE && b < TILE_N ? b : fo; }
+  const marks: MapMark[] = [];
+  if (Array.isArray(o.marks)) for (const raw of o.marks as unknown[]) {
+    const m = raw as Record<string, unknown> | null; if (!m || typeof m.x !== "number" || typeof m.y !== "number") continue; const k = m.k; if (k !== "spawn" && k !== "npc" && k !== "portal") continue;
+    marks.push({ k, x: m.x | 0, y: m.y | 0, m: typeof m.m === "string" ? m.m : undefined, n: typeof m.n === "string" ? m.n.slice(0, 40) : undefined, tx: typeof m.tx === "number" ? m.tx | 0 : undefined, ty: typeof m.ty === "number" ? m.ty | 0 : undefined });
+  }
+  return { tiles, under, marks, name: typeof o.name === "string" && o.name ? o.name.slice(0, 60) : "mapa sin nombre" };
+}
+let CUSTOM_MAP: EdMap | null | undefined; // undefined = aún no leído
+function customMap(): EdMap | null {
+  if (CUSTOM_MAP !== undefined) return CUSTOM_MAP; CUSTOM_MAP = null;
+  let txt: string | null = null; try { txt = typeof localStorage !== "undefined" ? localStorage.getItem(MAP_LS) : null; } catch { txt = null; }
+  for (const t of [txt, MAP_FILE]) { if (!t) continue; const r = parseMapFile(t); if (typeof r !== "string") { CUSTOM_MAP = r; break; } }
+  return CUSTOM_MAP;
+}
+function exportMapFile(tiles: Uint8Array, under: Uint8Array | null, marks: MapMark[], name: string): string {
+  const fl = new Uint8Array(MW * MH), ob = new Uint8Array(MW * MH).fill(OBJ_NONE);
+  for (let i = 0; i < fl.length; i++) { const t = tiles[i] ?? ROCK; const inf = TILE_BY_ID[t]; const u = under ? under[i] : undefined;
+    if (inf && inf.layer === "obj") { ob[i] = t; fl[i] = u !== undefined && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS); } else fl[i] = t; }
+  return JSON.stringify({ format: "edisar-map", v: 1, name, w: MW, h: MH, floor: rleEnc(fl), obj: rleEnc(ob), marks });
+}
+// Marcador «portal» del editor: al pisar el portal en (x, y) te lleva a (tx, ty).
+function markPortal(g: Game, now: number): boolean {
+  const cm = customMap(); if (!cm) return false; const p = g.p;
+  const mk = cm.marks.find((m: MapMark) => m.k === "portal" && m.x === p.x && m.y === p.y && m.tx !== undefined && m.ty !== undefined); if (!mk || mk.tx === undefined || mk.ty === undefined) return false;
+  if (!walkable(tileAt(g, mk.tx, mk.ty))) { setStatus(g, "Este portal del mapa apunta a un sitio bloqueado.", now, "#ff9a5a"); return true; }
+  g.heldDirs = []; teleport(g, mk.tx, mk.ty, now); setStatus(g, `✨ Portal: ${mk.n || `${mk.tx}, ${mk.ty}`}`, now, "#d090ff"); return true;
+}
+
 // Santuario: camino en zigzag al norte de la villa con las 12 puertas
 function buildSanctuary(m: Uint8Array): void {
   const set = (x: number, y: number, t: number): void => { if (x >= 0 && y >= 0 && x < OW_W && y < OY + 4) m[y * MW + x] = t; };
@@ -763,7 +841,7 @@ function teleport(g: Game, x: number, y: number, now: number): void {
   dropCarry(g, x, y, now);
 }
 function newGame(cls: ClassDef, name: string): Game {
-  const tiles = buildMap(); const used = new Set<number>(); const mons: Mon[] = [];
+  const cmap = customMap(); const tiles = cmap ? cmap.tiles.slice() : buildMap(); const used = new Set<number>(); const mons: Mon[] = []; // v26: mapa del editor si hay uno cargado
   const okSpot = (x: number, y: number): boolean => { if (x < 0 || y < 0 || x >= MW || y >= MH) return false; return walkable(tiles[y * MW + x] ?? ROCK) && tiles[y * MW + x] !== PORTAL && !isSafe(x, y) && !used.has(y * MW + x); };
   let id = 0;
   const all: Array<[MonId, number, number]> = [...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]): [MonId, number, number] => [s[0], s[1], s[2] + OY]);
@@ -771,6 +849,7 @@ function newGame(cls: ClassDef, name: string): Game {
   for (const s of CROQ_SPAWNS) all.push(s);
   for (const s of UW_SPAWNS) all.push(s);
   for (const s of TR_SPAWNS) all.push(s);
+  if (cmap) for (const mk of cmap.marks) if (mk.k === "spawn" && mk.m) all.push([mk.m as MonId, mk.x, mk.y]); // v26: marcadores de monstruo del editor
   for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && inCastleBlock(s[1], s[2])) all.splice(i, 1); } // nothing spawns inside the Torre de Croqui
   for (const [mid, x0, y0] of all) {
     let fx = -1, fy = -1;
@@ -783,7 +862,7 @@ function newGame(cls: ClassDef, name: string): Game {
   let uid = 1;
   for (const sid of cls.starter) { const d = ITEM[sid]; if (d) eq[d.slot] = { uid: uid++, id: sid, rar: "com" }; }
   const g: Game = {
-    cls, tiles, mons, projs: [], floats: [], fx: [], fields: [], ground: [], minion: null, st: { atk: 0, def: 0, arm: 0, magic: 0, hp: 0, mana: 0, speed: 0 },
+    cls, tiles, under: cmap ? cmap.under : undefined, mons, projs: [], floats: [], fx: [], fields: [], ground: [], minion: null, st: { atk: 0, def: 0, arm: 0, magic: 0, hp: 0, mana: 0, speed: 0 },
     p: { name, x: TEMPLE_X, y: TEMPLE_Y, fx: TEMPLE_X, fy: TEMPLE_Y, moveStart: 0, moveDur: 1, face: 2, hp: cls.hpBase, mana: cls.manaBase, level: 1, exp: 0, gold: 50, hpPot: 3, manaPot: 3,
       eq, bag: [], nextAuto: 0, nextPotion: 0, cd: [0, 0, 0, 0], gcd: 0, hitAt: -9999,
       sk: { magic: { lvl: 0, tries: 0 }, melee: { lvl: 10, tries: 0 }, dist: { lvl: 10, tries: 0 }, shield: { lvl: 10, tries: 0 } },
@@ -1175,6 +1254,7 @@ function afterMove(g: Game, now: number): void {
 }
 function houseOpen(g: Game, n: number): boolean { return n <= g.cleared + 1; }
 function usePortal(g: Game, now: number): void {
+  if (markPortal(g, now)) return;
   if (v22Portal(g, now)) return;
   if (croqPortal(g, now)) return;
   if (uwPortal(g, now)) return;
@@ -2526,7 +2606,7 @@ const CROQ_RECT: [number, number, number, number] = [CROQ_X0, CROQ_Y0, CROQ_W, C
 const CROQ_ARENA: [number, number, number, number] = [67, 116, 90, 131]; // walkable floor (x0,y0,x1,y1), lava ring around it
 const CROQ_HOME: [number, number] = [79, 123];
 const CROQ_ENTRY: [number, number] = [46, 124], CROQ_EXIT: [number, number] = [43, 124], CROQ_STELE: [number, number] = [49, 120];
-const CROQ_DOOR: [number, number] = [65, OY + 48]; // teleport inside the hall of the Torre de Croqui (croqui-castle.ts), south of Villa Esmeralda
+const CROQ_DOOR: [number, number] = [82, OY + 62]; // teleport inside the hall of the Torre de Croqui (v26: far south of Villa Esmeralda, SE desert)
 const CROQ_SPAWNS: Array<[string, number, number]> = [["croq_guard", 57, 123], ["croq_guard", 60, 125], ["croq_guard", 62, 123], ["croqui", CROQ_HOME[0], CROQ_HOME[1]]];
 function inCroq(x: number, y: number): boolean { return x >= CROQ_X0 && x < CROQ_X0 + CROQ_W && y >= CROQ_Y0 && y < CROQ_Y0 + CROQ_H; }
 function buildCroqLair(m: Uint8Array): void {
@@ -3682,16 +3762,16 @@ function drawUwOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): voi
   }
 }
 
-// ===================== Torre de Croqui: overworld entrance south of Villa Esmeralda =====================
+// ===================== Torre de Croqui: overworld entrance far south of Villa Esmeralda (v26: moved to the SE desert) =====================
 // A black, spiky Orthanc-style tower over a small gothic hall, inside a grove of dead trees on ashen ground.
 // Reuses existing tile ids (GRASS = ash ground, TREE = dead tree, WALL = black stone, FLOOR = hall, PATH, PORTAL),
 // and draws them differently inside the zone, so walkability / pathing / minimap logic need no new tile types.
-// Overworld coords (y already includes OY). Town wall ends at y = OY+40; road x = 48 stays untouched.
-const CQC_GROVE: [number, number, number, number] = [36, OY + 41, 76, OY + 55];  // x0,y0,x1,y1: both sides of the road (x 47–49 untouched), desert starts at OY+56
-const CQC_WALLS: [number, number, number, number] = [53, OY + 44, 67, OY + 52];  // hall outer walls; interior 13×7
-const CQC_TOWER: [number, number, number, number] = [58, OY + 41, 62, OY + 43];  // Orthanc footprint (north of the hall)
-const CQC_GATE: [number, number] = [53, OY + 48];
-const CQC_PILLARS: Array<[number, number]> = [[57, OY + 46], [57, OY + 50], [63, OY + 46], [63, OY + 50]];
+// Overworld coords (y already includes OY). Town wall ends at y = OY+40; v26: the castle sits ~20 tiles south of town, east of the road x = 48 (untouched), reached by a cobbled branch.
+const CQC_GROVE: [number, number, number, number] = [55, OY + 55, 91, OY + 69];  // x0,y0,x1,y1: south-east desert, east of the road (x 47–49 untouched)
+const CQC_WALLS: [number, number, number, number] = [70, OY + 58, 84, OY + 66];  // hall outer walls; interior 13×7
+const CQC_TOWER: [number, number, number, number] = [75, OY + 55, 79, OY + 57];  // Orthanc footprint (north of the hall)
+const CQC_GATE: [number, number] = [70, OY + 62];
+const CQC_PILLARS: Array<[number, number]> = [[74, OY + 60], [74, OY + 64], [80, OY + 60], [80, OY + 64]];
 const CQC_ZONE: [number, number, number, number] = [CQC_GROVE[0], CQC_TOWER[1], CQC_GROVE[2], CQC_GROVE[3]];
 function inCastleZone(x: number, y: number): boolean { return inRect(CQC_ZONE, x, y); }
 function inCastleHall(x: number, y: number): boolean { return x > CQC_WALLS[0] && x < CQC_WALLS[2] && y > CQC_WALLS[1] && y < CQC_WALLS[3]; }
@@ -3819,8 +3899,8 @@ function drawCroqCastle(ctx: CanvasRenderingContext2D, cx: number, cy: number, n
     ctx.fillStyle = "rgba(170,170,180,0.07)"; ctx.beginPath(); ctx.ellipse(fx, fy, 70, 14, 0, 0, Math.PI * 2); ctx.fill();
   }
   cqcTorch(ctx, sx(CQC_GATE[0]) + 6, sy(CQC_GATE[1] - 1) + 14, now, 1); cqcTorch(ctx, sx(CQC_GATE[0]) + 6, sy(CQC_GATE[1] + 1) + 12, now, 2);
-  for (const tx of [56, 60, 64]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[1]) + 22, now, tx);
-  for (const tx of [56, 60, 64]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[3]) + 4, now, tx + 9);
+  for (const tx of [CQC_WALLS[0] + 3, CQC_WALLS[0] + 7, CQC_WALLS[0] + 11]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[1]) + 22, now, tx);
+  for (const tx of [CQC_WALLS[0] + 3, CQC_WALLS[0] + 7, CQC_WALLS[0] + 11]) cqcTorch(ctx, sx(tx) + 16, sy(CQC_WALLS[3]) + 4, now, tx + 9);
   for (const [px, py] of CQC_PILLARS) { ctx.fillStyle = "#08080b"; ctx.beginPath(); ctx.moveTo(sx(px) + 4, sy(py) + 2); ctx.lineTo(sx(px) + 16, sy(py) - 16); ctx.lineTo(sx(px) + 28, sy(py) + 2); ctx.closePath(); ctx.fill(); }
   for (const [qx, qy] of [[CQC_WALLS[0], CQC_WALLS[1]], [CQC_WALLS[2], CQC_WALLS[1]], [CQC_WALLS[0], CQC_WALLS[3]], [CQC_WALLS[2], CQC_WALLS[3]]] as Array<[number, number]>) cqcSpire(ctx, sx(qx), sy(qy), now);
   const bx = sx((CQC_TOWER[0] + CQC_TOWER[2] + 1) / 2), by = sy(CQC_TOWER[3] + 1); cqcOrthanc(ctx, bx, by, now);
@@ -4237,11 +4317,42 @@ function update(g: Game, now: number): void {
 }
 
 // ===================== Dibujo: mundo =====================
-const TILE_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#2f6f2c", 2: "#2a5fa8", 3: "#6b6158", 4: "#8a6f4e", 5: "#cfc6b8", 6: "#4a4038", 7: "#5a4b3c", 8: "#d8c48a", 9: "#a88a5a", 10: "#d8c48a", 11: "#2a1440", 12: "#d8d2c4", 13: "#8a6a2a" };
-function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): void {
+// ---------- v26: tiles de pixel art 32×32 (atlas embebido por build.mjs; en el lienzo queda vacío y se usa el arte procedural) ----------
+const TILESET_SRC = "";
+let TSET_IMG: HTMLImageElement | null = null; let TSET_OK = false;
+function tsetReady(): boolean {
+  if (TSET_OK) return true; if (!TILESET_SRC || typeof Image === "undefined") return false;
+  if (!TSET_IMG) { const im = new Image(); im.onload = () => { TSET_OK = true; }; im.src = TILESET_SRC; TSET_IMG = im; }
+  return false;
+}
+function tsetSpr(ctx: CanvasRenderingContext2D, i: number, x: number, y: number): void { if (TSET_IMG) ctx.drawImage(TSET_IMG, (i % 8) * 32, (i >> 3) * 32, 32, 32, x, y, TS, TS); }
+function tsetFloor(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, h: number, now: number): void {
+  const spr = TILE_BY_ID[t]?.spr ?? [0];
+  if (t === GRASS) tsetSpr(ctx, h % 19 === 0 ? 3 : spr[h % spr.length] ?? 0, x, y);
+  else if (t === WATER || t === LAVA) {
+    tsetSpr(ctx, spr[(h + Math.floor(now / (t === WATER ? 900 : 700))) % spr.length] ?? 12, x, y);
+    if (t === WATER) { const o = Math.sin(now / 600 + wx * 0.7 + wy) * 3; ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.moveTo(x + 4, y + 12 + o); ctx.lineTo(x + 14, y + 10 + o); ctx.moveTo(x + 16, y + 24 - o); ctx.lineTo(x + 28, y + 22 - o); ctx.stroke(); }
+    else { ctx.globalAlpha = 0.12 + 0.1 * Math.sin(now / 300 + h); ctx.fillStyle = "#ffcc40"; ctx.fillRect(x, y, TS, TS); ctx.globalAlpha = 1; }
+  } else tsetSpr(ctx, spr[h % spr.length] ?? 0, x, y);
+  if (t === MARBLE) { const H = HOUSES[regionOf(wx, wy) - 1]; if (H) { ctx.globalAlpha = 0.22; ctx.fillStyle = H.tint; ctx.fillRect(x, y, TS, TS); ctx.globalAlpha = 1; } }
+}
+function drawTset(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number, u: number): boolean {
+  if (!tsetReady()) return false; const inf = TILE_BY_ID[t]; if (!inf || t === PORTAL) return false;
+  const h = hash(wx, wy);
+  if (inf.layer === "floor") { tsetFloor(ctx, t, x, y, wx, wy, h, now); return true; }
+  if (t === TREE || t === BUSH || t === BOULDER) { // objeto sobre su suelo (el del mapa del editor, o hierba / arena)
+    const fu = u >= 0 && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS); tsetFloor(ctx, fu, x, y, wx, wy, hash(wx + 7, wy), now);
+  }
+  tsetSpr(ctx, inf.spr[h % inf.spr.length] ?? 0, x, y);
+  if (t === HWALL) { ctx.fillStyle = "rgba(255,240,180,0.22)"; ctx.fillRect(x, y, TS, 2); }
+  return true;
+}
+const TILE_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#2f6f2c", 2: "#2a5fa8", 3: "#6b6158", 4: "#8a6f4e", 5: "#cfc6b8", 6: "#4a4038", 7: "#5a4b3c", 8: "#d8c48a", 9: "#a88a5a", 10: "#d8c48a", 11: "#2a1440", 12: "#d8d2c4", 13: "#8a6a2a", 14: "#c8421a", 15: "#e6ecf8", 16: "#7a5230", 17: "#6e6e72", 18: "#9a5a30", 19: "#6a4424", 20: "#3f8f3a" };
+function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number, u = -1): void {
   if (drawCroqTile(ctx, t, x, y, wx, wy, now)) return;
   if (wx >= UW_X0 && drawUwTile(ctx, t, x, y, wx, wy, now)) return;
   if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
+  if (drawTset(ctx, t, x, y, wx, wy, now, u)) return;
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
   if (t === GRASS || t === TREE) {
@@ -4276,6 +4387,14 @@ function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number
   } else if (t === HWALL) {
     ctx.fillStyle = "#b8963a"; for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) ctx.fillRect(x + c * 16 + (r % 2) * 8 - 6, y + r * 8 + 1, 14, 6);
     ctx.fillStyle = "rgba(255,240,180,0.25)"; ctx.fillRect(x, y, TS, 2);
+  } else if (t === BRICK || t === WWALL) {
+    ctx.fillStyle = t === BRICK ? "#b8703c" : "#8a5c34"; if (t === BRICK) { for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) ctx.fillRect(x + c * 16 + (r % 2) * 8 - 6, y + r * 8 + 1, 14, 6); } else for (let c = 0; c < 4; c++) ctx.fillRect(x + c * 8 + 1, y, 6, TS);
+  } else if (t === BUSH) {
+    ctx.fillStyle = "#2f7a2e"; ctx.beginPath(); ctx.arc(x + 11, y + 19, 8, 0, Math.PI * 2); ctx.arc(x + 21, y + 18, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#4caa44"; ctx.beginPath(); ctx.arc(x + 15, y + 14, 6, 0, Math.PI * 2); ctx.fill();
+  } else if (t === LAVA) {
+    ctx.fillStyle = `rgba(255,${180 + Math.floor(Math.sin(now / 300 + h) * 40)},60,0.5)`; ctx.fillRect(x + (h % 20), y + ((h >> 4) % 20), 10, 6);
+  } else if (t === WOODF || t === STONEF || t === SNOW) {
+    ctx.strokeStyle = "rgba(0,0,0,0.15)"; if (t === WOODF) for (let k = 0; k < 4; k++) ctx.strokeRect(x + 0.5, y + k * 8 + 0.5, TS - 1, 8); else ctx.strokeRect(x + 0.5, y + 0.5, TS - 1, TS - 1);
   } else if (t === PORTAL) {
     const gr = ctx.createRadialGradient(x + 16, y + 16, 1, x + 16, y + 16, 16); gr.addColorStop(0, "#fff0ff"); gr.addColorStop(0.4, "#b070ff"); gr.addColorStop(1, "#2a1440");
     ctx.fillStyle = gr; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4);
@@ -4834,7 +4953,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   BAR_X = Math.max(84, Math.round((Math.min(VW - HUD_RES, viewW(g)) - BAR_W) / 2)); // barra centrada en la parte visible
   ctx.fillStyle = "#000"; ctx.fillRect(0, 0, VW, VH);
   const tx0 = Math.floor(cx / TS), ty0 = Math.floor(cy / TS);
-  for (let ty = ty0; ty <= ty0 + VH_T; ty++) for (let tx = tx0; tx <= tx0 + VW_T; tx++) drawTile(ctx, tileAt(g, tx, ty), tx * TS - cx, ty * TS - cy, tx, ty, now);
+  for (let ty = ty0; ty <= ty0 + VH_T; ty++) for (let tx = tx0; tx <= tx0 + VW_T; tx++) drawTile(ctx, tileAt(g, tx, ty), tx * TS - cx, ty * TS - cy, tx, ty, now, g.under && tx >= 0 && tx < MW ? (g.under[ty * MW + tx] ?? -1) : -1);
   drawCroqCastle(ctx, cx, cy, now, p.x, p.y);
   const vis = (x: number, y: number): boolean => x * TS - cx > -TS * 2 && x * TS - cx < VW + TS && y * TS - cy > -TS * 2 && y * TS - cy < VH + TS;
   for (const f of g.fields) if (vis(f.x, f.y)) { const x = f.x * TS - cx, y = f.y * TS - cy; const fl = Math.sin(now / 90 + f.x * 3 + f.y) * 3; ctx.fillStyle = "rgba(255,120,20,0.45)"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "rgba(255,220,80,0.7)"; ctx.beginPath(); ctx.moveTo(x + 8, y + 26); ctx.lineTo(x + 16, y + 6 + fl); ctx.lineTo(x + 24, y + 26); ctx.fill(); }
@@ -4935,7 +5054,7 @@ function drawTemple(ctx: CanvasRenderingContext2D, x: number, y: number, s: numb
 }
 
 // @@MINI
-const MINI_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#1f5a22", 2: "#2a5fa8", 3: "#8a8078", 4: "#a88a5e", 5: "#e8e0d0", 6: "#3a322c", 7: "#6a5a48", 8: "#d8c48a", 9: "#c0a070", 10: "#8a7c6a", 11: "#d090ff", 12: "#e8e2d4", 13: "#6a4e1a" };
+const MINI_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#1f5a22", 2: "#2a5fa8", 3: "#8a8078", 4: "#a88a5e", 5: "#e8e0d0", 6: "#3a322c", 7: "#6a5a48", 8: "#d8c48a", 9: "#c0a070", 10: "#8a7c6a", 11: "#d090ff", 12: "#e8e2d4", 13: "#6a4e1a", 14: "#e0501a", 15: "#f0f4ff", 16: "#9a6a3e", 17: "#8a8a90", 18: "#a0603a", 19: "#5a3a1e", 20: "#2f7a2e" };
 const MINI_PX = 2; const MINI_SIZE = 208;
 let MINI_CACHE: HTMLCanvasElement | null = null;
 function buildMini(tiles: Uint8Array): HTMLCanvasElement | null {
@@ -5174,6 +5293,33 @@ function miniTile(g: Game, mx: number, my: number, size: number): [number, numbe
   return x >= rx && y >= ry && x < rx + rw && y < ry + rh ? [x, y] : null;
 }
 function mapRect(g: Game): [number, number, number, number] { return inTr(g.p.x, g.p.y) ? TR_RECT : regionRect(regionOf(g.p.x, g.p.y)); }
+// ---------- v26: mapas del editor desde el Modo GM ----------
+function gmApplyMap(g: Game, cm: EdMap | null, now: number): void {
+  CUSTOM_MAP = cm; MINI_CACHE = null;
+  g.tiles = cm ? cm.tiles.slice() : buildMap(); g.under = cm ? cm.under : undefined;
+  const p = g.p; if (!walkable(tileAt(g, p.x, p.y))) teleport(g, TEMPLE_X, TEMPLE_Y, now);
+}
+function gmLoadMapText(g: Game, txt: string, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const r = parseMapFile(txt); if (typeof r === "string") return gmMsg(g, `❌ ${r}`, true);
+  let saved = true; try { localStorage.setItem(MAP_LS, txt); } catch { saved = false; }
+  gmApplyMap(g, r, now); const ns = r.marks.filter((m: MapMark) => m.k === "spawn").length;
+  setStatus(g, `🗺 Mapa «${r.name}» cargado.`, now, "#ffd34d");
+  return gmMsg(g, `🗺 Mapa «${r.name}» cargado${saved ? " y guardado en este navegador" : " (solo esta sesión: no cupo en el navegador)"}. ${ns} marcador(es) de monstruo: aparecen al volver a entrar con el personaje.`);
+}
+function gmResetMap(g: Game, now: number): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  try { localStorage.removeItem(MAP_LS); } catch { /* sin almacenamiento */ }
+  CUSTOM_MAP = undefined; const cm = customMap(); gmApplyMap(g, cm, now);
+  return gmMsg(g, cm ? `↺ Quitado tu mapa: vuelve el mapa publicado «${cm.name}».` : "↺ Vuelve el mapa original del juego.");
+}
+function gmExportMap(g: Game): boolean {
+  if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
+  const cm = CUSTOM_MAP ?? null; const txt = exportMapFile(g.tiles, g.under ?? null, cm ? cm.marks : [], cm ? cm.name : "Mapa de Edisar");
+  try { const url = URL.createObjectURL(new Blob([txt], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = "edisar-mapa.json"; document.body.appendChild(a); a.click(); a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 4000); }
+  catch { return gmMsg(g, "No se pudo descargar el archivo.", true); }
+  return gmMsg(g, `💾 Mapa exportado (edisar-mapa.json, ${Math.round(txt.length / 1024)} KB). Ábrelo en editor.html.`);
+}
 // ---------- Modo GM (herramienta de prueba) ----------
 interface GmState { on: boolean; open: boolean; god: boolean; inv: boolean; msg: string; bad: boolean; }
 interface Game { gm?: GmState; }
@@ -5490,7 +5636,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v25 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v26 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
@@ -5892,6 +6038,13 @@ function GmWindow(props: { g: Game; th: Theme; refresh: () => void }) {
           <button data-gmtp="1" style={gbtn(true)} onClick={() => act(() => { gmTeleport(g, place, performance.now()); })}>Ir</button></div>
         <div style={row}>x <input data-gmx="1" aria-label="x" value={tx} inputMode="numeric" style={{ ...inp, width: 50 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setTx(e.target.value)} /> y <input data-gmy="1" aria-label="y" value={ty} inputMode="numeric" style={{ ...inp, width: 50 }} onChange={(e: ChangeEvent<HTMLInputElement>) => setTy(e.target.value)} />
           <button data-gmtpxy="1" style={gbtn(false)} onClick={() => act(() => { gmTeleportXY(g, tx, ty, performance.now()); })}>Ir a x, y</button><span style={{ fontSize: 10, color: th.text.secondary }}>Estás en {g.p.x}, {g.p.y}</span></div>
+      </div>
+      <div style={sec}><b>Mapa (editor de mapas)</b>
+        <div style={row}>
+          <label data-gmmapload="1" style={{ ...gbtn(true), display: "inline-block" }}>📂 Cargar mapa…<input data-gmmapfile="1" type="file" accept=".json,application/json" style={{ display: "none" }} onChange={(e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files ? e.target.files[0] : undefined; e.target.value = ""; if (!f) return; void f.text().then((txt: string) => act(() => { gmLoadMapText(g, txt, performance.now()); })); }} /></label>
+          <button data-gmmapexp="1" style={gbtn(false)} onClick={() => act(() => { gmExportMap(g); })}>💾 Exportar mapa</button>
+          <button data-gmmapreset="1" style={gbtn(false)} onClick={() => act(() => { gmResetMap(g, performance.now()); })}>↺ Restaurar mapa</button></div>
+        <span data-gmmapname="1" style={{ fontSize: 10, color: th.text.secondary }}>{CUSTOM_MAP ? `Usando: ${CUSTOM_MAP.name}` : "Usando el mapa original."} Los mapas se crean en editor.html (mismo sitio que el juego).</span>
       </div>
       <div style={sec}><b>Personaje</b>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 4 }}>

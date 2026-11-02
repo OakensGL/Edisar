@@ -47,11 +47,11 @@ const t = await ev(() => {
   const art = [...document.querySelectorAll("[role=img]")].find((e) => getComputedStyle(e).backgroundImage.includes("data:image/webp")); const a = art.getBoundingClientRect(); const b = document.querySelector("[data-create]").getBoundingClientRect();
   const au = document.querySelector("[data-title-music]"); const mute = document.querySelector("[data-mute]");
   return { red, inFrame: b.left > a.left + a.width * 0.29 && b.right < a.left + a.width * 0.71 && b.top > a.top + a.height * 0.72 && b.bottom < a.top + a.height * 0.92,
-    src: au ? (au.getAttribute("src") || "").slice(0, 15) : "none", loop: !!au && au.loop, mute: !!mute && getComputedStyle(mute).display !== "none", ver: document.body.innerText.includes("Versión v25") };
+    src: au ? (au.getAttribute("src") || "").slice(0, 15) : "none", loop: !!au && au.loop, mute: !!mute && getComputedStyle(mute).display !== "none", ver: /Versión v2[5-9]/.test(document.body.innerText) };
 });
 check("retrato de la lista: lleva el atuendo guardado (Túnica carmesí), no el de la vocación", t.red > 20, `píxeles carmesí ${t.red}`);
 check("el menú (Crear personaje) está dentro del marco dorado del arte", t.inFrame);
-check("texto de versión v25 en el título", t.ver);
+check("texto de versión (v25+) en el título", t.ver);
 check("música del título: <audio> en bucle con la pista y botón de silencio visible", t.src.startsWith("data:audio/") && t.loop && t.mute, t.src);
 await page.click('[data-chars]'); await sleep(600);
 const playing = await ev(() => { const a = document.querySelector("[data-title-music]"); return !!a && !a.paused; });

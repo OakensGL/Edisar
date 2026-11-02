@@ -32,16 +32,16 @@ await page.reload(); await sleep(600); await cont(); await sleep(1500);
 const croq = () => ev(() => { const g = globalThis.__edisarG.current; const m = (g.byRegion[13] || []).find((x) => x.def.id === "croqui"); return m ? { hp: m.hp, max: m.def.hp, atk: m.def.atk, alive: m.alive, x: m.x, y: m.y } : null; });
 const c0 = await croq(); check("Croqui spawned in region 13", !!c0 && c0.alive, JSON.stringify(c0));
 check("v2 balance: solo HP ≥ 1.3M (v1 795k) and atk ≥ 2× Saga (v1 1.7×)", !!c0 && c0.max >= 1300000 && c0.atk >= 700, `${c0 && c0.max} PV · atk ${c0 && c0.atk}`);
-// --- Torre de Croqui (overworld, south of Villa Esmeralda) ---
-const OYv = 32, DOOR = [65, OYv + 48], GATE = [53, OYv + 48];
+// --- Torre de Croqui (overworld, v26: far south of Villa Esmeralda, SE desert) ---
+const OYv = 32, DOOR = [82, OYv + 62], GATE = [70, OYv + 62];
 const map = await ev(([door, gate]) => { const g = globalThis.__edisarG.current; const W = g.tiles.length / 144, T = g.tiles; const walk = new Set([0, 4, 5, 7, 8, 9, 11, 12]);
   const bfs = (sx, sy) => { const seen = new Uint8Array(W * 144); const q = [[sx, sy]]; seen[sy * W + sx] = 1; while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= 96 || ny >= 104) continue; const k = ny * W + nx; if (seen[k] || !walk.has(T[k])) continue; seen[k] = 1; if (T[k] !== 11 || (nx === door[0] && ny === door[1])) q.push([nx, ny]); } } return seen; };
   const seen = bfs(44, 63); // temple of Villa Esmeralda
   let road = true; for (let y = 73; y <= 101; y++) if (T[y * W + 48] !== 9) road = false;
   let branch = true; for (let x = 49; x < gate[0]; x++) if (T[gate[1] * W + x] !== 9) branch = false;
-  const inBlock = (x, y) => x >= 53 && x <= 67 && y >= 73 && y <= 84;
+  const inBlock = (x, y) => x >= 70 && x <= 84 && y >= 87 && y <= 98;
   return { reach: !!seen[door[1] * W + door[0]], gateOpen: !!seen[gate[1] * W + gate[0]], road, branch, door: T[door[1] * W + door[0]], desert: T[96 * W + 84],
-    monsIn: g.mons.filter((m) => m.alive && inBlock(m.x, m.y)).map((m) => m.def.id), trees: (() => { let n = 0; for (let y = 73; y <= 87; y++) for (let x = 36; x <= 76; x++) if (T[y * W + x] === 1) n++; return n; })() };
+    monsIn: g.mons.filter((m) => m.alive && inBlock(m.x, m.y)).map((m) => m.def.id), trees: (() => { let n = 0; for (let y = 87; y <= 101; y++) for (let x = 55; x <= 91; x++) if (T[y * W + x] === 1) n++; return n; })() };
 }, [DOOR, GATE]);
 check("road from town (x 48) intact, cobbled branch to the castle gate", map.road && map.branch);
 check("walkable path: temple → gate → hall teleport", map.reach && map.gateOpen);
@@ -50,14 +50,14 @@ check("desert portal removed", map.desert !== 11, `tile ${map.desert}`);
 check("dead-tree grove around the castle", map.trees >= 120, `${map.trees} dead trees`);
 check("nothing spawns inside the castle", map.monsIn.length === 0, map.monsIn.join(","));
 const put = (x, y) => ev(([x, y]) => { const g = globalThis.__edisarG.current; const p = g.p; p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = 0; g.walkGoal = null; }, [x, y]);
-await put(49, OYv + 50); await sleep(900); await shot("croqui-tower.png"); // the tower from the grove, next to the town road
-await put(48, 73); await sleep(400);
+await put(66, OYv + 63); await sleep(900); await shot("croqui-tower.png"); // the tower from the grove (v26: SE desert)
+await put(48, 90); await sleep(400);
 const walkTo = (x, y) => ev(([x, y]) => { const g = globalThis.__edisarG.current; g.walkGoal = { x, y, open: false }; g.chase = false; }, [x, y]);
 await walkTo(GATE[0] + 1, GATE[1]); let t9 = Date.now(), atGate = false;
 while (!atGate && Date.now() - t9 < 20000) { await sleep(200); atGate = await ev(([x, y]) => { const p = globalThis.__edisarG.current.p; return p.x === x && p.y === y; }, [GATE[0] + 1, GATE[1]]); }
 check("the player walks from the town road through the gate into the hall", atGate, await zone());
 check("hall zone name", /Torre de Croqui/.test(await zone()), await zone());
-await put(60, OYv + 48); await sleep(700); await shot("croqui-hall.png"); // inside the hall: pillars, carpet, teleport
+await put(77, OYv + 62); await sleep(700); await shot("croqui-hall.png"); // inside the hall: pillars, carpet, teleport
 const at = () => ev(() => [globalThis.__edisarG.current.p.x, globalThis.__edisarG.current.p.y]);
 const inLair = async () => { const [x, y] = await at(); return y >= 104 && x >= 40; };
 await ev(([x, y]) => { const g = globalThis.__edisarG.current; const p = g.p; p.x = x; p.y = y; p.fx = x; p.fy = y; p.moveStart = 0; g.walkGoal = null; }, [DOOR[0] - 1, DOOR[1]]); await sleep(300);

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edisar · Editor de mapas</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b0b0e;color:#eee;font:13px -apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif;color-scheme:dark}
+#app{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr auto;height:100%}
+header{grid-column:1/3;display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px;background:linear-gradient(#2a2016,#17120c);border-bottom:2px solid #b8963a}
+header h1{font:700 16px Georgia,serif;color:#ffd34d;margin:0 10px 0 0;letter-spacing:.5px}
+button,select,input{background:#1d1a16;color:#eee;border:1px solid #6a5a3a;border-radius:4px;padding:4px 8px;font:inherit}
+button{cursor:pointer}button:hover{border-color:#ffd34d}button.on{background:#5a4618;border-color:#ffd34d;color:#fff}
+aside{overflow:auto;padding:8px;background:#141210;border-right:1px solid #3a3020;display:flex;flex-direction:column;gap:10px}
+aside h2{font:700 12px Georgia,serif;color:#ffd34d;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px}
+.row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}.pal{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px;font-size:10px;line-height:1.1;text-align:center}.tile canvas{width:40px;height:40px;image-rendering:pixelated}
+main{position:relative;overflow:hidden}#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#ov{width:100%;image-rendering:pixelated;border:1px solid #3a3020;cursor:pointer}
+footer{grid-column:1/3;display:flex;gap:12px;padding:4px 10px;background:#141210;border-top:1px solid #3a3020;font-size:12px}#info{flex:1;color:#cfc6b8}#status{color:#7dffb0}#saved{color:#aaa}
+.hint{font-size:11px;color:#a89a80;line-height:1.35}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+</style></head><body><div id="app">
+<header><h1>🗺 Editor de mapas de Edisar</h1>
+<button id="new" title="Empezar desde el mapa actual del juego">Mapa del juego</button><button id="import">📂 Importar JSON</button><button id="export">💾 Exportar JSON</button><input id="file" type="file" accept=".json,application/json" hidden>
+<span style="width:8px"></span><button id="undo" title="Ctrl+Z">↶ Deshacer</button><button id="redo" title="Ctrl+Y">↷ Rehacer</button>
+<span style="width:8px"></span><button id="zout">−</button><span id="zoomv">100%</span><button id="zin">+</button>
+<select id="zone" title="Ir a una zona"><option value="">Ir a zona…</option></select>
+<label>Nombre <input id="mapname" style="width:160px"></label><span id="ver" style="margin-left:auto;color:#a89a80;font-size:11px"></span></header>
+<aside>
+<div><h2>Herramientas</h2><div class="row"><button data-tool="brush" title="B">🖌 Pincel</button><button data-tool="erase" title="E">🧽 Borrar</button><button data-tool="fill" title="F">🪣 Rellenar</button><button data-tool="pick" title="I">💧 Cuentagotas</button><button data-tool="pan" title="H">✋ Mover</button></div>
+<div class="row" style="margin-top:4px">Pincel: <button data-brush="1" class="on">1</button><button data-brush="2">2</button><button data-brush="3">3</button><button data-brush="5">5</button></div>
+<div class="hint" style="margin-top:4px">Capa activa: <b id="layer">Suelo</b>. Borrar en «Suelo» pone hierba; en «Muros y objetos» deja la casilla vacía (se ve el suelo).</div></div>
+<div><h2>Suelos</h2><div id="pal-floor" class="pal"></div></div>
+<div><h2>Muros y objetos</h2><div id="pal-obj" class="pal"></div></div>
+<div><h2>Marcadores</h2><div class="row"><button data-mark="spawn"><span class="dot" style="background:#ff4a4a"></span>Monstruo</button><button data-mark="npc"><span class="dot" style="background:#4aa8ff"></span>NPC</button><button data-mark="portal"><span class="dot" style="background:#d070ff"></span>Portal</button></div>
+<div class="row" style="margin-top:4px">Monstruo <select id="mon" style="flex:1;min-width:0"></select></div>
+<div class="row" style="margin-top:4px">NPC <input id="npcname" placeholder="Nombre" style="flex:1;min-width:0"></div>
+<div class="row" style="margin-top:4px">Portal a x <input id="ptx" style="width:52px"> y <input id="pty" style="width:52px"> <input id="pname" placeholder="Nombre (opcional)" style="flex:1;min-width:80px"></div>
+<div class="row" style="margin-top:4px"><button id="clearmarks">Borrar todos los marcadores</button></div>
+<div class="hint">En el juego: los monstruos aparecen al entrar con el personaje; el portal pone una casilla de portal que te lleva a x, y. Los NPC se guardan en el archivo pero el juego aún no los crea. Puntos naranjas = monstruos del mapa original (solo referencia).</div></div>
+<div><h2>Ver</h2><div class="row"><label><input type="checkbox" data-view="floor" checked> Suelo</label><label><input type="checkbox" data-view="obj" checked> Objetos</label><label><input type="checkbox" data-view="marks" checked> Marcadores</label><label><input type="checkbox" data-view="ref" checked> Monstruos originales</label><label><input type="checkbox" data-view="grid"> Cuadrícula (G)</label></div></div>
+<div><h2>Vista general</h2><canvas id="ov"></canvas></div>
+<div class="hint">Rueda: zoom · clic derecho / rueda pulsada / espacio + arrastrar: mover · flechas: desplazar. Todo se guarda solo en este navegador. Para usar el mapa en el juego: «Exportar JSON» y luego, en el juego, Modo GM → «Cargar mapa…».</div>
+</aside>
+<main><canvas id="cv"></canvas></main>
+<footer><span id="info"></span><span id="status"></span><span id="saved"></span></footer>
+</div>
+<!--DATA--><!--SCRIPT--></body></html>

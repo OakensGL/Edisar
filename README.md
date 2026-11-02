@@ -14,6 +14,6 @@ Incluye una tienda de prueba de Edisar Coins, un cambista, un filtro de rareza p
 cd source && npm ci && ./build.sh
 ```
 
-Eso genera `source/dist/index.html`. Copia ese archivo a `index.html` en la raíz del repositorio: es el que publica GitHub Pages.
+Eso genera `source/dist/index.html` y `source/dist/editor.html`. Copia ambos a la raíz del repositorio (`index.html` y `editor.html`): son los que publica GitHub Pages.
 
 El código del juego y el pipeline de compilación están en [`source/`](source/).

@@ -1,3 +1,13 @@
 Título – música: "Space City" de MintoDog (CC0), https://opengameart.org/content/space-city
 Recodificada a MP3 96 kbps. Para cambiarla, sustituye assets/title-music.mp3 (o .ogg/.m4a) y vuelve a construir.
 Arte del título: assets/title-art-hq.webp (1280x720).
+
+Tiles del mapa (v26): assets/tileset.png (atlas 8×5 de 32×32 px), generado con scripts/make-tileset.py.
+  - "Dungeon Crawl 32x32 tiles" (Dungeon Crawl Stone Soup, paquete Full) — CC0 / dominio público.
+    https://opengameart.org/content/dungeon-crawl-32x32-tiles  (LICENSE.txt del paquete: CC0 1.0)
+    Usados: dungeon/floor (grass_*_new, dirt_*_new, cobble_blood_*_new, white_marble_*, sand_*, lava_*,
+    pebble_brown_*_new, rect_gray_*_new), dungeon/water (deep_water*), dungeon/wall (stone_brick_*,
+    brick_brown_*, sandstone_wall_*, lab-rock_*), dungeon/trees (tree_*_yellow, recoloreados a verde),
+    dungeon/boulder.png (desaturado), monster/fungi_plants (bush_2, bush_3). Algunos con brillo/color retocado.
+  - Suelo y muro de madera y nieve: dibujados por código en scripts/make-tileset.py (propios, CC0).
+  No se usa ningún sprite de Tibia.
