@@ -94,7 +94,7 @@ class FinalOpening {
     this.popGame = { ship: null, asteroids: [], bullets: [], _pops: {} };
   }
   once(k) { if (this.ev[k]) return false; return (this.ev[k] = true); }
-  finish() { if (this.over) return; this.over = true; SL.Audio.setMusicVolume(1); this.onDone(); }
+  finish() { if (this.over) return; this.over = true; this.onDone(); }   // v0.5.1: music comes back only in beginFinalFight (new track, full volume)
   update(dt) {
     if (this.sub) { this.sub.update(dt); return; }
     const I = SL.Input, downs = I.takeDowns();
@@ -108,7 +108,7 @@ class FinalOpening {
       if (T > 6.6 && T < 7.2 && Math.random() < 0.15) { this.flash = Math.max(this.flash, 0.15); }       // crackle in the clouds
       if (T >= 6.7 && this.once('warn')) SL.Audio.sfx.warn();
       if (T >= 7.2 && this.once('strike')) {
-        this.bolt = 0; this.flash = 1; this.shakeAmt = 20; SL.Audio.sfx.thunder(); SL.Audio.sfx.zap(); SL.Audio.setMusicVolume(0.04); this.slow = 0.3;
+        this.bolt = 0; this.flash = 1; this.shakeAmt = 20; SL.Audio.sfx.thunder(); SL.Audio.sfx.zap(); SL.Audio.setMusicVolume(0); this.slow = 0.3;   // v0.5.1: total music silence from here until the fight starts
       }
       if (this.bolt >= 0) this.bolt += dt;
       if (T >= 7.4 && this.once('boom')) {
@@ -117,7 +117,6 @@ class FinalOpening {
         this.fx.ring(x, y, '255,120,230', 140, 0.9); this.fx.ring(x, y, '255,255,255', 70, 0.5);
       }
       if (T >= 9.6) this.slow = Math.min(1, this.slow + dt * 0.8);
-      if (T >= 9.4) SL.Audio.setMusicVolume(Math.min(1, 0.04 + (T - 9.4) / 1.4));
       if (T >= 10.8) { this.sub = new SL.Cutscene('finalNebula', () => { const sk = this.sub.skipped; this.sub = null; if (sk) return this.finish(); this.step = 'edisar'; SL.Input.takeDowns(); }); }
     } else {
       const T = (this.T2 += dt);

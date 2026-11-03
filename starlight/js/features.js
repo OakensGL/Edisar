@@ -137,7 +137,7 @@ const F = SL.Features = {
     g.blasts = g.blasts.filter(bl => bl.t < bl.dur + 0.25);
     // Avrill
     if (A.phase === 'idle') {
-      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + AC.perSecond * dt); if (A.energy >= AC.max) { A.ready = true; g.popup(F.assistName(g) + ' READY!', 512, 300, AC.color); SL.Audio.sfx.ready(); } }
+      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + (g.final && AC.finalPerSecond ? AC.finalPerSecond : AC.perSecond) * dt); if (A.energy >= AC.max) { A.ready = true; g.popup(F.assistName(g) + ' READY!', 512, 300, AC.color); SL.Audio.sfx.ready(); } }
     } else {
       if (g.assistKind === 'nebula') return F.updateNebulaAssist(g, dt);   // v0.5.0 final level
       A.t += dt; const t = A.t, T1 = 1.0, T2 = T1 + AC.sweepTime;

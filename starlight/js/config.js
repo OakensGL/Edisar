@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.5.0';
+SL.VERSION = '0.5.1';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -52,7 +52,7 @@ SL.CONFIG = {
   powerUps: { duration: 10, tripleSpread: 0.2, rapidMul: 0.5, laserRate: 0.09, laserSpeed: 1400 },
   bombs: { max: 3, start: 1, speed: 520, fuse: 0.55, radius: 240, blastTime: 0.5, fullInvBonus: 250 },
   assist: {
-    max: 100, perSecond: 0.6, perKill: 0.8, comboBonus: 0.3,   // ~1 assist per minute of decent play
+    max: 100, perSecond: 0.6, finalPerSecond: 3.6,   /* v0.5.1: level 30 Nebula meter fills on its own in ~28 s */ perKill: 0.8, comboBonus: 0.3,   // ~1 assist per minute of decent play
     sweepTime: 5, fireRate: 0.09, clearHold: 1.2,
     line: 'OAKENS, HERE TO ASSIST!', pilot: 'AVRILL', color: '255,80,220',
     portrait: [150, 292, 170, 170],   // crop (source px of assets/title.jpg) for Avrill's face
