@@ -24,6 +24,7 @@ if (MAP_JSON) PATCHES.push({ name: "published map", find: 'const MAP_FILE = "";'
 const TEST = !!process.env.TESTHOOK;
 if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef; (globalThis as any).__edisarView = () => [VW, VH];" });
 if (TEST) PATCHES.push({ name: "test hook: npcs", find: "function placeNpcs(tiles: Uint8Array): void {", repl: "(globalThis as any).__edisarNpcs = () => [[\"Rosa\", NPC_X, NPC_Y], [\"Darío\", DARIO_X, DARIO_Y], [\"Depósito\", DEPOT_X, DEPOT_Y], [\"Tomás\", STABLE_X, STABLE_Y], ...QNPCS.map((q: QNpc) => [q.name, q.x, q.y])];\nfunction placeNpcs(tiles: Uint8Array): void {" });
+if (TEST) PATCHES.push({ name: "test hook: hero outfits", find: "function drawHero(ctx: CanvasRenderingContext2D,", repl: "(globalThis as any).__edisarHero = (...a: any[]) => (drawHero as any)(...a);\nfunction drawHero(ctx: CanvasRenderingContext2D," });
 if (TEST) PATCHES.push({ name: "test hook: sprite top", find: "const MON_TOP = new Map<string, number>();", repl: "const MON_TOP = new Map<string, number>(); (globalThis as any).__edisarMonTop = (m: Mon) => monSprTop(m);" });
 const patchPlugin = { name: "edisar-patch", setup(b) {
   b.onLoad({ filter: /game\.canvas\.tsx$/ }, (args) => {

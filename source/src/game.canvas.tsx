@@ -1860,7 +1860,7 @@ let DARIO_X = 51, DARIO_Y = 36 + OY; const DARIO_NAME = "Cambista Darío";
 const COIN_HOUSE = 5, COIN_TEST = 100; const PREM_DAYS = 30, PREM_EXP = 0.1, XP_BOOST = 0.5, XP_BOOST_MS = 3600000, XP_BOOST_MAX = 5 * 3600000;
 const BAG_STEP = 6, BAG_BUYS = 2, BAG_CAP = 20 + BAG_STEP * BAG_BUYS;
 type CoinCat = "cosmetic" | "mount" | "premium" | "util";
-interface Outfit { id: string; n: string; robe: string; trim: string; price: number; }
+interface Outfit { id: string; n: string; robe: string; trim: string; price: number; art?: HeroArt; } // v28: art = atuendo de héroe con sprite propio (drawHero)
 interface Aura { id: string; n: string; c: [number, number, number]; price: number; }
 interface NameCol { id: string; n: string; c: string; price: number; }
 type MountKind = "donkey" | "horse" | "wolf" | "dragon" | "boar" | "bull" | "lion" | "pegasus";
@@ -1874,6 +1874,13 @@ const OUTFITS: Outfit[] = [
   { id: "o_sombra", n: "Vestidura de sombra", robe: "#24182e", trim: "#c07bff", price: 60 },
   { id: "o_dorado", n: "Atavío dorado", robe: "#b8862a", trim: "#fff0a8", price: 90 },
   { id: "o_nubes", n: "Túnica de Nubes Rojas", robe: CLOUD_ROBE, trim: "#d01828", price: 90 },
+  // v28: atuendos de héroe (sprite completo propio, 4 direcciones + paso); el de Minato sigue siendo solo del GM
+  { id: "o_gojo", n: "Hechicero del vendaje (Satoru Gojo)", robe: "#1b2340", trim: "#f4f6fa", price: 200, art: "gojo" },
+  { id: "o_itachi", n: "Capa de nubes rojas (Itachi Uchiha)", robe: "#15131b", trim: "#c8182a", price: 200, art: "itachi" },
+  { id: "o_rengoku", n: "Pilar de la Llama (Kyojuro Rengoku)", robe: "#17171f", trim: "#ffcc33", price: 200, art: "rengoku" },
+  { id: "o_kirito", n: "Espadachín negro (Kirito)", robe: "#131318", trim: "#3cc8c0", price: 180, art: "kirito" },
+  { id: "o_mihawk", n: "Ojos de halcón (Dracule Mihawk)", robe: "#16121a", trim: "#b01c2c", price: 240, art: "mihawk" },
+  { id: "o_freezer", n: "Emperador del frío (Freezer, forma final)", robe: "#f6f6fa", trim: "#8a34c4", price: 260, art: "freezer" },
 ];
 const AURAS: Aura[] = [
   { id: "a_oro", n: "Aura dorada", c: [255, 211, 77], price: 80 },
@@ -2016,7 +2023,7 @@ function readCS(v: unknown): SaveCS {
   const d = newCS(); const out: SaveCS = { coins: 0, owned: [], outfit: "", aura: "", ncol: "", premUntil: 0, xpLeft: 0, bagX: 0, scrolls: 0, afkMin: d.afkMin, earned: 0 };
   if (!isObj(v)) return out;
   out.coins = intIn(v["coins"], 0, 1e9) ?? 0; out.earned = intIn(v["earned"], 0, 1e12) ?? 0;
-  const ow = v["owned"]; if (Array.isArray(ow)) out.owned = ow.filter((s: unknown): s is string => typeof s === "string" && cosmeticPrice(s) > 0).filter((s: string, i: number, a: string[]) => a.indexOf(s) === i);
+  const ow = v["owned"]; if (Array.isArray(ow)) out.owned = ow.filter((s: unknown): s is string => typeof s === "string" && cosmeticPrice(s) >= 0).filter((s: string, i: number, a: string[]) => a.indexOf(s) === i);
   const pickOwned = (k: string, list: Array<{ id: string }>): string => { const s = v[k]; return typeof s === "string" && out.owned.includes(s) && list.some((x: { id: string }) => x.id === s) ? s : ""; };
   out.outfit = pickOwned("outfit", OUTFITS); out.aura = pickOwned("aura", AURAS); out.ncol = pickOwned("ncol", NAMECOLS);
   out.premUntil = numIn(v["premUntil"], 0, 1e15) ?? 0; out.xpLeft = numIn(v["xpLeft"], 0, XP_BOOST_MAX) ?? 0;
@@ -2136,7 +2143,7 @@ function drawMount(ctx: CanvasRenderingContext2D, d: MountDef, x: number, y: num
 function drawRider(ctx: CanvasRenderingContext2D, g: Game, d: MountDef, x: number, y: number, face: Dir, phase: number, flip: boolean, now: number, robe: string, trim: string): void {
   const bob = phase === 0 ? 0 : 1; drawMount(ctx, d, x, y - bob, flip, phase, now);
   ctx.save(); ctx.beginPath(); ctx.rect(x - 16, y - 40, 64, 58 - bob); ctx.clip();
-  drawHuman(ctx, x, y - 8 - bob, robe, trim, g.cls.hat, lookOf(g), face, 0, hasShield(g), weaponInfo(g).elem); ctx.restore();
+  const ha = heroArt(g); if (ha) drawHero(ctx, x, y - 8 - bob, ha, face, 0, now, false); else drawHuman(ctx, x, y - 8 - bob, robe, trim, g.cls.hat, lookOf(g), face, 0, hasShield(g), weaponInfo(g).elem); ctx.restore();
   ctx.fillStyle = robe; ctx.fillRect(x + (flip ? 17 : 11), y + 15 - bob, 4, 6); ctx.fillStyle = "#3a2a1a"; ctx.fillRect(x + (flip ? 17 : 11), y + 20 - bob, 4, 2);
   ctx.save(); ctx.beginPath(); ctx.rect(flip ? x - 6 : x + 22, y - 2, 16, 20); ctx.clip(); drawMount(ctx, d, x, y - bob, flip, phase, now); ctx.restore(); // cabeza y cuello por delante del jinete
 }
@@ -5140,7 +5147,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (now < p.evadeUntil || gmInvis(g)) ctx.globalAlpha = 0.55;
     if (g.cs && g.cs.aura) drawAura(ctx, g.cs.aura, x, y, now);
     const [robe, trim] = outfitColors(g); const md = riding(g);
-    if (gmOn(g)) drawMinato(ctx, x, y, p.face, walkPhase(p, now), now); else if (md) drawRider(ctx, g, md, x, y, p.face, walkPhase(p, now), mtFlip(g, p.face), now, robe, trim); else drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
+    if (gmOn(g)) drawMinato(ctx, x, y, p.face, walkPhase(p, now), now); else if (md) drawRider(ctx, g, md, x, y, p.face, walkPhase(p, now), mtFlip(g, p.face), now, robe, trim); else if (heroArt(g)) drawHero(ctx, x, y, heroArt(g) as HeroArt, p.face, walkPhase(p, now), now); else drawHuman(ctx, x, y, robe, trim, c.hat, lookOf(g), p.face, walkPhase(p, now), hasShield(g), weaponInfo(g).elem);
     ctx.globalAlpha = 1;
     if (now < p.defUntil) { ctx.strokeStyle = "rgba(160,210,255,0.8)"; ctx.beginPath(); ctx.arc(x + 16, y + 17, 16, 0, Math.PI * 2); ctx.stroke(); }
     if (now - p.hitAt < 150) { ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(x, y, TS, TS); }
@@ -5636,6 +5643,180 @@ function drawMinato(ctx: CanvasRenderingContext2D, x: number, y: number, face0: 
   }
   c.restore();
 }
+// ---------- v28: atuendos de héroe (lote 1) — pixel art propio dibujado en código, al estilo del Minato del GM ----------
+// «Inspirados en» los personajes (siluetas y colores), no copiados de ningún sprite. 4 direcciones + paso, como drawMinato.
+type HeroArt = "gojo" | "itachi" | "rengoku" | "kirito" | "mihawk" | "freezer";
+function heroArtOf(id: string | undefined): HeroArt | null { if (!id) return null; const o = OUTFITS.find((x: Outfit) => x.id === id); return o && o.art ? o.art : null; }
+function heroArt(g: Game): HeroArt | null { return g.cs ? heroArtOf(g.cs.outfit) : null; }
+interface HeroCtx { c: CanvasRenderingContext2D; face: Dir; lg: number; top: number; hy: number; sw: number; am: number; now: number; }
+function hPoly(c: CanvasRenderingContext2D, col: string, pts: Array<[number, number]>): void { c.fillStyle = col; c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); c.closePath(); c.fill(); }
+function hEll(c: CanvasRenderingContext2D, col: string, x: number, y: number, rx: number, ry: number): void { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+/** Hoja recta girada (espadas a la espalda): desde (x, y) con ángulo a (rad), largo len y ancho w. */
+function hBlade(c: CanvasRenderingContext2D, x: number, y: number, a: number, len: number, w: number, col: string, edge: string): void {
+  c.save(); c.translate(x, y); c.rotate(a); v22R(c, 0, -w / 2, len, w, col); v22R(c, 0, -w / 2, len, 0.6, edge); c.beginPath(); c.fillStyle = col; c.moveTo(len, -w / 2); c.lineTo(len + w * 1.2, 0); c.lineTo(len, w / 2); c.fill(); c.restore(); }
+function hLegs(H: HeroCtx, pants: string, shoe: string, pd?: string): void { const { c, lg } = H;
+  if (H.face === 1) { v22R(c, 15 - lg, 20, 4, 8, pd ?? pants); v22R(c, 13 + lg, 20, 4, 8, pants); v22R(c, 15 - lg, 26.5, 5, 2.5, shoe); v22R(c, 13 + lg, 26.5, 6, 2.5, shoe); return; }
+  v22R(c, 11.5 + lg, 20, 4, 8, pants); v22R(c, 16.5 - lg, 20, 4, 8, pants); v22R(c, 11 + lg, 26.5, 5, 2.5, shoe); v22R(c, 16 - lg, 26.5, 5, 2.5, shoe); }
+function hTorso(H: HeroCtx, col: string, h = 9): void { if (H.face === 1) v22R(H.c, 12.5, H.top + 1, 8, h, col); else v22R(H.c, 10, H.top + 1, 12, h, col); }
+function hArms(H: HeroCtx, col: string, hand: string, cuff?: string): void { const { c, top, am } = H;
+  if (H.face === 1) { v22R(c, 13 + am, top + 1, 3, 9, col); if (cuff) v22R(c, 13 + am, top + 8.3, 3, 1, cuff); v22R(c, 13.3 + am, top + 9, 2.5, 2, hand); return; }
+  const a = am * 0.6; v22R(c, 7.5, top + 1 + a, 3, 8, col); v22R(c, 21.5, top + 1 - a, 3, 8, col);
+  if (cuff) { v22R(c, 7.5, top + 8 + a, 3, 1, cuff); v22R(c, 21.5, top + 8 - a, 3, 1, cuff); }
+  v22R(c, 8, top + 9 + a, 2.5, 2, hand); v22R(c, 22, top + 9 - a, 2.5, 2, hand); }
+function hHead(H: HeroCtx, skin: string, back: string): void { const { c, hy } = H; if (H.face === 1) v22R(c, 14, hy + 2, 6.5, 7.5, skin); else v22R(c, 12, hy + 2, 8, 7.5, H.face === 2 ? skin : back); }
+function hEyes(H: HeroCtx, col: string, pupil?: string): void { const { c, hy } = H; if (H.face === 0) return;
+  if (H.face === 1) { v22R(c, 18.8, hy + 5.5, 1.5, 1.5, col); if (pupil) v22R(c, 19.4, hy + 5.9, 0.7, 0.8, pupil); return; }
+  v22R(c, 13.2, hy + 5.5, 1.8, 1.5, col); v22R(c, 17, hy + 5.5, 1.8, 1.5, col); if (pupil) { v22R(c, 13.8, hy + 5.9, 0.7, 0.8, pupil); v22R(c, 17.6, hy + 5.9, 0.7, 0.8, pupil); } }
+function hMouth(H: HeroCtx, col = "#b07a5a"): void { if (H.face === 2) v22R(H.c, 14.8, H.hy + 8.2, 2.4, 0.6, col); else if (H.face === 1) v22R(H.c, 19, H.hy + 8.2, 1.4, 0.6, col); }
+/** Bajo de llamas (rojo, naranja y amarillo) animado, para la capa de Rengoku. */
+function hFlames(c: CanvasRenderingContext2D, x0: number, x1: number, yb: number, now: number): void {
+  for (const [col, hk, n] of [["#e8361a", 6, 5], ["#ff9a24", 4, 5], ["#ffd43a", 2.2, 5]] as Array<[string, number, number]>) { c.fillStyle = col; c.beginPath(); c.moveTo(x0, yb); const w = (x1 - x0) / n;
+    for (let k = 0; k < n; k++) { const h = hk + ((k * 7) % 3) * (hk / 6) + Math.sin(now / 150 + k * 1.7) * 0.7; c.lineTo(x0 + w * k + w * 0.5, yb - h); c.lineTo(x0 + w * (k + 1), yb); } c.closePath(); c.fill(); } }
+/** Nube roja con borde blanco (capa de Itachi). */
+function hCloud(c: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+  for (const [col, d] of [["#f0e6e6", 0], ["#c8182a", 0.55]] as Array<[string, number]>) { c.fillStyle = col; c.beginPath(); c.arc(x - 1.5 * s, y + 0.3 * s, 1.25 * s - d, 0, Math.PI * 2); c.arc(x, y - 0.4 * s, 1.55 * s - d, 0, Math.PI * 2); c.arc(x + 1.5 * s, y + 0.3 * s, 1.25 * s - d, 0, Math.PI * 2); c.fill(); } }
+
+function heroGojo(H: HeroCtx): void {
+  const { c, face, top, hy } = H; const NAVY = "#1b2340", ND = "#111829", COL = "#0d1324", HAIR = "#f4f6fa", HS = "#c4ccd8", SK = "#f4d2b0", BF = "#0c0c10";
+  hLegs(H, NAVY, "#08080c", ND); hTorso(H, NAVY, 10);
+  if (face === 1) { v22R(c, 12.5, top + 9.5, 8, 1, ND); v22R(c, 19.5, top + 1, 1, 10, ND); }
+  else { v22R(c, 10, top + 10, 12, 1, ND); if (face === 2) { v22R(c, 15.5, top + 2, 1, 9, ND); v22R(c, 13, top + 5, 1.2, 1.2, "#2c3658"); v22R(c, 17.8, top + 5, 1.2, 1.2, "#2c3658"); } else v22R(c, 15.5, top + 1, 1, 10, ND); }
+  hArms(H, NAVY, SK, ND); hHead(H, SK, HAIR);
+  const spikes: Array<[number, number]> = face === 1
+    ? [[12, hy + 8], [10, hy + 2], [10.5, hy - 3], [13, hy - 1], [13.5, hy - 6.5], [15.8, hy - 1.5], [17.5, hy - 6.5], [19, hy - 1.2], [21.8, hy - 3], [21.2, hy + 3], [15, hy + 3.2], [14.4, hy + 8]]
+    : [[10.5, hy + (face === 0 ? 9 : 5)], [9.5, hy + 1], [10.5, hy - 3.5], [12.5, hy - 0.5], [13, hy - 6.5], [15, hy - 1.5], [16, hy - 7.5], [17.5, hy - 1.5], [19, hy - 6.5], [19.6, hy - 0.5], [21.5, hy - 3.5], [22.5, hy + 1], [21.5, hy + (face === 0 ? 9 : 5)], [20, hy + 3], [12, hy + 3]];
+  hPoly(c, HAIR, spikes); v22R(c, face === 1 ? 14 : 12, hy + 0.6, face === 1 ? 6 : 8, 0.7, HS);
+  if (face === 2) { v22R(c, 11.6, hy + 4.4, 8.8, 2.4, BF); hPoly(c, HAIR, [[12.5, hy + 3], [13.4, hy + 5.2], [14.2, hy + 3]]); hPoly(c, HAIR, [[17.6, hy + 3], [18.6, hy + 5.4], [19.4, hy + 3]]); hMouth(H); }
+  else if (face === 1) { v22R(c, 13, hy + 4.4, 7.8, 2.4, BF); hPoly(c, HAIR, [[18, hy + 3], [19.2, hy + 5.2], [20.2, hy + 3]]); hMouth(H); }
+  else { v22R(c, 11.6, hy + 4.4, 8.8, 2.4, BF); v22R(c, 15, hy + 6.6, 1.1, 3, BF); v22R(c, 16.3, hy + 6.6, 1.1, 2.4, BF); }
+  // cuello alto del uniforme (tapa la barbilla) con botón dorado en espiral
+  if (face === 1) v22R(c, 13.2, hy + 8.6, 7.6, 3.6, COL); else { v22R(c, 11.5, hy + 8.6, 9, 3.6, COL); if (face === 2) { v22R(c, 15.3, hy + 9.6, 1.5, 1.5, "#d8b85a"); v22R(c, 15.7, hy + 10, 0.7, 0.7, "#8a6a2a"); } }
+}
+function heroItachi(H: HeroCtx): void {
+  const { c, face, top, hy, sw } = H; const CL = "#15131b", CLD = "#09080d", HAIR = "#1c1824", HSH = "#34304a", SK = "#efcfae", HB = "#3a4a6a", PL = "#c4cad4", EY = "#d41020";
+  hLegs(H, "#1b1b2a", "#2c2c3c");
+  if (face === 1) { hPoly(c, CL, [[11, top], [19.5, top], [20 - sw * 0.5, 27], [8 - sw, 27]]); v22R(c, 8 - sw, 26.3, 12, 0.8, CLD); hCloud(c, 14.5, top + 6, 0.9); hCloud(c, 12, top + 12.5, 0.85); }
+  else { hPoly(c, CL, [[9, top], [23, top], [25 + sw, 27], [7 - sw, 27]]); v22R(c, 7 - sw, 26.3, 18 + sw * 2, 0.8, CLD);
+    if (face === 2) { v22R(c, 15.6, top + 2, 0.8, 13, CLD); hCloud(c, 12.2, top + 11, 1); hCloud(c, 20, top + 5, 1); hCloud(c, 19.5, top + 13, 0.9); }
+    else { hCloud(c, 12, top + 4.5, 1); hCloud(c, 20, top + 10, 1); hCloud(c, 13.5, top + 13.5, 0.9); } }
+  hArms(H, CL, SK, CLD); hHead(H, SK, HAIR);
+  if (face === 1) {
+    hPoly(c, HAIR, [[12, hy + 9], [11, hy + 1], [14, hy - 1.5], [19.5, hy - 1], [21, hy + 2], [19, hy + 3.6], [16, hy + 3.2], [15, hy + 9]]); hPoly(c, HAIR, [[19.4, hy + 2], [21, hy + 3], [20.6, hy + 8.5], [19.6, hy + 4]]);
+    v22R(c, 13, hy + 1.4, 8, 1.8, HB); v22R(c, 18.2, hy + 1.3, 2.6, 2, PL); c.strokeStyle = "#2a2a32"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(18.3, hy + 3.1); c.lineTo(20.7, hy + 1.5); c.stroke(); c.lineWidth = 1;
+    hEyes(H, EY, "#1a0808"); v22R(c, 18.9, hy + 7, 0.4, 1.1, "#9a6a50");
+    v22R(c, 11, hy + 9, 1.8, 7, HAIR); v22R(c, 10.8, hy + 9.6, 2.2, 0.8, "#7a7a8a"); v22R(c, 12.6, hy + 8.4, 8.4, 4.4, CL); v22R(c, 13, hy + 8.4, 7.6, 0.7, "#5a1018");
+  } else {
+    hPoly(c, HAIR, face === 2 ? [[11, hy + 8.5], [10.5, hy + 1], [13, hy - 1.6], [19, hy - 1.6], [21.5, hy + 1], [21, hy + 8.5], [19.8, hy + 3.6], [16, hy + 2.6], [12.2, hy + 3.6]] : [[10.8, hy + 9], [10.5, hy + 1], [13, hy - 1.6], [19, hy - 1.6], [21.5, hy + 1], [21.2, hy + 9]]);
+    v22R(c, 12, hy - 0.4, 6, 0.6, HSH); v22R(c, 11.4, hy + 1.4, 9.2, 1.8, HB);
+    if (face === 2) { v22R(c, 13.6, hy + 1.3, 4.8, 2, PL); c.strokeStyle = "#2a2a32"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(13.8, hy + 3.1); c.lineTo(18.2, hy + 1.5); c.stroke(); c.lineWidth = 1;
+      hEyes(H, EY, "#1a0808"); v22R(c, 13.5, hy + 7, 0.4, 1.1, "#9a6a50"); v22R(c, 18.1, hy + 7, 0.4, 1.1, "#9a6a50");
+      v22R(c, 10.6, hy + 8.4, 10.8, 4.4, CL); v22R(c, 11, hy + 8.4, 10, 0.7, "#5a1018"); }
+    else { v22R(c, 15.3, hy + 3.2, 1, 2.4, HB); v22R(c, 16.6, hy + 3.2, 1, 2, HB); v22R(c, 10.6, hy + 9.4, 10.8, 3.6, CL); v22R(c, 15.1, hy + 9.4, 1.8, 8.5, HAIR); v22R(c, 14.9, hy + 10.2, 2.2, 0.8, "#7a7a8a"); }
+  }
+}
+function heroRengoku(H: HeroCtx): void {
+  const { c, face, top, hy, sw, now } = H; const UNI = "#17171f", UD = "#0b0b11", BTN = "#e8c048", BELT = "#f0ece0", CAPE = "#f6f3ea", CS = "#d6d0c2", HY = "#ffcc33", HR = "#e2401c", SK = "#f4d0a8";
+  const cape = (): void => { if (face === 1) { hPoly(c, CAPE, [[11, top], [15, top], [13.5 - sw, 27.5], [5 - sw, 27.5]]); hFlames(c, 5 - sw, 13.5 - sw, 27.5, now); }
+    else { hPoly(c, CAPE, [[8, top], [24, top], [26 + sw, 27.5], [6 - sw, 27.5]]); v22R(c, 8, top, 16, 0.8, CS); hFlames(c, 6 - sw, 26 + sw, 27.5, now); } };
+  if (face !== 0) cape();
+  hLegs(H, UNI, "#3a2a1a", UD); hTorso(H, UNI);
+  if (face === 2) { for (const k of [2.5, 5, 7.3]) v22R(c, 15.4, top + k, 1.2, 1.2, BTN); v22R(c, 10, top + 8.6, 12, 1.4, BELT); v22R(c, 22.6, top + 7, 1.6, 6, "#c8a050"); v22R(c, 21.8, top + 6.6, 3.2, 1, HR); }
+  else if (face === 1) { v22R(c, 12.5, top + 8.6, 8, 1.4, BELT); v22R(c, 19.6, top + 3, 1, 1, BTN); hBlade(c, 18.4, top + 9.2, Math.PI - 0.45, 10, 1.4, "#2a2228", "#3a3238"); hBlade(c, 18.8, top + 9, -0.45, 3.6, 1.3, "#c8a050", "#e8c878"); v22R(c, 18, top + 8.2, 1.2, 2.2, HR); }
+  hArms(H, UNI, SK, face === 0 ? undefined : CAPE); hHead(H, SK, HY);
+  const tips = (pts: Array<[number, number]>): void => { for (const [tx, ty] of pts) hPoly(c, HR, [[tx - 1.3, ty + 2.6], [tx, ty], [tx + 1.3, ty + 2.6]]); };
+  if (face === 1) {
+    hPoly(c, HY, [[12, hy + 9], [9, hy + 5], [9.5, hy], [11, hy - 4], [13.5, hy - 1], [15, hy - 6], [17, hy - 1.5], [19, hy - 4.5], [20.5, hy - 0.5], [22, hy + 1], [21, hy + 3.5], [17, hy + 3.5], [15.5, hy + 9]]);
+    tips([[11, hy - 4], [15, hy - 6], [19, hy - 4.5]]); v22R(c, 9.4, hy + 3, 1.6, 2.6, HR);
+    v22R(c, 18.2, hy + 4.2, 2.4, 0.9, HR); hEyes(H, "#ffd040", "#c02010"); hMouth(H);
+  } else {
+    hPoly(c, HY, [[9.5, hy + (face === 0 ? 10 : 7)], [9, hy + 1], [10.5, hy - 3], [12.5, hy - 1], [13.5, hy - 6], [15.5, hy - 2], [16.5, hy - 7], [18, hy - 2], [19.5, hy - 5.5], [20.5, hy - 1], [22.5, hy - 3], [23, hy + 1], [22.5, hy + (face === 0 ? 10 : 7)], [20.5, hy + 3], [11.5, hy + 3]]);
+    tips([[10.5, hy - 3], [13.5, hy - 6], [16.5, hy - 7], [19.5, hy - 5.5], [22.5, hy - 3]]); v22R(c, 15.6, hy - 1, 1, 3, HR); v22R(c, 9.2, hy + 4, 1.4, 2.4, HR); v22R(c, 21.4, hy + 4, 1.4, 2.4, HR);
+    if (face === 2) { hPoly(c, HY, [[12, hy + 3], [13, hy + 5], [14, hy + 3], [15.5, hy + 4.6], [16.5, hy + 3], [18, hy + 5], [19, hy + 3], [20, hy + 3.6], [20, hy + 2], [12, hy + 2]]);
+      v22R(c, 12.6, hy + 4.4, 2.8, 0.9, HR); v22R(c, 16.6, hy + 4.4, 2.8, 0.9, HR); hEyes(H, "#ffd040", "#c02010"); hMouth(H, "#c0603a"); }
+    else { v22R(c, 12, hy + 2, 8, 6, HY); cape(); }
+  }
+}
+function heroKirito(H: HeroCtx): void {
+  const { c, face, top, hy, sw } = H; const COAT = "#131318", CD = "#08080b", TR = "#3c3c4a", HAIR = "#17171d", HS = "#2c2c3a", SK = "#f2d2b2", BL = "#0b0b0f", BE = "#7a7a8a", TE = "#3cc8c0", TE2 = "#9af0e8", HILT = "#24242c";
+  const swords = (full: boolean): void => {
+    const L = full ? 16 : 6;
+    hBlade(c, 23.5, top - 4.5, 2.05, L, 2.2, full ? "#22222c" : BL, full ? "#a0a0b0" : BE); hBlade(c, 8.5, top - 4.5, 1.09, L, 2.2, TE, TE2); // negra (desde el hombro derecho) y verde azulada (desde el izquierdo)
+    v22R(c, 22.4, top - 6, 2.2, 3.2, HILT); v22R(c, 21.4, top - 3.4, 4.2, 1, "#5a5a68"); v22R(c, 7.4, top - 6, 2.2, 3.2, HILT); v22R(c, 6.4, top - 3.4, 4.2, 1, "#8ad8d0"); };
+  if (face === 2) swords(false);
+  if (face === 1) { hBlade(c, 9, top - 5, 1.75, 20, 2.2, BL, BE); v22R(c, 8.2, top - 6.6, 2.2, 3, HILT); v22R(c, 7.4, top - 4, 4, 1, "#5a5a68"); }
+  hLegs(H, "#17171d", "#2a2a32");
+  if (face === 1) { hPoly(c, COAT, [[11.5, top], [20.5, top], [21 - sw * 0.5, 27.5], [9 - sw, 27.5]]); v22R(c, 20, top + 8, 1, 12, TR); v22R(c, 12.5, top + 7.5, 8, 1, TR); }
+  else { hPoly(c, COAT, [[9.5, top], [22.5, top], [24.5 + sw, 27.5], [7.5 - sw, 27.5]]); v22R(c, 10, top + 7.5, 12, 1, TR);
+    if (face === 2) { hPoly(c, "#1d1d26", [[15, top + 8.5], [17, top + 8.5], [18 + sw * 0.4, 27.5], [14 - sw * 0.4, 27.5]]); v22R(c, 15.4, top + 7.3, 1.4, 1.4, "#9a9aa8"); v22R(c, 14.6, top + 1, 0.7, 7, TR); v22R(c, 16.7, top + 1, 0.7, 7, TR); }
+    else v22R(c, 15.6, top + 9, 0.8, 27.4 - (top + 9), CD); }
+  hArms(H, COAT, SK, TR); hHead(H, SK, HAIR);
+  if (face === 1) { hPoly(c, HAIR, [[12, hy + 9.5], [10.5, hy + 2], [12.5, hy - 1.5], [16, hy - 2.5], [20, hy - 1], [21.5, hy + 2.5], [20.5, hy + 5], [19.5, hy + 3.5], [18.5, hy + 5.5], [17, hy + 3.5], [15.5, hy + 9]]); hEyes(H, "#1c1c2c"); hMouth(H); }
+  else { hPoly(c, HAIR, face === 2 ? [[11, hy + 8], [10.5, hy + 1.5], [12, hy - 1.5], [15, hy - 2.5], [19, hy - 2], [21.5, hy + 1], [21.4, hy + 8], [20, hy + 4], [19, hy + 6], [18, hy + 3.6], [16, hy + 6.2], [14.5, hy + 3.6], [13, hy + 6], [12, hy + 4]]
+    : [[10.8, hy + 9], [10.5, hy + 1.5], [12, hy - 1.5], [15, hy - 2.5], [19, hy - 2], [21.5, hy + 1], [21.2, hy + 9], [19.5, hy + 10.5], [18, hy + 9], [16, hy + 10.8], [14, hy + 9], [12.5, hy + 10.5]]);
+    v22R(c, 13, hy - 0.6, 5, 0.7, HS); if (face === 2) { hEyes(H, "#1c1c2c"); hMouth(H); } }
+  v22R(c, face === 1 ? 13 : 11.5, top - 0.6, face === 1 ? 7.5 : 9, 1.6, CD); // cuello del abrigo
+  if (face === 0) swords(true);
+}
+function heroMihawk(H: HeroCtx): void {
+  const { c, face, top, hy, sw } = H; const HAT = "#141418", BAND = "#3a2a2e", FE = "#f2ecdc", FED = "#c8c0b0", CO = "#16121a", RED = "#b01c2c", RD = "#7a1020", SK = "#e8c4a0", HAIR = "#1a1418", BRD = "#2a2018", GD = "#d8b040", BL = "#0d0d10";
+  const yoru = (full: boolean): void => { // Yoru: espada negra enorme en forma de cruz a la espalda
+    c.save(); if (!full) { c.translate(22.9, top); c.rotate(0.45); c.translate(-22.9, -top); }
+    if (full) { v22R(c, 14.6, top - 2, 3, 19, BL); v22R(c, 14.6, top - 2, 0.7, 19, "#3a3a46"); v22R(c, 15.8, top - 1, 0.6, 17, "#24242c"); hPoly(c, BL, [[14.6, top + 17], [17.6, top + 17], [16.1, top + 20]]); }
+    else v22R(c, 21.6, top - 2, 2.6, 17, BL);
+    const gx = full ? 16.1 : 22.9, gw = full ? 6.5 : 5; c.fillStyle = BL; c.beginPath(); c.moveTo(gx - gw, top - 4); c.quadraticCurveTo(gx, top - 0.5, gx + gw, top - 4); c.lineTo(gx + gw, top - 2.4); c.quadraticCurveTo(gx, top + 1.2, gx - gw, top - 2.4); c.closePath(); c.fill();
+    v22R(c, gx - gw - 0.5, top - 4.6, 1.6, 2.6, GD); v22R(c, gx + gw - 1.1, top - 4.6, 1.6, 2.6, GD); v22R(c, gx - 1, top - 8, 2, 5, "#2a2228"); v22R(c, gx - 1.1, top - 6.4, 2.2, 0.7, GD); v22R(c, gx - 1.3, top - 9.6, 2.6, 1.8, GD); v22R(c, gx - 0.5, top - 9.2, 1, 1, "#3ab060"); c.restore(); };
+  if (face === 2) yoru(false);
+  if (face === 1) { c.save(); c.translate(11, top - 2); c.rotate(-0.35); c.translate(-11, -(top - 2)); v22R(c, 9.6, top - 2, 2.6, 18, BL); v22R(c, 4.5, top - 3.6, 13, 1.8, BL); v22R(c, 4, top - 4.2, 1.6, 2.6, GD); v22R(c, 16.4, top - 4.2, 1.6, 2.6, GD); v22R(c, 9.9, top - 8, 2, 4.6, "#2a2228"); v22R(c, 9.6, top - 9.6, 2.6, 1.8, GD); c.restore(); }
+  if (face === 1) { hPoly(c, CO, [[11, top], [20, top], [21.5 - sw * 0.5, 27.5], [8 - sw, 27.5]]); v22R(c, 19.6, top + 1, 1.4, 26.5 - top, RED); }
+  else if (face === 2) { hPoly(c, CO, [[8.5, top], [23.5, top], [26 + sw, 27.5], [6 - sw, 27.5]]); hPoly(c, RED, [[12.5, top], [19.5, top], [21 + sw * 0.5, 27.5], [11 - sw * 0.5, 27.5]]); }
+  else hPoly(c, CO, [[8.5, top], [23.5, top], [26 + sw, 27.5], [6 - sw, 27.5]]);
+  hLegs(H, "#2a2a32", "#121216", "#1e1e26");
+  if (face === 2) { v22R(c, 13.5, top + 1, 5, 8, "#2a2230"); hPoly(c, SK, [[13.8, top + 0.6], [18.2, top + 0.6], [16, top + 6.5]]); v22R(c, 15.6, top + 2.6, 0.8, 2.6, GD); v22R(c, 15, top + 3.3, 2, 0.7, GD); v22R(c, 13, top + 8.3, 6, 1, "#5a4030");
+    hPoly(c, RED, [[9, top - 1], [12.8, top + 3], [13.2, top]]); hPoly(c, RED, [[23, top - 1], [19.2, top + 3], [18.8, top]]); }
+  else if (face === 1) { v22R(c, 18, top + 1, 2, 7, "#2a2230"); v22R(c, 18.6, top + 1, 1.4, 3, SK); }
+  else { v22R(c, 10, top, 12, 2.2, RD); }
+  hArms(H, CO, SK, RED); hHead(H, SK, HAIR);
+  if (face === 2) { v22R(c, 12, hy + 3, 0.9, 4, HAIR); v22R(c, 19.1, hy + 3, 0.9, 4, HAIR); v22R(c, 12.8, hy + 4.6, 2.8, 0.7, HAIR); v22R(c, 16.4, hy + 4.6, 2.8, 0.7, HAIR); hEyes(H, "#e8c030", "#3a2a08");
+    v22R(c, 13.6, hy + 7.7, 4.8, 0.6, BRD); hPoly(c, BRD, [[15, hy + 8.4], [17, hy + 8.4], [16, hy + 11.2]]); }
+  else if (face === 1) { v22R(c, 14, hy + 3, 1, 4.6, HAIR); v22R(c, 18, hy + 4.6, 2.6, 0.7, HAIR); hEyes(H, "#e8c030", "#3a2a08"); v22R(c, 18.6, hy + 7.7, 2, 0.6, BRD); hPoly(c, BRD, [[18.8, hy + 8.4], [20.6, hy + 8.4], [19.6, hy + 11.2]]); }
+  else v22R(c, 12, hy + 6, 8, 3.5, HAIR);
+  // sombrero de ala ancha con pluma
+  if (face === 1) { v22R(c, 8.5, hy + 1, 16.5, 1.6, HAT); hPoly(c, HAT, [[12, hy + 1.2], [13, hy - 3.6], [20, hy - 3.6], [20.6, hy + 1.2]]); v22R(c, 12.6, hy - 0.4, 7.8, 1, BAND);
+    hPoly(c, FE, [[13.5, hy - 0.8], [7.5, hy - 6], [5.5, hy - 5], [12.5, hy + 0.4]]); v22R(c, 8, hy - 5, 4.5, 0.6, FED); }
+  else { v22R(c, 6, hy + 1, 20, 1.7, HAT); hPoly(c, HAT, [[10.5, hy + 1.2], [11.5, hy - 3.6], [20.5, hy - 3.6], [21.5, hy + 1.2]]); v22R(c, 11, hy - 0.4, 10, 1, BAND);
+    hPoly(c, FE, face === 2 ? [[19.5, hy - 0.5], [24.5, hy - 6.5], [26.5, hy - 5.8], [21.2, hy + 0.4]] : [[12.5, hy - 0.5], [7.5, hy - 6.5], [5.5, hy - 5.8], [10.8, hy + 0.4]]); v22R(c, face === 2 ? 21.5 : 7.5, hy - 4.6, 3, 0.6, FED); }
+  if (face === 0) yoru(true);
+}
+function heroFreezer(H: HeroCtx): void {
+  const { c, face, top, hy, sw, am, now } = H; const WH = "#f6f6fa", WS = "#cdcedb", PU = "#8a34c4", PL = "#cf9cf4", EY = "#d01828", LIP = "#4a3a6a";
+  const tail = (): void => { const t = Math.sin(now / 350) * 1.2; c.lineCap = "round"; for (const [col, w] of [[WS, 3.6], [WH, 2.4]] as Array<[string, number]>) { c.strokeStyle = col; c.lineWidth = w; c.beginPath();
+      if (face === 1) { c.moveTo(12, 21); c.quadraticCurveTo(2 - sw, 27, 3 + t, 17); } else if (face === 2) { c.moveTo(20, 23); c.quadraticCurveTo(29, 27, 27 + t, 17); } else { c.moveTo(16, 21); c.quadraticCurveTo(25, 30, 27 + t, 19); } c.stroke(); } c.lineWidth = 1; c.lineCap = "butt"; };
+  if (face !== 0) tail();
+  hLegs(H, WH, WS, "#e4e4ee");
+  if (face === 1) { v22R(c, 13.5 + H.lg, 23, 3, 2.2, PU); } else { v22R(c, 12 + H.lg, 23, 3, 2.2, PU); v22R(c, 17 - H.lg, 23, 3, 2.2, PU); }
+  if (face === 1) v22R(c, 12.8, top + 1, 7.4, 9, WH); else v22R(c, 10.5, top + 1, 11, 9, WH);
+  if (face === 2) { hEll(c, PU, 16, top + 3.4, 3.8, 2.3); hEll(c, PL, 14.6, top + 2.7, 1.3, 0.7); v22R(c, 12.5, top + 6.4, 7, 0.6, WS); v22R(c, 12.5, top + 8.2, 7, 0.6, WS); v22R(c, 15.7, top + 6, 0.6, 3.6, WS); }
+  else if (face === 1) { hEll(c, PU, 19.6, top + 3.4, 1.4, 2.3); v22R(c, 13, top + 7, 6.5, 0.6, WS); }
+  else { v22R(c, 15.7, top + 2, 0.6, 7, WS); tail(); }
+  // brazos con antebrazo morado y hombreras-cúpula
+  const a = am * 0.6;
+  if (face === 1) { v22R(c, 13.4 + am, top + 1, 2.8, 9, WH); v22R(c, 13.4 + am, top + 5.4, 2.8, 2, PU); v22R(c, 13.6 + am, top + 9, 2.4, 2, WH); hEll(c, PU, 15, top + 1.6, 2.6, 2); hEll(c, PL, 14.2, top + 1, 0.9, 0.5); }
+  else { for (const [ax, s] of [[7.8, a], [21.4, -a]] as Array<[number, number]>) { v22R(c, ax, top + 1 + s, 2.8, 8, WH); v22R(c, ax, top + 5.4 + s, 2.8, 2, PU); v22R(c, ax + 0.2, top + 9 + s, 2.4, 2, WH); }
+    hEll(c, PU, 9.4, top + 1.6, 2.6, 2); hEll(c, PU, 22.6, top + 1.6, 2.6, 2); hEll(c, PL, 8.6, top + 1, 0.9, 0.5); hEll(c, PL, 21.8, top + 1, 0.9, 0.5); }
+  // cabeza blanca con cúpula morada
+  if (face === 1) { v22R(c, 14, hy + 2.6, 6.5, 7, WH); v22R(c, 14, hy + 8.2, 6.5, 1.4, WS); hEll(c, PU, 16.6, hy + 2.8, 3.8, 2.8); hEll(c, PL, 15.6, hy + 1.9, 1.3, 0.7); v22R(c, 19, hy + 5, 1.6, 0.6, PU); hEyes(H, EY, "#200404"); v22R(c, 19.4, hy + 8.2, 1, 0.7, LIP); }
+  else { v22R(c, 12, hy + 2.6, 8, 7, WH); v22R(c, 12, hy + 8.4, 8, 1.2, WS); hEll(c, PU, 16, hy + 2.8, 4.3, 2.8); hEll(c, PL, 14.6, hy + 1.9, 1.4, 0.8);
+    if (face === 2) { v22R(c, 12, hy + 5, 0.7, 3, PU); v22R(c, 19.3, hy + 5, 0.7, 3, PU); hEyes(H, EY, "#200404"); v22R(c, 15, hy + 8.3, 2, 0.7, LIP); } else hEll(c, PU, 16, hy + 5.6, 3, 1.4); }
+}
+const HERO_DRAW: Record<HeroArt, (H: HeroCtx) => void> = { gojo: heroGojo, itachi: heroItachi, rengoku: heroRengoku, kirito: heroKirito, mihawk: heroMihawk, freezer: heroFreezer };
+/** Atuendo de héroe del jugador: misma caja de 32×30 y el mismo paso que drawMinato (face 3 = espejo de 1). */
+function drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, art: HeroArt, face0: Dir, ph: number, now: number, shadow = true): void {
+  const c = ctx; let face = face0; c.save(); if (shadow) { c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill(); }
+  c.translate(x, y); if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
+  const lg = ph === 1 ? 1.5 : ph === 2 ? -1.5 : 0; const bob = ph === 0 ? Math.sin(now / 400) * 0.4 : 0.5; const sw = Math.sin(now / 300) * 0.8;
+  HERO_DRAW[art]({ c, face, lg, top: 12 - bob, hy: 3 - bob, sw, am: ph === 1 ? 1 : ph === 2 ? -1 : 0, now });
+  c.restore();
+}
 /** Maestro Astilla (monje de entrenamiento): viejo sensei rata con túnica granate, bastón, bigotes largos, pelaje gris pardo y cola rosa. */
 function drawSplinter(ctx: CanvasRenderingContext2D, x: number, y: number, face0: Dir, now: number, hit: boolean): void {
   const c = ctx; let face = face0; c.save(); c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill();
@@ -5950,22 +6131,22 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v27.3 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v28 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
 // v25: el retrato de la lista usa el atuendo, el aura y el arma/escudo con los que se guardó el personaje (partidas sin datos: el de su vocación)
-interface CharFit { robe: string; trim: string; look: Look; shield: boolean; elem: Elem; aura: string; }
+interface CharFit { robe: string; trim: string; look: Look; shield: boolean; elem: Elem; aura: string; art: HeroArt | null; oname: string; }
 function charFit(d: SaveData | null): CharFit | null {
   if (!d) return null; const k = CLASSES[d.cls]; const o = OUTFITS.find((x: Outfit) => x.id === d.cs?.outfit); const w = d.eq.weapon ? ITEM[d.eq.weapon.id] : undefined; const off = d.eq.off ? ITEM[d.eq.off.id] : undefined; const wt = w?.wt;
   const look: Look = !w ? CLASS_LOOK[d.cls] : wt === "rod" || wt === "wand" || wt === "staff" ? "staff" : wt === "bow" ? "bow" : wt === "sword" ? "sword" : wt === "axe" ? "axe" : wt === "club" ? "club" : wt === "dagger" ? "dagger" : "none";
-  return { robe: o ? o.robe : k.robe, trim: o ? o.trim : k.trim, look, shield: off ? off.wt === "shield" : !w && d.cls === "knight", elem: w ? w.elem : "phys", aura: d.cs?.aura ?? "" };
+  return { robe: o ? o.robe : k.robe, trim: o ? o.trim : k.trim, look, shield: off ? off.wt === "shield" : !w && d.cls === "knight", elem: w ? w.elem : "phys", aura: d.cs?.aura ?? "", art: o && o.art ? o.art : null, oname: o ? o.n : "" };
 }
 function CharPortrait(props: { cls: ClassId; size?: number; fit?: CharFit | null }) {
   const ref = useRef<HTMLCanvasElement | null>(null); const sz = props.size ?? 36; const f = props.fit;
   useEffect(() => { const c = ref.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; const k = CLASSES[props.cls];
     ctx.setTransform(c.width / 32, 0, 0, c.height / 34, 0, 0); ctx.clearRect(0, 0, 32, 34); if (f?.aura) drawAura(ctx, f.aura, 0, 2, 0);
-    drawHuman(ctx, 0, 2, f ? f.robe : k.robe, f ? f.trim : k.trim, k.hat, f ? f.look : CLASS_LOOK[props.cls], 2, 0, f ? f.shield : props.cls === "knight", f ? f.elem : "phys"); }, [props.cls, f?.robe, f?.trim, f?.look, f?.shield, f?.elem, f?.aura]);
+    if (f && f.art) drawHero(ctx, 0, 2, f.art, 2, 0, 0); else drawHuman(ctx, 0, 2, f ? f.robe : k.robe, f ? f.trim : k.trim, k.hat, f ? f.look : CLASS_LOOK[props.cls], 2, 0, f ? f.shield : props.cls === "knight", f ? f.elem : "phys"); }, [props.cls, f?.robe, f?.trim, f?.look, f?.shield, f?.elem, f?.aura, f?.art]);
   return <canvas ref={ref} width={64} height={68} style={{ width: sz, height: Math.round((sz * 34) / 32), imageRendering: "pixelated", display: "block", flex: "0 0 auto" }} />;
 }
 function TitleScreen(props: { onStart: (c: ClassId, n: string, id?: string) => void; onLoad?: (d: SaveData, id?: string) => void; full?: boolean; onFull?: () => void }) {
@@ -6069,6 +6250,7 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string, id?: string) => v
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontFamily: TITLE_SERIF, color: on ? gold : th.text.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}{e.id === acc.last ? " ★" : ""}</div>
                   <div data-charinfo="1" style={{ fontSize: 12 }}>{CLASSES[e.cls].name} · nivel {e.level}</div>
+                  {(() => { const f = charFit(loadChar(LS_KV, acc, e.id)); return f && f.oname ? <div data-charoutfit={f.art ?? "color"} style={{ fontSize: 11, color: th.text.warning, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>👘 {f.oname}</div> : null; })()}
                   <div style={{ fontSize: 11, color: th.text.secondary }}>Última vez: {fmtLast(e.savedAt)}</div>
                 </div>
                 {delId !== e.id && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -6142,7 +6324,7 @@ function CoinPreview(props: { g: Game; outfit?: string; aura?: string; ncol?: st
       ctx.setTransform(c.width / 40, 0, 0, c.height / 48, 0, 0); ctx.clearRect(0, 0, 40, 48);
       const o = OUTFITS.find((x: Outfit) => x.id === props.outfit);
       if (props.aura) drawAura(ctx, props.aura, 4, 12, now);
-      drawHuman(ctx, 4, 12, o ? o.robe : g.cls.robe, o ? o.trim : g.cls.trim, g.cls.hat, lookOf(g), 2, 0, hasShield(g), weaponInfo(g).elem);
+      if (o && o.art) drawHero(ctx, 4, 12, o.art, 2, 0, now); else drawHuman(ctx, 4, 12, o ? o.robe : g.cls.robe, o ? o.trim : g.cls.trim, g.cls.hat, lookOf(g), 2, 0, hasShield(g), weaponInfo(g).elem);
       const n = NAMECOLS.find((x: NameCol) => x.id === props.ncol); if (n) outlined(ctx, g.p.name.slice(0, 7), 20, 9, n.c, "bold 8px sans-serif");
       if (props.aura) raf = requestAnimationFrame(draw);
     };
@@ -6205,7 +6387,8 @@ function CoinStore(props: { g: Game; th: Theme; refresh: () => void }) {
       <div style={{ overflowY: "auto", flex: 1, minHeight: 0, paddingRight: 2 }}>
         {cat === "cosmetic" && <Fragment>
           <div style={{ fontSize: 10, color: th.text.secondary }}>Sólo cambian el aspecto: nada de equipo ni estadísticas a la venta.</div>
-          {sec("Atuendos")}<div style={grid}>{OUTFITS.map((o: Outfit) => cosCard(o.id, o.n, o.price, { outfit: o.id, aura: c.aura, ncol: c.ncol }, c.outfit === o.id))}</div>
+          {sec("Atuendos de héroe")}<div style={{ fontSize: 10, color: th.text.secondary }}>Aspecto completo del personaje (4 direcciones, también montado). Se guardan con cada personaje.</div><div style={grid} data-heroes="1">{OUTFITS.filter((o: Outfit) => !!o.art).map((o: Outfit) => cosCard(o.id, o.n, o.price, { outfit: o.id, aura: c.aura, ncol: c.ncol }, c.outfit === o.id))}</div>
+          {sec("Atuendos")}<div style={grid}>{OUTFITS.filter((o: Outfit) => !o.art).map((o: Outfit) => cosCard(o.id, o.n, o.price, { outfit: o.id, aura: c.aura, ncol: c.ncol }, c.outfit === o.id))}</div>
           {sec("Auras")}<div style={grid}>{AURAS.map((a: Aura) => cosCard(a.id, a.n, a.price, { outfit: c.outfit, aura: a.id, ncol: c.ncol }, c.aura === a.id))}</div>
           {sec("Color del nombre")}<div style={grid}>{NAMECOLS.map((n: NameCol) => cosCard(n.id, n.n, n.price, { outfit: c.outfit, aura: c.aura, ncol: n.id }, c.ncol === n.id))}</div>
         </Fragment>}
