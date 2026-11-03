@@ -1,4 +1,4 @@
-/* Story Mode (v0.4 part 1; radio chatter v0.4.5; current build v0.5.0, final level in final.js): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
+/* Story Mode (v0.4 part 1; radio chatter v0.4.5; current build v0.5.3, final level in final.js): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
    Built on top of Survival via its hook methods: onKill, onUpdate, hitExtra, onBlast, onScreenClear,
    drawWorld, drawTop, hudCenter, scoreEntry. */
 (() => {
@@ -75,6 +75,7 @@ const pick = l => l[(Math.random() * l.length) | 0];
 const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
 const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const SC = () => SL.CONFIG.story;
+const bulletK = (H, e) => (H.bulletScale && H.bulletScale[Math.min(H.bulletScale.length, Math.max(1, e)) - 1]) || 1;   // v0.5.3 per-tier bullet count scale
 
 /* ---------- portraits (lazy, framed) ---------- */
 const imgs = {};
@@ -257,7 +258,7 @@ SL.Story = class extends SL.Survival {
   fireE(x, y, ang, sp) { this.ebullets.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp }); }
   bossAttack() {
     const B = this.boss, H = SC().boss, e = B.e, sp = H.bulletBase + H.bulletPerEncounter * (e - 1);
-    const live = B.pts.filter(p => p.hp > 0), s = this.ship, f = 0.35 + 0.65 * live.length / B.pts.length;
+    const live = B.pts.filter(p => p.hp > 0), s = this.ship, k = bulletK(H, e), f = (0.35 + 0.65 * live.length / B.pts.length) * k;   // v0.5.3: tier scale k
     const pats = e >= 3 ? ['aimed', 'fan', 'spiral', 'rain'] : e === 2 ? ['aimed', 'fan', 'spiral'] : ['aimed', 'fan'];
     const pat = pats[B.pi++ % pats.length];
     if (pat === 'aimed') {
@@ -265,8 +266,8 @@ SL.Story = class extends SL.Survival {
       for (let i = 0; i < n; i++) this.fireE(x, y, a + (i - (n - 1) / 2) * 0.13, sp * 1.1);
     } else if (pat === 'fan') {
       const n = Math.max(3, Math.round((7 + 2 * e) * f)); for (let i = 0; i < n; i++) this.fireE(B.x, B.y + 40, Math.PI / 2 + (i / (n - 1) - 0.5) * 1.5, sp);
-    } else if (pat === 'spiral') { B.spiral = (1.2 + 0.3 * e) * f; }
-    else if (pat === 'rain') { for (const p of live) for (const k of [-0.15, 0, 0.15]) this.fireE(B.x + p.ox, B.y + p.oy, Math.PI / 2 + k, sp * 0.95); }
+    } else if (pat === 'spiral') { B.spiral = (1.2 + 0.3 * e) * f / k; }   // duration unchanged; density scaled via emit interval
+    else if (pat === 'rain') { const ks = k < 0.9 ? [-0.1, 0.1] : [-0.15, 0, 0.15]; for (const p of live) for (const a of ks) this.fireE(B.x + p.ox, B.y + p.oy, Math.PI / 2 + a, sp * 0.95); }
     SL.Audio.sfx.ebullet();
   }
   updateBoss(dt) {
@@ -280,7 +281,7 @@ SL.Story = class extends SL.Survival {
       const dead = B.pts.filter(p => p.hp <= 0).length;
       B.atkT -= dt;
       if (B.atkT <= 0) { this.bossAttack(); B.atkT = Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (B.e - 1)) * (1 + H.angerPerPoint * dead); }
-      if (B.spiral > 0) { B.spiral -= dt; B.fx -= dt; if (B.fx <= 0) { B.fx = 0.07; B.spinA += 0.42; const sp = (H.bulletBase + H.bulletPerEncounter * (B.e - 1)) * 0.85; this.fireE(B.x, B.y + 20, B.spinA, sp); this.fireE(B.x, B.y + 20, B.spinA + Math.PI, sp); } }
+      if (B.spiral > 0) { B.spiral -= dt; B.fx -= dt; if (B.fx <= 0) { B.fx = 0.07 / bulletK(H, B.e); B.spinA += 0.42 / bulletK(H, B.e); const sp = (H.bulletBase + H.bulletPerEncounter * (B.e - 1)) * 0.85; this.fireE(B.x, B.y + 20, B.spinA, sp); this.fireE(B.x, B.y + 20, B.spinA + Math.PI, sp); } }
       B.tauntT -= dt; if (B.tauntT <= 0) { this.say(pick(NEBULA.taunts), 'normal'); B.tauntT = H.tauntEvery[0] + Math.random() * (H.tauntEvery[1] - H.tauntEvery[0]); }
       if (this.afterAssistT > 0) { this.afterAssistT -= dt; if (this.afterAssistT <= 0) this.say(NEBULA.afterAssist, 'normal'); }
       // ramming the hull hurts
