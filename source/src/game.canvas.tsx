@@ -7173,7 +7173,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v29.5 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v29.5.1 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
