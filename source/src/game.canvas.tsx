@@ -1165,7 +1165,7 @@ function hitMon(g: Game, m: Mon, dmg: number, elem: Elem, now: number, leech: nu
   if (!m.alive) return;
   const p = g.p; let crit = false;
   if (p.critNext) { crit = true; p.critNext = false; } else crit = Math.random() < g.cls.crit;
-  const d = Math.max(1, Math.round(crit ? dmg * 1.8 : dmg));
+  const d = gsMonDmg(m, Math.max(1, Math.round(crit ? dmg * 1.8 : dmg)), now); // v29.1: Escudo de Libra
   damageMon(g, m, d, now, elem, crit);
   if (leech > 0) { const h = Math.round(d * leech); p.hp = Math.min(maxHp(g), p.hp + h); pfloat(g, `+${h}`, "#5cff7a", now); }
 }
@@ -1183,6 +1183,7 @@ function hurtPlayer(g: Game, dmg: number, now: number): void {
   const p = g.p;
   if (gmGod(g)) { pfloat(g, "🛠 0", "#ffd34d", now); return; }
   if (!(dmg > 0)) { pfloat(g, "fallo", "#9fb4c8", now); return; }
+  dmg = gsHurtMul(g, dmg, now); // v29.1: el Ataúd de Hielo se agrieta; Rosas Piraña +20%
   p.hp -= dmg; p.hitAt = now; pfloat(g, String(dmg), "#ff4040", now);
   if (p.hp <= 0) die(g, now);
 }
@@ -5666,7 +5667,7 @@ function drawMinato(ctx: CanvasRenderingContext2D, x: number, y: number, face0: 
 }
 // ---------- v28: atuendos de héroe (lote 1) — pixel art propio dibujado en código, al estilo del Minato del GM ----------
 // «Inspirados en» los personajes (siluetas y colores), no copiados de ningún sprite. 4 direcciones + paso, como drawMinato.
-type HeroArt = "gojo" | "itachi" | "rengoku" | "kirito" | "mihawk" | "freezer" | "shishio" | "gowther" | "zeldris" | "estarossa" | "monspeet" | "deidara" | "muichiro" | "gambit" | "bison" | "vash" | "dante" | "a17" | "a16" | "g_mu" | "g_alde" | "g_dm" | "g_aioria" | "g_shaka" | "g_saga";
+type HeroArt = "gojo" | "itachi" | "rengoku" | "kirito" | "mihawk" | "freezer" | "shishio" | "gowther" | "zeldris" | "estarossa" | "monspeet" | "deidara" | "muichiro" | "gambit" | "bison" | "vash" | "dante" | "a17" | "a16" | "g_mu" | "g_alde" | "g_dm" | "g_aioria" | "g_shaka" | "g_saga" | "g_dohko" | "g_milo" | "g_aioros" | "g_shura" | "g_camus" | "g_afro";
 function heroArtOf(id: string | undefined): HeroArt | null { if (!id) return null; const o = OUTFITS.find((x: Outfit) => x.id === id); return o && o.art ? o.art : null; }
 function heroArt(g: Game): HeroArt | null { return g.cs ? heroArtOf(g.cs.outfit) : null; }
 interface HeroCtx { c: CanvasRenderingContext2D; face: Dir; lg: number; top: number; hy: number; sw: number; am: number; now: number; }
@@ -6047,8 +6048,8 @@ function hero16(H0: HeroCtx): void {
 // ===================== v29: remake de los Caballeros Dorados (etapa 1: Mu, Aldebarán, Máscara Mortal, Aioria, Shaka y Saga) =====================
 // Sprites nuevos (armadura de oro con el casco de cada signo, capa blanca, pelo y ojos del anime; dibujo propio en código, «inspirado en»),
 // técnicas telegrafiadas con efectos visibles y un atuendo cosmético de armadura dorada que sueltan muy rara vez (1/200, sin estadísticas).
-type GsId = "mu" | "alde" | "dm" | "aioria" | "shaka" | "saga";
-const GS_OF: Record<string, GsId> = { h1boss: "mu", h2boss: "alde", h3boss: "dm", h4boss: "aioria", h5boss: "shaka", h12boss: "saga" };
+type GsId = "mu" | "alde" | "dm" | "aioria" | "shaka" | "saga" | "dohko" | "milo" | "aioros" | "shura" | "camus" | "afro";
+const GS_OF: Record<string, GsId> = { h1boss: "mu", h2boss: "alde", h3boss: "dm", h4boss: "aioria", h5boss: "shaka", h12boss: "saga", h6boss: "dohko", h7boss: "milo", h8boss: "aioros", h9boss: "shura", h10boss: "camus", h11boss: "afro" };
 const GS = {
   GAP: 1500,          // ms mínimos entre dos técnicas del mismo guardián (entre medias golpea cuerpo a cuerpo)
   WALL_MS: 4000,      // Muro de Cristal activo
@@ -6073,10 +6074,17 @@ const GSL: Record<GsId, GsLook> = {
   aioria: { n: "Aioria de Leo", hair: "#8a5626", hairHi: "#b47c3c", hairS: "mane", skin: "#f0cca8", eyes: "#2a7a5a", s: 1.42, bulk: 1.08, cape: "#f2eee2", gem: "#c06010", glow: "#9fe8ff" },
   shaka: { n: "Shaka de Virgo", hair: "#f2d45a", hairHi: "#fff4b8", hairS: "long", skin: "#f6e2cc", eyes: "#3a8ad8", s: 1.4, bulk: 1, cape: "#f8f6ee", gem: "#e08a30", glow: "#ffe890" },
   saga: { n: "Saga de Géminis", hair: "#3a58c8", hairHi: "#7a98f0", hairS: "wild", skin: "#f0d4b8", eyes: "#2a3a8a", s: 1.45, bulk: 1.08, cape: "#f0ece0", gem: "#3a5aff", glow: "#c080ff" },
+  dohko: { n: "Dohko de Libra", hair: "#6a4224", hairHi: "#9a6a3e", hairS: "long", skin: "#f0d0b0", eyes: "#4a6a2a", s: 1.42, bulk: 1.06, cape: "#f2eee2", gem: "#3aaa6a", glow: "#8affb0" },
+  milo: { n: "Milo de Escorpio", hair: "#3a5ad0", hairHi: "#7a9af0", hairS: "wild", skin: "#f0d0b0", eyes: "#2a4aa0", s: 1.42, bulk: 1.06, cape: "#f0ece0", gem: "#c02020", glow: "#ff5a4a" },
+  aioros: { n: "Aioros de Sagitario", hair: "#6a3e1e", hairHi: "#9a6234", hairS: "short", skin: "#f0cca8", eyes: "#2a5a7a", s: 1.42, bulk: 1.08, cape: "#f2eee2", gem: "#c06010", glow: "#ffe9a0" },
+  shura: { n: "Shura de Capricornio", hair: "#22222e", hairHi: "#4a4a5e", hairS: "short", skin: "#e8c4a0", eyes: "#1a1a2a", s: 1.44, bulk: 1.1, cape: "#ece8dc", gem: "#5a5a8a", glow: "#e8f4ff" },
+  camus: { n: "Camus de Acuario", hair: "#2a7a88", hairHi: "#5ab8c4", hairS: "long", skin: "#f4e0cc", eyes: "#2a5a9a", s: 1.42, bulk: 1.02, cape: "#f4f6f8", gem: "#2a8ab8", glow: "#bff4ff" },
+  afro: { n: "Afrodita de Piscis", hair: "#9ad0f0", hairHi: "#d4f0ff", hairS: "long", skin: "#f8e6d8", eyes: "#3a6aa8", s: 1.4, bulk: 0.98, cape: "#f8f2f0", gem: "#ff70b0", glow: "#ff90c0" },
 };
 const GSC = { A: "#e8b430", H: "#fff0a0", D: "#9a6a10", M: "#c8901c", SUIT: "#2a2838" };
 /** Casco de cada signo. view: 2 frente · 0 espalda · 1 perfil (mirando a la derecha). */
 function gsHelm(c: CanvasRenderingContext2D, id: GsId, view: 0 | 1 | 2, hy: number): void {
+  if (gsHelm2(c, id, view, hy)) return;
   const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M; const back = view === 0;
   if (view === 1) { // perfil: banda + rasgo del signo hacia arriba / atrás
     if (id === "alde" || id === "saga") { hPoly(c, A, [[12.6, hy + 4], [12.8, hy + 0.2], [14.6, hy - 1.6], [19.4, hy - 1.2], [21, hy + 1], [20.8, hy + 2.4], [16, hy + 2.2], [15.6, hy + 4]]); v22R(c, 14.6, hy - 0.6, 4.6, 0.7, H); }
@@ -6136,6 +6144,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
   const hair = evil ? "#c4c4d0" : S.hair, hairHi = evil ? "#f0f0f8" : S.hairHi, eye = evil ? "#ff2a2a" : S.eyes;
   const longHair = S.hairS === "long" || S.hairS === "wild";
   const glowAt = (gx: number, gy: number, r: number): void => { const g2 = c.createRadialGradient(gx, gy, 0.3, gx, gy, r); g2.addColorStop(0, "#ffffff"); g2.addColorStop(0.35, S.glow); g2.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g2; c.fillRect(gx - r, gy - r, r * 2, r * 2); };
+  gsBack2(c, id, face, top, now);
   if (face === 1) { // ---------- perfil ----------
     hPoly(c, S.cape, [[12, top + 1], [15.5, top + 1], [11.5 - fl, 29], [5.5 - fl * 1.5, 28.4]]); v22R(c, 9.5 - fl, top + 8, 0.6, 12, "rgba(0,0,0,0.08)");
     if (longHair) { v22R(c, 11.2, hy + 2, 4.4, S.hairS === "long" ? 16 : 12, hair); v22R(c, 11.6, hy + 3, 0.7, 12, hairHi); }
@@ -6159,7 +6168,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
     else { v22R(c, 18, hy + 4.4, 1.8, 1.5, "#ffffff"); v22R(c, 18.7, hy + 4.5, 1, 1.4, id === "shaka" ? "#7fd0ff" : eye); if (id !== "mu") v22R(c, 17.6, hy + 3.4, 2.4, 0.55, hair); }
     if (id === "mu") v22R(c, 18.4, hy + 2.6, 1, 0.8, "#c02040"); if (id === "shaka") v22R(c, 19.6, hy + 2.6, 0.9, 0.9, "#d02020");
     v22R(c, 18.6, hy + 7.4, 1.6, 0.55, id === "dm" ? "#ffffff" : "#a06a5a");
-    gsHelm(c, id, 1, hy);
+    gsHelm(c, id, 1, hy); gsFront2(c, id, 1, top, hy, now, cast, tw);
     return;
   }
   // ---------- frente / espalda ----------
@@ -6192,6 +6201,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
     if (id === "dm") { hPoly(c, A, [[px - 1, top + 0.4], [px + sx * 1.6, top - 3.6], [px + 1, top + 0.6]]); hPoly(c, A, [[px + sx * 1.6, top + 0.8], [px + sx * 4.8, top - 2.4], [px + sx * 3.4, top + 1.6]]); }
     if (id === "alde") { hEll(c, A, px + sx * 0.6, top + 0.6, 2.6, 1.6); hEll(c, H, px, top + 0.2, 1.2, 0.6); }
     if (id === "shaka") { hEll(c, M, px, top + 2.2, 1.4, 1.2); hEll(c, H, px, top + 2, 0.6, 0.5); }
+    gsPaul2(c, id, px, sx, top);
   }
   // brazos: malla + brazal dorado + mano (pose de técnica)
   const arm = (sx: number, raise: number): void => { const ax = 16 + sx * (tw + 1.2); const dy = -raise * 9;
@@ -6201,6 +6211,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
     arm(-1, 0.25); arm(1, 0.25); hPoly(c, A, [[16 - tw, top + 5], [16 + tw - 1, top + 8.4], [16 + tw - 1, top + 10.4], [16 - tw, top + 7]]); hPoly(c, M, [[16 + tw, top + 5], [16 - tw + 1, top + 8.4], [16 - tw + 1, top + 10.4], [16 + tw, top + 7]]); v22R(c, 16 - tw - 0.6, top + 4.6, 2, 2, S.skin); v22R(c, 16 + tw - 1.4, top + 4.6, 2, 2, S.skin); glowAt(16, top + 7, 9 * rc);
   } else if (rc > 0 && id === "shaka") { // mudra: una mano frente al pecho, la otra abierta
     arm(-1, 0); v22R(c, 16 + tw - 0.2, top + 3, 2.6, 4.6, M); hPoly(c, A, [[16 + tw + 1, top + 5.6], [17.6, top + 5.2], [17.6, top + 7.6], [16 + tw + 1, top + 8.2]]); v22R(c, 16.2, top + 4.4, 1.8, 2.6, S.skin); glowAt(17, top + 5.4, 6 * rc);
+  } else if (GS_RAGE && rc === 0) { arm(-1, 0.5); arm(1, 0.5); if (face === 2) gsRageFx(c, tw, top, now); // furia: puños arriba
   } else { arm(-1, 0); arm(1, rc * 0.95); if (rc > 0) glowAt(16 + tw + 1.2, top + 1 - 8.6 * rc + 9.6, 6.5); }
   // cabeza
   if (face === 2) {
@@ -6228,6 +6239,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
   }
   gsHelm(c, id, face, hy);
   if (face === 0) { capeP(); if (longHair) { v22R(c, 11.4, hy + 8, 9.2, S.hairS === "long" ? 11 : 7, hair); v22R(c, 12.8, hy + 9, 0.7, 9, hairHi); v22R(c, 18.4, hy + 9, 0.7, 9, hairHi); } }
+  gsFront2(c, id, face, top, hy, now, cast, tw);
 }
 /** Santo dorado completo en (x, y) de pantalla: sombra, aura dorada, motas de cosmos y la figura a su escala. */
 function gsDrawAt(c: CanvasRenderingContext2D, x: number, y: number, id: GsId, face0: Dir, ph: number, now: number, cast: number, open: boolean, evil: boolean, rage: boolean): void {
@@ -6236,10 +6248,11 @@ function gsDrawAt(c: CanvasRenderingContext2D, x: number, y: number, id: GsId, f
   const pa = 0.2 + 0.12 * Math.sin(now / 280) + cast * 0.18; const gr = c.createRadialGradient(x + 16, y + 12, 2, x + 16, y + 12, 30 * s);
   gr.addColorStop(0, rage ? `rgba(255,60,40,${pa + 0.1})` : open ? `rgba(160,220,255,${pa + 0.12})` : `rgba(255,210,80,${pa})`); gr.addColorStop(1, "rgba(255,190,40,0)"); c.fillStyle = gr; c.fillRect(x - 34 * s, y - 40 * s, 100 * s, 100 * s);
   const ga = c.globalAlpha; for (let k = 0; k < 5; k++) { const a = now / 800 + k * 1.26; const rr = 13 * s + Math.sin(now / 450 + k) * 2; c.fillStyle = S.glow; c.globalAlpha = ga * 0.7; c.fillRect(x + 16 + Math.cos(a) * rr - 1, y + 8 + Math.sin(a) * rr * 0.4 - 1, 2, 2); } c.globalAlpha = ga;
+  gsAura2(c, x, y, id, now, s);
   c.translate(x + 16, y + 30); c.scale(s, s); c.translate(-16, -30);
   if (face === 3) { c.translate(32, 0); c.scale(-1, 1); face = 1; }
   const lg = ph === 1 ? 1.6 : ph === 2 ? -1.6 : 0; const bob = ph === 0 ? Math.sin(now / 400) * 0.4 : 0.5;
-  gsFig(c, id, face as 0 | 1 | 2, lg, bob, now, cast, open, evil, false); c.restore();
+  GS_RAGE = rage && !cast; gsFig(c, id, face as 0 | 1 | 2, lg, bob, now, cast, open, evil, false); GS_RAGE = false; c.restore();
 }
 /** Prueba / GM: lanza ya una técnica concreta de un guardián (no espera al enfriamiento). */
 function gsForce(g: Game, m: Mon, name: string, now: number): boolean {
@@ -6256,6 +6269,7 @@ function drawGsMon(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, 
   c.save(); if (m.temp && m.def.exp === 0) c.globalAlpha = 0.72 + 0.15 * Math.sin(now / 200);
   gsDrawAt(c, x, y, id, m.face as Dir, walkPhase(m, now), now, b && now < b.cast ? 1 : 0, id === "shaka" && !!b && b.open, id === "saga" && m.enraged, m.enraged);
   c.restore();
+  if (b) gsMon2(c, b, x, y, now);
   if (b && now < b.wall) { // Muro de Cristal: paneles hexagonales que giran alrededor de Mu
     const up = clamp((now - b.wallFrom + GS.WALL_RAISE) / GS.WALL_RAISE, 0, 1); const fade = clamp((b.wall - now) / 400, 0, 1);
     c.save(); c.globalAlpha = (now < b.wallFrom ? 0.35 : 0.75) * up * fade;
@@ -6270,8 +6284,8 @@ function drawGsMon(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, 
 // Atuendo cosmético del jugador (sistema de atuendos de héroe: 4 direcciones + caminar)
 function gsHero(H: HeroCtx, id: GsId): void { gsFig(H.c, id, H.face as 0 | 1 | 2, H.lg, 12 - H.top, H.now, 0, false, false, true); }
 // ---------- técnicas ----------
-type GsK = "nova" | "cone" | "line" | "plasma" | "bolt" | "wall" | "dim" | "gmk" | "tenbu" | "summon" | "blink" | "clones";
-type GsFxK = "knock" | "drain" | "tenbu" | "confuse" | "dim";
+type GsK = "nova" | "cone" | "line" | "plasma" | "bolt" | "wall" | "dim" | "gmk" | "tenbu" | "summon" | "blink" | "clones" | "dragons" | "weapons" | "lshield" | "thunder" | "arrow" | "slash" | "leap" | "rosefield" | "piranha";
+type GsFxK = "knock" | "drain" | "tenbu" | "confuse" | "dim" | "slow" | "root" | "coffin" | "needle" | "bleed" | "shred";
 interface GsTech { k: GsK; name: string; cd: number; tele: number; lo: number; hi: number; r?: number; fx?: GsFxK; vis?: string; first?: number; hint?: string; }
 const gt = (k: GsK, name: string, cd: number, tele: number, lo: number, hi: number, o: Partial<GsTech> = {}): GsTech => ({ k, name, cd, tele, lo, hi, ...o });
 // lo/hi = daño × ataque del guardián (×1.2 en FURIA; Shaka con los ojos abiertos ×1.2); r de las «nova» = radio² en casillas
@@ -6291,6 +6305,21 @@ const GS_TECH: Record<GsId, GsTech[]> = {
     gt("dim", "Otra Dimensión", 40000, 1300, 0, 0, { first: 20000, fx: "dim", vis: "dim", hint: "¡sal del remolino!" }),
     gt("gmk", "Satán Imperial (Genrō Maō Ken)", 16000, 900, 0.4, 0.6, { fx: "confuse", vis: "gmk", first: 9000, hint: "¡esquiva el puño o se invierten tus controles!" }),
     gt("clones", "Ilusión gemela", 14000, 0, 0, 0), gt("nova", "Puño del Caos", 6000, 800, 0.6, 1.1, { r: 6, vis: "dust" })],
+  // v29.1 (etapa 2)
+  dohko: [gt("dragons", "Cien Dragones de Rozan (Rozan Hyaku Ryū Ha)", 9000, 1100, 0.9, 1.3, { r: 7, vis: "dragons", first: 5000, hint: "¡sal del abanico de dragones!" }),
+    gt("lshield", "Escudo de Libra", 16000, 400, 0, 0, { hint: "recibe la mitad de daño 4 s" }),
+    gt("weapons", "Armas de Libra", 8000, 1100, 0.7, 1.0, { vis: "weapons", hint: "¡esquiva las armas giratorias!" }), gt("summon", "Dragones de Rozan", 15000, 0, 0, 0)],
+  milo: [gt("bolt", "Aguja Escarlata", 2200, 600, 0.25, 0.4, { fx: "needle", vis: "needle", hint: "cada aguja suma una marca; a las 15, Antares" }), gt("summon", "Nido de escorpiones", 16000, 0, 0, 0)],
+  aioros: [gt("arrow", "Flecha Dorada", 8000, 1200, 1.6, 2.2, { r: 12, vis: "arrow", hint: "¡sal de la línea!" }),
+    gt("thunder", "Trueno Atómico", 10000, 1100, 0.55, 0.8, { vis: "thunder", first: 6000, hint: "¡rayos de luz por todas partes!" }), gt("summon", "Carga de centauros", 15000, 0, 0, 0)],
+  shura: [gt("slash", "Excalibur", 7000, 700, 1.4, 2.0, { r: 8, fx: "bleed", vis: "slash", hint: "¡corte en línea, apártate!" }),
+    gt("leap", "Salto de la Piedra (Jumping Stone)", 11000, 1000, 1.0, 1.4, { fx: "knock", vis: "leap", first: 7000, hint: "¡sal de la sombra!" }), gt("blink", "Filo veloz", 12000, 0, 0.6, 1.1)],
+  camus: [gt("nova", "Ejecución Aurora", 14000, 2000, 1.2, 1.7, { r: 18, fx: "root", vis: "aurora", first: 8000, hint: "¡aléjate o te congelas!" }),
+    gt("bolt", "Ataúd de Hielo", 15000, 1000, 0.3, 0.5, { fx: "coffin", vis: "coffin", first: 5000, hint: "¡muévete o quedas encerrado en hielo!" }),
+    gt("cone", "Polvo de Diamante", 8000, 1000, 0.8, 1.2, { r: 5, fx: "slow", vis: "diamond", hint: "¡sal del cono helado!" })],
+  afro: [gt("rosefield", "Rosas Diabólicas Reales", 14000, 1000, 0.3, 0.5, { r: 6, r2: 8, vis: "rosefield", first: 4000, hint: "¡no pises el jardín: envenena!" }),
+    gt("bolt", "Rosa Sangrienta", 12000, 1000, 0.9, 1.3, { fx: "drain", vis: "whiterose", first: 9000, hint: "¡la rosa blanca te chupa la vida!" }),
+    gt("piranha", "Rosas Piraña", 7000, 900, 0.7, 1.0, { r: 6, fx: "shred", vis: "piranha", hint: "¡rosas negras: te rompen la armadura!" }), gt("summon", "Jardín de rosas", 14000, 0, 0, 0)],
 };
 interface GsFx { cells: Array<[number, number]>; at: number; fx: GsFxK; mon: number; amt: number; }
 interface GsVis { k: string; cells: Array<[number, number]>; born: number; at: number; ox: number; oy: number; tx: number; ty: number; name: string; }
@@ -6313,7 +6342,7 @@ function gsUsable(g: Game, m: Mon, T: GsTech, d: number, now: number): boolean {
     case "clones": return tempCount(g, m, true) < 4;
     case "blink": return d >= 2;
   }
-  return false;
+  return gsUsable2(g, m, T, d, now);
 }
 function gsThink(g: Game, m: Mon, now: number, d: number): boolean {
   const id = GS_OF[m.def.id]; if (!id) return false; const b = gsB(m);
@@ -6356,7 +6385,7 @@ function gsCast(g: Game, m: Mon, b: GsB, T: GsTech, now: number): void {
     case "bolt": case "gmk": W([[p.x, p.y]]); break;
     case "wall": b.wallFrom = now + GS.WALL_RAISE; b.wall = b.wallFrom + GS.WALL_MS; break;
     case "dim": W(circle(p.x, p.y, 2), 0, 0, 0); break;
-    default: break;
+    default: gsCast2(g, m, b, T, W, now); break;
   }
   addFloat(g, m.x * TS + 16, m.y * TS - 44, `«¡${T.name}!»`, "#ffe27a", now);
   setStatus(g, `${m.def.name}: «¡${T.name}!»${T.hint ? ` — ${T.hint}` : ""}`, now, "#ffd34d");
@@ -6367,7 +6396,7 @@ function gsWall(g: Game, m: Mon, dmg: number, now: number): boolean {
   const back = Math.max(1, Math.round(dmg * GS.WALL_REFLECT)); addFloat(g, m.x * TS + 16, m.y * TS - 6, "REBOTA", "#bfeaff", now);
   hurtPlayer(g, back, now); pfloat(g, `💎 -${back}`, "#bfeaff", now, -16); return true;
 }
-function gsStunned(g: Game, now: number): boolean { return !!g.gs && now < g.gs.stun; }
+function gsStunned(g: Game, now: number): boolean { return (!!g.gs && now < g.gs.stun) || gsRooted(g, now); }
 function gsConfused(g: Game, now: number): boolean { return !!g.gs && now < g.gs.conf; }
 function gsSilenced(g: Game, now: number): boolean {
   if (!g.gs || now >= g.gs.sil) return false; setStatus(g, `🔇 Tenbu Hōrin: sin sentidos, no puedes usar poderes (${Math.ceil((g.gs.sil - now) / 1000)} s).`, now, "#ffe890"); return true;
@@ -6375,6 +6404,7 @@ function gsSilenced(g: Game, now: number): boolean {
 function gsTick(g: Game, now: number): void {
   const st = g.gs; if (!st) return; const p = g.p; const r = regionOf(p.x, p.y);
   if (st.vis.length > 0) st.vis = st.vis.filter((v: GsVis) => now < v.at + 900);
+  gsTick2(g, st, now);
   if (st.fx.length === 0) return; const keep: GsFx[] = [];
   for (const e of st.fx) {
     if (now < e.at + 40) { keep.push(e); continue; } // un instante después del golpe (el daño de la casilla roja se aplica primero)
@@ -6389,6 +6419,7 @@ function gsTick(g: Game, now: number): void {
       case "tenbu": st.stun = now + GS.STUN_MS; st.sil = now + GS.SIL_MS; g.walkGoal = null; g.heldDirs = []; pfloat(g, "🔇 ¡Sin sentidos!", "#ffe890", now, -16); addLog(g, `🔇 Tenbu Hōrin: aturdido ${GS.STUN_MS / 1000} s y sin poderes ${GS.SIL_MS / 1000} s.`); break;
       case "confuse": st.conf = now + GS.CONF_MS; g.walkGoal = null; pfloat(g, "😵 ¡Controles invertidos!", "#e0a0ff", now, -16); addLog(g, `😵 Genrō Maō Ken: controles invertidos ${GS.CONF_MS / 1000} s.`); break;
       case "dim": if (!g.dim && r === NH) { enterDim(g, now, m ? m.def.name : GSL.saga.n); const dd = g.dim as DimSt | null | undefined; if (dd) { dd.until = now + GS.DIM_MS; setStatus(g, `🌀 ¡Otra Dimensión! Llega a la grieta ✦ o resiste ${GS.DIM_MS / 1000} s.`, now, "#e0a0ff"); } } break;
+      default: gsFx2(g, st, e, m, now); break;
     }
   }
   st.fx = keep;
@@ -6460,11 +6491,13 @@ function gsOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
         gr.addColorStop(0, `rgba(255,255,255,${pre ? 1 : 1 - t})`); gr.addColorStop(0.4, `rgba(200,90,255,${pre ? 0.9 : 0.8 * (1 - t)})`); gr.addColorStop(1, "rgba(120,0,200,0)"); c.fillStyle = gr; c.fillRect(fx - 32, fy - 32, 64, 64);
         if (pre) { c.strokeStyle = "rgba(220,150,255,0.8)"; c.lineWidth = 2; c.beginPath(); c.arc(tx, ty, 13, 0, Math.PI * 2); c.stroke(); } break; }
       case "eyes": { const R = 20 + 120 * k; c.strokeStyle = `rgba(190,235,255,${1 - k})`; c.lineWidth = 4; c.beginPath(); c.arc(ox, oy - 10, R, 0, Math.PI * 2); c.stroke(); outlined(c, "👁 ¡Shaka abre los ojos!", ox, oy - 64, "#bfeaff", "bold 14px sans-serif"); break; }
+      default: gsVis2(c, v, pre, k, t, ox, oy, tx, ty, P, now); break;
     }
     c.restore();
   }
   // estados del jugador sobre su cabeza
   const p = g.p; const [px, py] = drawPos(p, now); const sx = px * TS + 16 - cx, sy = py * TS - cy - 26; const tags: string[] = [];
+  gsOverlay2(c, g, st, now, sx, sy, P);
   if (now < st.sil) tags.push(`🔇${((st.sil - now) / 1000).toFixed(1)}`); if (now < st.stun) tags.push("💫"); if (now < st.conf) tags.push(`😵${((st.conf - now) / 1000).toFixed(1)}`);
   if (tags.length > 0) outlined(c, tags.join(" "), sx, sy, now < st.conf ? "#e0b0ff" : "#ffe890", "bold 11px sans-serif");
   if (now < st.conf) { c.save(); c.translate(sx, sy + 8); for (let s2 = 0; s2 < 3; s2++) { const a = now / 200 + s2 * 2.1; c.fillStyle = "#ffe066"; c.fillRect(Math.cos(a) * 9 - 1.5, Math.sin(a) * 3 - 1.5, 3, 3); } c.restore(); }
@@ -6473,6 +6506,8 @@ function gsOverlay(ctx: CanvasRenderingContext2D, g: Game, now: number): void {
 const GS_CLOTH: Array<[GsId, string, string, string]> = [ // [santo, id del atuendo, nombre, color del signo]
   ["mu", "o_g_aries", "Armadura de Aries", "#c060c0"], ["alde", "o_g_tauro", "Armadura de Tauro", "#8a4a1a"], ["saga", "o_g_geminis", "Armadura de Géminis", "#3a5aff"],
   ["dm", "o_g_cancer", "Armadura de Cáncer", "#2a6a5a"], ["aioria", "o_g_leo", "Armadura de Leo", "#c06010"], ["shaka", "o_g_virgo", "Armadura de Virgo", "#e08a30"],
+  ["dohko", "o_g_libra", "Armadura de Libra", "#3aaa6a"], ["milo", "o_g_escorpio", "Armadura de Escorpio", "#c02020"], ["aioros", "o_g_sagitario", "Armadura de Sagitario", "#c06010"],
+  ["shura", "o_g_capricornio", "Armadura de Capricornio", "#5a5a8a"], ["camus", "o_g_acuario", "Armadura de Acuario", "#2a8ab8"], ["afro", "o_g_piscis", "Armadura de Piscis", "#ff70b0"],
 ];
 for (const [gid, oid, n, col] of GS_CLOTH) OUTFITS.push({ id: oid, n, robe: GSC.A, trim: col, price: 0, art: `g_${gid}` as HeroArt, drop: Object.keys(GS_OF).find((k: string) => GS_OF[k] === gid) ?? "" });
 function gsClothBy(id: string): string { const o = OUTFITS.find((x: Outfit) => x.id === id); const d = o && o.drop ? MONS[o.drop] : undefined; return d ? d.name : ""; }
@@ -6484,12 +6519,290 @@ function gsDrop(g: Game, m: Mon, now: number, force = false): boolean {
   addLog(g, `✨ Atuendo exclusivo: ${row[2]} (1/${Math.round(1 / GS.CLOTH_P)}).`); pushToast(g, `✨ ${row[2]}`, [[`Atuendo de ${m.def.name}`, "#ffe066"]], "Cosmético, sin estadísticas. Se guarda con este personaje.", now);
   return true;
 }
-/** GM: «/gm armaduras» da los 6 atuendos dorados de la etapa 1 (para probar). */
+/** GM: «/gm armaduras» da los 12 atuendos dorados (para probar). */
 function gsGmGrant(g: Game): string { const c = cs(g); let n = 0; for (const r of GS_CLOTH) if (!c.owned.includes(r[1])) { c.owned.push(r[1]); n++; } return `GM: ${n} atuendos de armadura dorada añadidos (${GS_CLOTH.length} en total).`; }
+// ===================== v29.1: Caballeros Dorados, etapa 2 (Dohko, Milo, Aioros, Shura, Camus y Afrodita) =====================
+// Mismo sistema que la etapa 1: cascos y detalles propios de cada signo, técnicas avisadas con casillas rojas y efectos de estado.
+const GS2 = {
+  LSHIELD_MS: 4000, LSHIELD_MUL: 0.5,       // Escudo de Libra: 4 s recibiendo la mitad de daño
+  NEEDLE_MAX: 15,                            // Aguja Escarlata: a las 15 marcas estalla Antares
+  NEEDLE_WAIT: 5000, NEEDLE_STEP: 2500,      // las marcas empiezan a bajar tras 5 s sin aguja, una cada 2,5 s
+  ANT_LO: 1.8, ANT_HI: 2.4, ANT_DELAY: 700,  // Antares: × ataque de Milo, 0,7 s después de la 15.ª aguja
+  SLOW_MS: 3000,                             // Polvo de Diamante: lento 3 s
+  ROOT_MS: 1500,                             // Ejecución Aurora: congelado en el sitio 1,5 s
+  COFFIN_MS: 2000, COFFIN_HIT: 500, COFFIN_MASH: 250, MASH_GAP: 150, // Ataúd de Hielo: 2 s; cada golpe recibido −0,5 s; forcejear (teclas de mover) −0,25 s
+  FIELD_MS: 7000, FIELD_TICK: 1000, FIELD_POISON: 0.08, POISON_MS: 3000, // Rosas Diabólicas Reales: campo 7 s; veneno 8% del ataque por segundo
+  SHRED_MS: 5000, SHRED_MUL: 1.2,            // Rosas Piraña: 5 s recibiendo +20% de daño
+  BLEED_MS: 3000, BLEED: 0.06,               // Excalibur: corte que sangra 3 s (6% del ataque por segundo)
+};
+let GS_RAGE = false; // pose de furia (por debajo del 30%) mientras se dibuja el santo
+interface GsSt { needle?: number; needleAt?: number; needleR?: number; antAt?: number; antLo?: number; antHi?: number; root?: number; coffin?: number; coffinMax?: number; mashAt?: number; shred?: number; fields?: GsField[]; leaps?: GsLeap[]; }
+interface GsB { shield?: number; }
+interface GsField { cells: Array<[number, number]>; from: number; until: number; next: number; dmg: number; }
+interface GsLeap { mon: number; x: number; y: number; at: number; }
+const ray = (x: number, y: number, a: number, n: number): Array<[number, number]> => { const out: Array<[number, number]> = []; for (let k = 1; k <= n; k++) out.push([x + Math.round(Math.cos(a) * k), y + Math.round(Math.sin(a) * k)]); return out; };
+/** Cascos de la etapa 2 (true = dibujado). */
+function gsHelm2(c: CanvasRenderingContext2D, id: GsId, view: 0 | 1 | 2, hy: number): boolean {
+  const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M; const back = view === 0;
+  if (view === 1) {
+    v22R(c, 13, hy + 0.4, 7.6, 1.8, A); v22R(c, 13, hy + 0.4, 7.6, 0.5, H);
+    switch (id) {
+      case "dohko": hPoly(c, A, [[16.4, hy + 0.6], [17, hy - 3.4], [18, hy - 4.8], [18.8, hy - 3], [19, hy + 0.6]]); hEll(c, "#3aaa6a", 18.1, hy - 1.4, 0.6, 0.9); v22R(c, 12.6, hy + 1.4, 2.6, 0.6, A); break;
+      case "milo": for (const [x, y, r] of [[12, hy + 0.6, 1.4], [11.6, hy - 1.8, 1.4], [12.4, hy - 4, 1.35], [14.4, hy - 5.4, 1.3], [16.8, hy - 5.4, 1.2], [18.6, hy - 4]] as Array<[number, number, number?]>) { hEll(c, D, x, y, (r ?? 1.1) + 0.3, (r ?? 1.1) + 0.2); hEll(c, A, x, y - 0.2, r ?? 1.1, r ?? 1.1); }
+        hPoly(c, A, [[18.4, hy - 4.6], [20.6, hy - 2.6], [19.8, hy - 1], [18.8, hy - 3]]); v22R(c, 19.8, hy - 1.6, 0.8, 0.8, "#ff3a3a"); break;
+      case "aioros": hPoly(c, A, [[13.4, hy + 1.4], [9.6, hy - 2.8], [10.4, hy - 0.4], [8.8, hy - 0.6], [12.6, hy + 2.8]]); hPoly(c, H, [[12.8, hy + 1], [10.4, hy - 1.6], [11.2, hy + 0.2]]); hEll(c, "#c06010", 19.4, hy + 1.2, 0.7, 0.7); break;
+      case "shura": hPoly(c, A, [[14, hy + 0.6], [12.6, hy - 2.6], [9.8, hy - 4], [8, hy - 2.4], [9.6, hy - 2.6], [11.6, hy - 0.8], [12.6, hy + 1.6]]); hPoly(c, D, [[12.4, hy - 2.2], [10, hy - 3.4], [11.6, hy - 1.6]]); v22R(c, 18.8, hy + 1.6, 1.6, 4.4, A); break;
+      case "camus": hPoly(c, A, [[16.6, hy + 0.6], [16.4, hy - 2.4], [17.6, hy - 4.4], [18.6, hy - 2.6], [19.6, hy - 4], [20, hy + 0.6]]); hPoly(c, A, [[13.6, hy + 1.6], [10, hy - 1.6], [11.2, hy + 1], [9.6, hy + 1.4], [13, hy + 3]]); hEll(c, "#6ad8ff", 18.4, hy - 0.6, 0.6, 0.8); break;
+      case "afro": hPoly(c, A, [[13.6, hy + 1], [9.6, hy - 2.4], [10.6, hy + 0.4], [8.8, hy + 0.4], [11, hy + 2.6], [13.6, hy + 2.6]]); hPoly(c, H, [[12.8, hy + 1], [10.2, hy - 1.2], [11, hy + 0.6]]); hPoly(c, A, [[17.4, hy + 0.6], [18.2, hy - 1.8], [19, hy + 0.6]]); hEll(c, "#ff70b0", 18.2, hy - 0.2, 0.5, 0.6); break;
+      default: return false;
+    }
+    return true;
+  }
+  switch (id) {
+    case "dohko": // Libra: tiara con cresta alta y gema verde; platillos de la balanza en las sienes
+      v22R(c, 11.4, hy + 0.6, 9.2, 1.7, A); v22R(c, 11.4, hy + 0.6, 9.2, 0.5, H);
+      hPoly(c, A, [[14.2, hy + 1], [14.8, hy - 3.2], [16, hy - 5.4], [17.2, hy - 3.2], [17.8, hy + 1]]); hPoly(c, M, [[15, hy + 0.6], [15.4, hy - 2.6], [16, hy - 4], [16.6, hy - 2.6], [17, hy + 0.6]]);
+      if (!back) { hEll(c, "#1a6a3a", 16, hy - 1, 1.1, 1.3); hEll(c, "#3aaa6a", 16, hy - 1.1, 0.8, 1); v22R(c, 15.6, hy - 1.6, 0.4, 0.4, "#ffffff"); }
+      for (const sx of [-1, 1]) { const px = 16 + sx * 5.6; v22R(c, px - 1.8, hy - 0.6, 3.6, 0.6, A); v22R(c, px - 0.2, hy - 1.6, 0.4, 1.2, A); hEll(c, D, px, hy + 2.6, 1.9, 0.9); hEll(c, A, px, hy + 2.3, 1.7, 0.7); }
+      return true;
+    case "milo": // Escorpio: casco con la cola de escorpión que sube por detrás y se curva sobre la frente
+      v22R(c, 11.2, hy + 0.6, 9.6, 1.8, A); v22R(c, 11.2, hy + 0.6, 9.6, 0.5, H);
+      for (const sx of [-1, 1]) hPoly(c, A, [[16 + sx * 4.4, hy + 1.6], [16 + sx * 5.8, hy + 5.6], [16 + sx * 4, hy + 4.4]]);
+      for (const [x, y, r] of [[16, hy - 0.4, 1.5], [16, hy - 2.6, 1.45], [16.6, hy - 4.6, 1.35], [17.9, hy - 6, 1.25], [19.5, hy - 6.2, 1.1], [20.8, hy - 5]] as Array<[number, number, number?]>) { hEll(c, D, x, y, (r ?? 1) + 0.35, (r ?? 1) + 0.25); hEll(c, A, x, y - 0.2, r ?? 1, r ?? 1); hEll(c, H, x - 0.4, y - 0.6, (r ?? 1) * 0.4, (r ?? 1) * 0.3); }
+      hPoly(c, A, [[20.4, hy - 5.4], [21.8, hy - 4.6], [21.2, hy - 2.2], [20.4, hy - 3.8]]); v22R(c, 20.9, hy - 2.8, 0.7, 0.7, "#ff3a3a");
+      if (!back) { v22R(c, 15.2, hy - 0.2, 1.6, 1.4, "#c02020"); v22R(c, 15.5, hy, 0.6, 0.5, "#ff9a9a"); }
+      return true;
+    case "aioros": // Sagitario: diadema con alitas en las sienes y gema central
+      v22R(c, 11.4, hy + 0.6, 9.2, 1.6, A); v22R(c, 11.4, hy + 0.6, 9.2, 0.5, H);
+      for (const sx of [-1, 1]) { hPoly(c, A, [[16 + sx * 4.4, hy + 1.6], [16 + sx * 9.6, hy - 3.8], [16 + sx * 8.8, hy - 1.2], [16 + sx * 10.2, hy - 1.6], [16 + sx * 9, hy + 0.6], [16 + sx * 10, hy + 0.8], [16 + sx * 7.4, hy + 2.8]]);
+        hPoly(c, H, [[16 + sx * 5.4, hy + 1.2], [16 + sx * 9, hy - 2.6], [16 + sx * 7.4, hy + 0.4]]); v22R(c, 16 + sx * 8 - 0.3, hy - 0.4, 0.6, 2, D); }
+      hPoly(c, A, [[15, hy + 0.8], [16, hy - 2.6], [17, hy + 0.8]]); if (!back) { hEll(c, "#c06010", 16, hy + 0.6, 0.9, 0.9); v22R(c, 15.6, hy + 0.2, 0.4, 0.4, "#ffffff"); }
+      return true;
+    case "shura": // Capricornio: casco con cuernos de cabra que se curvan hacia atrás
+      hPoly(c, A, [[11.2, hy + 3.2], [11.4, hy + 0.2], [13, hy - 1.4], [19, hy - 1.4], [20.6, hy + 0.2], [20.8, hy + 3.2]]); v22R(c, 13, hy - 0.8, 6, 0.6, H);
+      for (const sx of [-1, 1]) { hPoly(c, A, [[16 + sx * 3.6, hy + 0.2], [16 + sx * 5.6, hy - 3.2], [16 + sx * 8.8, hy - 4.8], [16 + sx * 10.8, hy - 3], [16 + sx * 10.2, hy - 0.6], [16 + sx * 9, hy - 2.4], [16 + sx * 6.8, hy - 1.4], [16 + sx * 5.4, hy + 1.6]]);
+        for (const k of [0, 1, 2]) v22R(c, 16 + sx * (6.2 + k * 1.4) - 0.3, hy - 3.2 - k * 0.5, 0.6, 1.4, D); v22R(c, 16 + sx * 5.4 - 0.8, hy + 1.6, 1.6, 4, A); }
+      if (!back) { hPoly(c, M, [[15, hy - 1.4], [17, hy - 1.4], [16, hy + 2.4]]); v22R(c, 15.7, hy - 1, 0.6, 2, H); }
+      return true;
+    case "camus": // Acuario: tiara con cresta en forma de ánfora y alas de agua
+      v22R(c, 11.4, hy + 0.8, 9.2, 1.5, A); v22R(c, 11.4, hy + 0.8, 9.2, 0.5, H);
+      hPoly(c, A, [[14, hy + 1], [13.4, hy - 2], [14.6, hy - 4.4], [16, hy - 3], [17.4, hy - 4.4], [18.6, hy - 2], [18, hy + 1]]); hPoly(c, M, [[14.8, hy + 0.6], [14.6, hy - 1.8], [16, hy - 1.4], [17.4, hy - 1.8], [17.2, hy + 0.6]]);
+      if (!back) { hEll(c, "#2a8ab8", 16, hy - 0.4, 0.9, 1); hEll(c, "#9ff0ff", 15.8, hy - 0.7, 0.4, 0.4); }
+      for (const sx of [-1, 1]) { hPoly(c, A, [[16 + sx * 4.4, hy + 1.6], [16 + sx * 9, hy - 2], [16 + sx * 7.8, hy + 0.8], [16 + sx * 9.6, hy + 1.2], [16 + sx * 5.6, hy + 3.2]]); hPoly(c, H, [[16 + sx * 5.2, hy + 1.2], [16 + sx * 8.2, hy - 1], [16 + sx * 6.8, hy + 0.8]]); }
+      return true;
+    case "afro": // Piscis: tiara fina con aletas de pez en las sienes y cola de pez central
+      v22R(c, 11.6, hy + 0.8, 8.8, 1.3, A); v22R(c, 11.6, hy + 0.8, 8.8, 0.4, H);
+      for (const sx of [-1, 1]) { hPoly(c, A, [[16 + sx * 4.6, hy + 1], [16 + sx * 8.8, hy - 2.8], [16 + sx * 8, hy + 0.2], [16 + sx * 9.8, hy], [16 + sx * 7.8, hy + 2.6], [16 + sx * 5, hy + 2.6]]); for (const k of [0, 1]) v22R(c, 16 + sx * (6.4 + k * 1.2) - 0.25, hy - 1 - k * 0.6, 0.5, 2.6, H); }
+      hPoly(c, A, [[15.4, hy + 1], [14.4, hy - 2], [16, hy - 0.8], [17.6, hy - 2], [16.6, hy + 1]]); if (!back) { hEll(c, "#ff70b0", 16, hy + 0.4, 0.7, 0.7); }
+      return true;
+  }
+  return false;
+}
+/** Hombreras propias de la etapa 2. */
+function gsPaul2(c: CanvasRenderingContext2D, id: GsId, px: number, sx: number, top: number): void {
+  const A = GSC.A, H = GSC.H, D = GSC.D;
+  if (id === "milo") { hPoly(c, A, [[px - sx * 0.4, top + 0.6], [px + sx * 3.8, top - 2.8], [px + sx * 3, top + 1.2]]); hPoly(c, A, [[px + sx * 1.4, top + 1.6], [px + sx * 5, top + 0.2], [px + sx * 3.6, top + 2.8]]); }
+  else if (id === "camus") { hPoly(c, A, [[px - sx * 0.6, top + 0.2], [px + sx * 4.8, top - 3], [px + sx * 4.4, top + 2.2], [px + sx * 1, top + 2.2]]); hPoly(c, H, [[px + sx * 0.6, top + 0.2], [px + sx * 4, top - 2], [px + sx * 3.6, top + 0.4]]); }
+  else if (id === "afro") { hPoly(c, A, [[px, top + 0.4], [px + sx * 4.2, top - 1.8], [px + sx * 3.4, top + 2.4]]); v22R(c, px + sx * 2.2 - 0.25, top - 0.6, 0.5, 2.4, H); }
+  else if (id === "shura") { hEll(c, D, px + sx * 0.4, top + 0.8, 2.6, 1.4); hEll(c, A, px + sx * 0.4, top + 0.5, 2.3, 1.1); }
+  else if (id === "aioros") { for (const k of [0, 1, 2]) hPoly(c, k % 2 ? H : A, [[px - sx * 0.4, top + 0.6 + k], [px + sx * (3.6 - k * 0.6), top - 1.6 + k * 1.2], [px + sx * (2.6 - k * 0.4), top + 2 + k]]); }
+  else if (id === "dohko") { hEll(c, A, px + sx * 0.6, top + 0.6, 2.8, 1.8); hEll(c, H, px, top + 0.2, 1.3, 0.7); }
+}
+/** Alas de Sagitario (detrás del cuerpo). */
+function gsWings(c: CanvasRenderingContext2D, face: 0 | 1 | 2, top: number, now: number): void {
+  const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M; const fl = Math.sin(now / 380) * 0.8;
+  const wing = (sx: number, k: number): void => { const bx = 16 + sx * 4, by = top + 3;
+    hPoly(c, D, [[bx, by], [bx + sx * 7 * k, by - 9 - fl], [bx + sx * 15 * k, by - 12 - fl], [bx + sx * 13.5 * k, by - 6], [bx + sx * 15 * k, by - 3], [bx + sx * 12.6 * k, by + 1], [bx + sx * 13.4 * k, by + 5], [bx + sx * 9 * k, by + 5], [bx + sx * 8.6 * k, by + 9], [bx + sx * 4 * k, by + 6]]);
+    hPoly(c, A, [[bx, by - 0.4], [bx + sx * 7 * k, by - 8.4 - fl], [bx + sx * 14 * k, by - 11 - fl], [bx + sx * 12.6 * k, by - 5.6], [bx + sx * 14 * k, by - 2.8], [bx + sx * 11.8 * k, by + 0.6], [bx + sx * 12.4 * k, by + 4], [bx + sx * 8.6 * k, by + 4], [bx + sx * 8 * k, by + 7.6], [bx + sx * 4 * k, by + 5]]);
+    for (let f = 0; f < 4; f++) v22R(c, bx + sx * (5 + f * 2.2) * k - 0.3, by - 4 - f * 1.4 - fl * (f / 4), 0.6, 4 + f * 0.6, f % 2 ? H : M); hPoly(c, H, [[bx + sx * k, by - 1], [bx + sx * 7 * k, by - 7.6 - fl], [bx + sx * 5 * k, by - 3]]); };
+  if (face === 1) wing(-1, 0.85); else { wing(-1, 1); wing(1, 1); }
+}
+/** Detrás del cuerpo (antes de dibujar la figura). */
+function gsBack2(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, top: number, now: number): void {
+  if (id === "aioros" && face !== 0) gsWings(c, face, top, now);
+  if (id === "dohko" && face === 1) { hEll(c, GSC.D, 9.6, top + 7, 3.2, 4.4); hEll(c, GSC.A, 9.6, top + 6.6, 2.8, 4); hEll(c, "#3aaa6a", 9.6, top + 6.6, 1, 1.2); }
+}
+/** Delante (al final): armas de Libra, arco de Sagitario, Excalibur, rosas, lunar de Afrodita; alas sobre la capa de espaldas. */
+function gsFront2(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, top: number, hy: number, now: number, cast: number, tw: number): void {
+  const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M;
+  if (id === "aioros") {
+    if (face === 0) gsWings(c, 0, top, now);
+    else { const bx = face === 1 ? 21 : 16 - tw - 3.4, by = top + 8; c.save(); c.strokeStyle = D; c.lineWidth = 1.6; c.beginPath(); c.arc(bx + (face === 1 ? -5 : 6), by, 9, face === 1 ? -0.95 : 2.2, face === 1 ? 0.95 : 4.08); c.stroke();
+      c.strokeStyle = A; c.lineWidth = 1; c.stroke(); c.strokeStyle = "rgba(255,255,255,0.75)"; c.lineWidth = 0.35; c.beginPath(); const a0 = face === 1 ? -0.95 : 2.2, a1 = face === 1 ? 0.95 : 4.08, cx0 = bx + (face === 1 ? -5 : 6);
+      c.moveTo(cx0 + Math.cos(a0) * 9, by + Math.sin(a0) * 9); c.lineTo(cx0 + Math.cos(a1) * 9, by + Math.sin(a1) * 9); c.stroke(); c.restore(); }
+  }
+  if (id === "dohko") {
+    if (face === 2) { const sx = 16 - tw - 2.6, sy = top + 9; hEll(c, D, sx, sy, 3.8, 4.2); hEll(c, A, sx, sy - 0.2, 3.4, 3.8); hEll(c, M, sx, sy, 2.2, 2.4); hEll(c, "#3aaa6a", sx, sy, 1, 1.1); hEll(c, H, sx - 1.2, sy - 2, 1, 0.6); }
+    if (face === 0) { v22R(c, 11.4, top + 2, 9.2, 8.6, D); v22R(c, 11.8, top + 2.4, 8.4, 7.8, A); hPoly(c, M, [[16, top + 3], [19, top + 6.2], [16, top + 9.4], [13, top + 6.2]]); hEll(c, "#3aaa6a", 16, top + 6.2, 1, 1); v22R(c, 11.8, top + 2.4, 8.4, 0.6, H); }
+  }
+  if (id === "shura" && cast > 0 && face !== 0) { // Excalibur: el brazo derecho es la espada sagrada
+    const hx = face === 1 ? 24.6 : 16 + tw + 1.2, hy2 = face === 1 ? top + 4.4 : top + 1 - 8.6 * cast + 9.6; c.save(); c.globalAlpha = 0.85;
+    if (face === 1) hPoly(c, "#f4fbff", [[hx - 1, hy2 - 0.8], [hx + 7, hy2 - 0.2], [hx - 1, hy2 + 0.8]]); else hPoly(c, "#f4fbff", [[hx - 0.9, hy2], [hx, hy2 - 9], [hx + 0.9, hy2]]);
+    c.restore(); }
+  if (id === "afro" && face !== 0) { const rx = face === 1 ? 17.4 : 16 + tw + 1.2, ry = face === 1 ? top + 11.6 : top + 11.6 - (cast > 0 ? 8.6 * cast : 0);
+    v22R(c, rx - 0.2, ry, 0.5, 3, "#2a7a2a"); hEll(c, "#a01030", rx, ry, 1.6, 1.4); hEll(c, "#e02050", rx, ry - 0.2, 1.2, 1); hEll(c, "#ff7090", rx - 0.3, ry - 0.5, 0.5, 0.4); }
+  if (id === "afro" && face === 2) { v22R(c, 17.9, hy + 6.4, 0.6, 0.6, "#3a1a20"); for (const sx of [-1, 1]) { hEll(c, GSL.afro.hair, 16 + sx * 4.6, hy + 13.4, 1.2, 1); hEll(c, GSL.afro.hairHi, 16 + sx * 4.4, hy + 13.2, 0.5, 0.4); } }
+  if (id === "afro" && face === 1) v22R(c, 18.6, hy + 6.2, 0.6, 0.6, "#3a1a20");
+  if (id === "milo" && cast > 0 && face === 2) { const hx = 16 + tw + 1.2, hy2 = top + 1 - 8.6 * cast + 9.6; v22R(c, hx - 0.3, hy2 - 2.6, 0.6, 1.6, "#ff2a2a"); }
+}
+/** Furia (vida < 30%): los dos puños arriba con cosmos rojo. */
+function gsRageFx(c: CanvasRenderingContext2D, tw: number, top: number, now: number): void {
+  for (const sx of [-1, 1]) { const gx = 16 + sx * (tw + 1.2), gy = top + 6; const r = 4.5 + Math.sin(now / 120 + sx) * 0.8; const g2 = c.createRadialGradient(gx, gy, 0.3, gx, gy, r); g2.addColorStop(0, "#fff0e0"); g2.addColorStop(0.4, "rgba(255,70,40,0.8)"); g2.addColorStop(1, "rgba(255,0,0,0)"); c.fillStyle = g2; c.fillRect(gx - r, gy - r, r * 2, r * 2); }
+}
+/** Aura extra: escarcha de Camus, pétalos de Afrodita, chispas de Milo. */
+function gsAura2(c: CanvasRenderingContext2D, x: number, y: number, id: GsId, now: number, s: number): void {
+  if (id === "camus") { const g2 = c.createRadialGradient(x + 16, y + 20, 2, x + 16, y + 20, 26 * s); g2.addColorStop(0, "rgba(190,240,255,0.35)"); g2.addColorStop(1, "rgba(120,200,255,0)"); c.fillStyle = g2; c.fillRect(x - 30 * s, y - 30 * s, 92 * s, 92 * s);
+    for (let k = 0; k < 7; k++) { const a = now / 900 + k * 0.9; const rr = 15 * s + Math.sin(now / 300 + k) * 3; const fx = x + 16 + Math.cos(a) * rr, fy = y + 14 + Math.sin(a) * rr * 0.45 - ((now / 30 + k * 13) % 20); c.fillStyle = "rgba(230,250,255,0.85)"; c.fillRect(fx - 1.5, fy - 0.3, 3, 0.6); c.fillRect(fx - 0.3, fy - 1.5, 0.6, 3); } }
+  if (id === "afro") for (let k = 0; k < 5; k++) { const t = ((now / 1600 + k / 5) % 1); const fx = x + 16 + Math.sin(k * 2.1 + now / 700) * 18 * s, fy = y - 6 + t * 40; c.fillStyle = k % 2 ? "rgba(230,30,70,0.8)" : "rgba(255,120,160,0.8)"; c.beginPath(); c.ellipse(fx, fy, 2.2, 1.2, t * 6, 0, Math.PI * 2); c.fill(); }
+}
+/** Escudo de Libra girando delante de Dohko mientras está activo. */
+function gsMon2(c: CanvasRenderingContext2D, b: GsB, x: number, y: number, now: number): void {
+  if (!b.shield || now >= b.shield) return; const fade = clamp((b.shield - now) / 400, 0, 1); c.save(); c.globalAlpha = 0.85 * fade;
+  for (let k = 0; k < 3; k++) { const a = now / 500 + (k * Math.PI * 2) / 3; const px = x + 16 + Math.cos(a) * 24, py = y + 6 + Math.sin(a) * 10; const w = 5 + 3 * Math.abs(Math.cos(a));
+    c.fillStyle = "#9a6a10"; c.beginPath(); c.ellipse(px, py, w + 1, 8, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = "#e8b430"; c.beginPath(); c.ellipse(px, py, w, 7, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = "#3aaa6a"; c.fillRect(px - 1.5, py - 1.5, 3, 3); }
+  outlined(c, "🛡 ½", x + 16, y - 30, "#bfffcf", "bold 11px sans-serif"); c.restore();
+}
+function gsUsable2(g: Game, m: Mon, T: GsTech, d: number, now: number): boolean {
+  const p = g.p;
+  switch (T.k) {
+    case "dragons": case "piranha": case "rosefield": return d <= (T.r ?? 6);
+    case "weapons": return d >= 1 && d <= 6 && los(g, m.x, m.y, p.x, p.y);
+    case "lshield": return now >= (m.gsb?.shield ?? 0) && m.hp < m.def.hp * 0.9;
+    case "thunder": return d <= 5;
+    case "arrow": return d >= 2 && d <= (T.r ?? 12) && los(g, m.x, m.y, p.x, p.y);
+    case "slash": return d <= (T.r ?? 8);
+    case "leap": return d >= 2 && d <= 7;
+  }
+  return false;
+}
+type GsW = (cells0: Array<[number, number]>, delay?: number, lo?: number, hi?: number) => void;
+function gsCast2(g: Game, m: Mon, b: GsB, T: GsTech, W: GsW, now: number): void {
+  const p = g.p; const st = gsSt(g); const a0 = Math.atan2(p.y - m.y, p.x - m.x);
+  switch (T.k) {
+    case "dragons": { const out: Array<[number, number]> = []; for (let k = -3; k <= 3; k++) out.push(...ray(m.x, m.y, a0 + (k * Math.PI) / 12, T.r ?? 7)); W(out); break; } // 7 dragones en abanico (±45°)
+    case "piranha": { const out: Array<[number, number]> = []; for (let k = -2; k <= 2; k++) out.push(...ray(m.x, m.y, a0 + (k * Math.PI) / 12, T.r ?? 6)); W(out); break; } // 5 rosas negras (±30°)
+    case "weapons": { const nx = -Math.sin(a0), ny = Math.cos(a0); const out: Array<[number, number]> = [];
+      for (const o of [0, -2, 2]) out.push(...circle(p.x + Math.round(nx * o), p.y + Math.round(ny * o), 1)); W(out); break; }
+    case "lshield": b.shield = now + 400 + GS2.LSHIELD_MS; break;
+    case "thunder": { for (let w = 0; w < 3; w++) { const out: Array<[number, number]> = []; const pool = circle(m.x, m.y, 25);
+        for (let i = 0; i < 12; i++) { const q = pool[Math.floor(Math.random() * pool.length)]; if (q) out.push(...circle(q[0], q[1], 1)); } if (w === 0) out.push([p.x, p.y]); W(out, w * 350); } break; }
+    case "arrow": W(ray(m.x, m.y, a0, T.r ?? 12)); break;
+    case "slash": W(ray(m.x, m.y, a0, T.r ?? 8)); break;
+    case "leap": { (st.leaps ??= []).push({ mon: m.id, x: p.x, y: p.y, at: now + T.tele }); W(circle(p.x, p.y, 2)); break; }
+    case "rosefield": { const cells = circle(p.x, p.y, T.r2 ?? 8); W(cells); const A = gsA(m); (st.fields ??= []).push({ cells: cells.filter((q: [number, number]) => walkable(tileAt(g, q[0], q[1]))), from: now + T.tele, until: now + T.tele + GS2.FIELD_MS, next: 0, dmg: Math.max(1, Math.round(A * GS2.FIELD_POISON)) }); break; }
+  }
+}
+interface GsTech { r2?: number; }
+/** Estados de la etapa 2 en cada fotograma: marcas de la aguja, Antares, saltos de Shura y campos de rosas. */
+function gsTick2(g: Game, st: GsSt, now: number): void {
+  const p = g.p; const r = regionOf(p.x, p.y);
+  if (st.needle && (r !== st.needleR || g.p.hp <= 0)) st.needle = 0;
+  if (st.needle && now - (st.needleAt ?? 0) > GS2.NEEDLE_WAIT) { st.needle--; st.needleAt = now - GS2.NEEDLE_WAIT + GS2.NEEDLE_STEP; }
+  if (st.antAt && now >= st.antAt) { st.antAt = 0; specialHit(g, roll(st.antLo ?? 1, st.antHi ?? 1), now); pfloat(g, "🦂 ¡ANTARES!", "#ff3030", now, -22); st.vis.push({ k: "antares", cells: [[p.x, p.y]], born: now, at: now, ox: p.x, oy: p.y, tx: p.x, ty: p.y, name: "" }); }
+  if (st.leaps && st.leaps.length) { const keep: GsLeap[] = [];
+    for (const L of st.leaps) { if (now < L.at) { keep.push(L); continue; } const m = (g.byRegion[r] ?? []).find((o: Mon) => o.id === L.mon && o.alive); if (!m) continue;
+      let best: [number, number] | null = null; let bd = 1e9;
+      for (const q of circle(L.x, L.y, 2)) { if (regionOf(q[0], q[1]) !== regionOf(m.x, m.y) || !walkable(tileAt(g, q[0], q[1])) || tileAt(g, q[0], q[1]) === PORTAL || (q[0] === p.x && q[1] === p.y)) continue; const o = monAt(g, q[0], q[1]); if (o && o !== m) continue;
+        const dd = cheb(q[0], q[1], L.x, L.y) * 100 + cheb(q[0], q[1], m.x, m.y); if (dd < bd) { bd = dd; best = q; } }
+      if (best) { m.fx = m.x; m.fy = m.y; m.x = best[0]; m.y = best[1]; m.moveStart = now; m.moveDur = 180; m.face = dirFrom(p.x - m.x, p.y - m.y); }
+      st.vis.push({ k: "quake", cells: circle(m.x, m.y, 2), born: now, at: now, ox: m.x, oy: m.y, tx: p.x, ty: p.y, name: "" }); }
+    st.leaps = keep; }
+  if (st.fields && st.fields.length) { st.fields = st.fields.filter((f: GsField) => now < f.until);
+    for (const f of st.fields) { if (now < f.from || now < f.next || !f.cells.some((q: [number, number]) => q[0] === p.x && q[1] === p.y)) continue; f.next = now + GS2.FIELD_TICK;
+      if (p.poisonUntil <= now) p.poisonNext = now + 1000; p.poisonUntil = Math.max(p.poisonUntil, now + GS2.POISON_MS); p.poisonDmg = f.dmg; pfloat(g, "🌹 Veneno", "#ff5a8a", now, -16); } }
+}
+/** Efectos al golpear (después de la casilla roja) de la etapa 2. */
+function gsFx2(g: Game, st: GsSt, e: GsFx, m: Mon | undefined, now: number): void {
+  const p = g.p;
+  switch (e.fx) {
+    case "slow": p.slowUntil = Math.max(p.slowUntil, now + GS2.SLOW_MS); pfloat(g, "❄ ¡Lento!", "#bff4ff", now, -16); break;
+    case "root": st.root = now + GS2.ROOT_MS; g.walkGoal = null; g.heldDirs = []; pfloat(g, "❄ ¡Congelado!", "#bff4ff", now, -16); addLog(g, `❄ Ejecución Aurora: congelado ${GS2.ROOT_MS / 1000} s.`); break;
+    case "coffin": st.coffin = now + GS2.COFFIN_MS; st.coffinMax = GS2.COFFIN_MS; g.walkGoal = null; g.heldDirs = []; pfloat(g, "🧊 ¡Ataúd de Hielo!", "#bff4ff", now, -16);
+      setStatus(g, "🧊 ¡Atrapado en el Ataúd de Hielo! Forcejea (teclas de mover) o recibe golpes para romperlo.", now, "#bff4ff"); break;
+    case "needle": { const A = m ? gsA(m) : 0; st.needle = Math.min(GS2.NEEDLE_MAX, (st.needle ?? 0) + 1); st.needleAt = now; st.needleR = regionOf(p.x, p.y); pfloat(g, `🦂 ${st.needle}/${GS2.NEEDLE_MAX}`, "#ff4040", now, -16);
+      if (st.needle >= GS2.NEEDLE_MAX && A > 0) { st.needle = 0; st.antAt = now + GS2.ANT_DELAY; st.antLo = Math.round(A * GS2.ANT_LO); st.antHi = Math.round(A * GS2.ANT_HI); setStatus(g, "🦂 15 agujas: ¡ANTARES!", now, "#ff3030"); addLog(g, "🦂 Milo: la 15.ª Aguja Escarlata es Antares."); } break; }
+    case "bleed": if (p.poisonUntil <= now) p.poisonNext = now + 1000; p.poisonUntil = Math.max(p.poisonUntil, now + GS2.BLEED_MS); p.poisonDmg = Math.max(1, m ? Math.round(gsA(m) * GS2.BLEED) : 1); pfloat(g, "🩸 ¡Corte!", "#ff6060", now, -16); break;
+    case "shred": st.shred = now + GS2.SHRED_MS; pfloat(g, "🥀 ¡Armadura rota!", "#c080a0", now, -16); break;
+  }
+}
+/** Congelado (Aurora) o dentro del Ataúd de Hielo: no te mueves. Forcejear rompe el ataúd antes. */
+function gsRooted(g: Game, now: number): boolean {
+  const st = g.gs; if (!st) return false; if (st.root && now < st.root) return true;
+  if (st.coffin && now < st.coffin) { if (now - (st.mashAt ?? 0) >= GS2.MASH_GAP) { st.mashAt = now; st.coffin -= GS2.COFFIN_MASH; if (st.coffin <= now) { st.coffin = 0; pfloat(g, "🧊 ¡Roto!", "#ffffff", now, -16); return false; } } return true; }
+  return false;
+}
+/** Golpe recibido: agrieta el Ataúd de Hielo; con la armadura rota de las Rosas Piraña pega +20%. */
+function gsHurtMul(g: Game, dmg: number, now: number): number { const st = g.gs; if (!st) return dmg; if (st.coffin && now < st.coffin) { st.coffin -= GS2.COFFIN_HIT; if (st.coffin <= now) { st.coffin = 0; pfloat(g, "🧊 ¡Roto!", "#ffffff", now, -24); } } return st.shred && now < st.shred ? Math.round(dmg * GS2.SHRED_MUL) : dmg; }
+/** Daño que recibe un guardián (Escudo de Libra: la mitad). */
+function gsMonDmg(m: Mon, d: number, now: number): number { const b = m.gsb; return b && b.shield && now < b.shield ? Math.max(1, Math.round(d * GS2.LSHIELD_MUL)) : d; }
+/** Efectos visibles de la etapa 2. */
+function gsVis2(c: CanvasRenderingContext2D, v: GsVis, pre: boolean, k: number, t: number, ox: number, oy: number, tx: number, ty: number, P: (x: number, y: number) => [number, number], now: number): void {
+  const tipOf = (): Array<[number, number]> => { const ends = new Map<number, [number, number]>(); for (const q of v.cells) { const a = Math.round(Math.atan2(q[1] - v.oy, q[0] - v.ox) * 12 / Math.PI); const d0 = Math.hypot(q[0] - v.ox, q[1] - v.oy); const e = ends.get(a); if (!e || d0 > Math.hypot(e[0] - v.ox, e[1] - v.oy)) ends.set(a, q); } return [...ends.values()]; };
+  switch (v.k) {
+    case "dragons": { for (const q of tipOf()) { const [ex, ey] = P(q[0], q[1]); const f = pre ? 0.15 * k : 0.15 + 0.85 * Math.min(1, t * 2.4); const hx = ox + (ex - ox) * f, hy = oy - 8 + (ey - oy + 8) * f; const a = Math.atan2(ey - oy, ex - ox);
+        c.strokeStyle = `rgba(90,220,140,${pre ? 0.35 : 0.9 * (1 - t)})`; c.lineWidth = 4; c.beginPath(); for (let s = 0; s <= 10; s++) { const u = s / 10; const bx = ox + (hx - ox) * u, by = oy - 8 + (hy - oy + 8) * u + Math.sin(u * 9 + now / 80) * 3; if (s === 0) c.moveTo(bx, by); else c.lineTo(bx, by); } c.stroke();
+        c.save(); c.translate(hx, hy); c.rotate(a); c.fillStyle = pre ? "rgba(120,240,160,0.7)" : `rgba(150,255,180,${1 - t})`; c.beginPath(); c.moveTo(9, 0); c.lineTo(-3, -5); c.lineTo(-1, 0); c.lineTo(-3, 5); c.closePath(); c.fill(); c.fillStyle = "#ffe066"; c.fillRect(1, -2.5, 2, 1.5); c.restore(); }
+      if (pre) outlined(c, "🐉 Cien Dragones de Rozan", ox, oy - 54, "#a8ffc8", "bold 11px sans-serif"); break; }
+    case "weapons": { const tg: Array<[number, number]> = []; for (const q of v.cells) { if (v.cells.filter((o: [number, number]) => Math.abs(o[0] - q[0]) + Math.abs(o[1] - q[1]) === 1).length === 4) tg.push(q); }
+      tg.forEach((q: [number, number], i: number) => { const [ex, ey] = P(q[0], q[1]); const f = pre ? k : 1; const wx = ox + (ex - ox) * f, wy = oy - 14 + (ey - oy + 14) * f - Math.sin(f * Math.PI) * 30;
+        c.save(); c.translate(wx, wy); c.rotate(now / 60 + i); c.globalAlpha = pre ? 1 : 1 - t; c.fillStyle = "#e8b430"; c.strokeStyle = "#9a6a10"; c.lineWidth = 1;
+        if (i === 0) { c.fillRect(-1.5, -10, 3, 18); c.fillRect(-5, 3, 10, 2); } else if (i === 1) { c.fillRect(-1, -10, 2, 20); c.fillRect(-5, -10, 10, 2); c.fillRect(-5, -14, 2, 5); c.fillRect(3, -14, 2, 5); c.fillRect(-1, -15, 2, 5); } else { c.beginPath(); c.arc(0, 0, 7, 0, Math.PI * 2); c.fill(); c.stroke(); c.fillStyle = "#3aaa6a"; c.fillRect(-1.5, -1.5, 3, 3); }
+        c.restore(); }); if (pre) outlined(c, "⚖ Armas de Libra", ox, oy - 54, "#ffe9a0", "bold 11px sans-serif"); break; }
+    case "needle": { if (pre) { c.strokeStyle = `rgba(255,60,60,${0.5 + 0.5 * k})`; c.lineWidth = 1.5; c.beginPath(); c.arc(tx, ty, 12 - 5 * k, 0, Math.PI * 2); c.stroke(); c.fillStyle = "#ff3030"; c.fillRect(ox + 9, oy - 26, 2, 4); }
+      else { c.strokeStyle = `rgba(255,40,40,${1 - t})`; c.lineWidth = 2; c.beginPath(); c.moveTo(ox + 10, oy - 22); c.lineTo(tx, ty - 6); c.stroke(); } break; }
+    case "antares": { const R = 10 + 40 * Math.min(1, (now - v.born) / 400); c.globalAlpha = clamp(1 - (now - v.born) / 900, 0, 1); const gr = c.createRadialGradient(tx, ty - 8, 1, tx, ty - 8, R); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.3, "rgba(255,60,40,0.9)"); gr.addColorStop(1, "rgba(160,0,0,0)"); c.fillStyle = gr; c.fillRect(tx - R, ty - 8 - R, R * 2, R * 2);
+      outlined(c, "ANTARES", tx, ty - 44, "#ff4a3a", "bold 14px sans-serif"); break; }
+    case "thunder": { for (let i = 0; i < v.cells.length; i += 5) { const q = v.cells[i]!; const [qx, qy] = P(q[0], q[1]);
+        if (pre) { c.fillStyle = `rgba(255,230,120,${0.25 + 0.4 * k})`; c.beginPath(); c.arc(qx, qy, 3 + 9 * k, 0, Math.PI * 2); c.fill(); }
+        else { c.strokeStyle = `rgba(255,240,160,${1 - t})`; c.lineWidth = 3; gsZig(c, qx + 6, qy - 70, qx, qy, i + Math.floor(now / 70), 5); c.strokeStyle = `rgba(255,255,255,${1 - t})`; c.lineWidth = 1; gsZig(c, qx + 6, qy - 70, qx, qy, i + Math.floor(now / 70), 5); } }
+      if (pre && k < 0.3) outlined(c, "⚡ Trueno Atómico", ox, oy - 54, "#fff0a0", "bold 11px sans-serif"); break; }
+    case "arrow": { const tip = tipOf()[0]; if (!tip) break; const [ex, ey] = P(tip[0], tip[1]);
+      if (pre) { c.strokeStyle = `rgba(255,220,100,${0.3 + 0.5 * k})`; c.lineWidth = 1; c.setLineDash([6, 4]); c.beginPath(); c.moveTo(ox, oy - 10); c.lineTo(ex, ey); c.stroke(); c.setLineDash([]); outlined(c, `🏹 Flecha Dorada · ${((v.at - now) / 1000).toFixed(1)} s`, ox, oy - 54, "#ffe9a0", "bold 11px sans-serif"); }
+      else { const f = Math.min(1, t * 3); const ax = ox + (ex - ox) * f, ay = oy - 10 + (ey - oy + 10) * f; const a = Math.atan2(ey - oy, ex - ox); c.strokeStyle = `rgba(255,230,120,${1 - t})`; c.lineWidth = 3; c.beginPath(); c.moveTo(ox, oy - 10); c.lineTo(ax, ay); c.stroke();
+        c.save(); c.translate(ax, ay); c.rotate(a); c.fillStyle = "#fff0a0"; c.beginPath(); c.moveTo(10, 0); c.lineTo(-2, -4); c.lineTo(-2, 4); c.closePath(); c.fill(); c.restore(); } break; }
+    case "slash": { const tip = tipOf()[0]; if (!tip) break; const [ex, ey] = P(tip[0], tip[1]);
+      if (pre) { c.strokeStyle = `rgba(230,245,255,${0.3 + 0.6 * k})`; c.lineWidth = 1 + 2 * k; c.beginPath(); c.moveTo(ox, oy - 8); c.lineTo(ex, ey); c.stroke(); outlined(c, "⚔ Excalibur", ox, oy - 54, "#eaf6ff", "bold 11px sans-serif"); }
+      else { const a = Math.atan2(ey - oy, ex - ox); c.save(); c.translate(ox, oy - 8); c.rotate(a); const L = Math.hypot(ex - ox, ey - oy); c.fillStyle = `rgba(255,255,255,${1 - t})`; c.beginPath(); c.moveTo(0, -2); c.lineTo(L * Math.min(1, t * 4), -0.5); c.lineTo(L * Math.min(1, t * 4), 0.5); c.lineTo(0, 2); c.closePath(); c.fill();
+        c.fillStyle = `rgba(160,220,255,${0.6 * (1 - t)})`; c.fillRect(0, -6 * (1 - t), L, 12 * (1 - t)); c.restore(); } break; }
+    case "leap": { const R = 2 * 32; if (pre) { c.fillStyle = `rgba(0,0,0,${0.15 + 0.35 * k})`; c.beginPath(); c.ellipse(tx, ty + 6, R * 0.25 + R * 0.4 * k, R * 0.12 + R * 0.18 * k, 0, 0, Math.PI * 2); c.fill(); outlined(c, `🐐 Salto de la Piedra · ${((v.at - now) / 1000).toFixed(1)} s`, tx, ty - 46, "#eaf6ff", "bold 11px sans-serif"); } break; }
+    case "quake": { const R = 2.4 * 32 * Math.min(1, (now - v.born) / 300); c.strokeStyle = `rgba(220,200,160,${clamp(1 - (now - v.born) / 700, 0, 1)})`; c.lineWidth = 4; c.beginPath(); c.ellipse(ox, oy + 6, R, R * 0.5, 0, 0, Math.PI * 2); c.stroke(); break; }
+    case "diamond": { for (let i = 0; i < v.cells.length; i++) { const q = v.cells[i]!; const [qx, qy] = P(q[0], q[1]); const f = pre ? k : 1; const sx = ox + (qx - ox) * f + Math.sin(now / 90 + i) * 3, sy = oy + (qy - oy) * f + Math.cos(now / 110 + i) * 3;
+        c.fillStyle = pre ? `rgba(220,250,255,${0.4 + 0.5 * k})` : `rgba(255,255,255,${1 - t})`; c.fillRect(sx - 2, sy - 0.5, 4, 1); c.fillRect(sx - 0.5, sy - 2, 1, 4); }
+      if (pre && k < 0.3) outlined(c, "❄ Polvo de Diamante", ox, oy - 54, "#dff8ff", "bold 11px sans-serif"); break; }
+    case "aurora": { const R = Math.sqrt(v.cells.length / Math.PI) * 32;
+      if (pre) { for (let s = 0; s < 3; s++) { c.strokeStyle = `hsla(${170 + s * 30 + Math.sin(now / 300) * 20},90%,75%,${0.3 + 0.4 * k})`; c.lineWidth = 6 - s * 1.5; c.beginPath(); for (let a = 0; a <= Math.PI * 2 + 0.01; a += 0.2) { const rr = R * (0.55 + 0.45 * k) + Math.sin(a * 5 + now / 200 + s) * 5; c.lineTo(ox + Math.cos(a) * rr, oy + Math.sin(a) * rr * 0.8); } c.stroke(); }
+        outlined(c, `🏺 Ejecución Aurora · ${((v.at - now) / 1000).toFixed(1)} s`, ox, oy - R * 0.8 - 10, "#c8fff4", "bold 12px sans-serif"); }
+      else { const gr = c.createRadialGradient(ox, oy, 2, ox, oy, R * (0.4 + 0.7 * t)); gr.addColorStop(0, `rgba(255,255,255,${1 - t})`); gr.addColorStop(0.5, `rgba(140,255,230,${0.7 * (1 - t)})`); gr.addColorStop(1, "rgba(60,160,255,0)"); c.fillStyle = gr; c.fillRect(ox - R * 1.2, oy - R * 1.2, R * 2.4, R * 2.4); } break; }
+    case "coffin": { if (pre) { c.strokeStyle = `rgba(200,245,255,${0.4 + 0.6 * k})`; c.lineWidth = 2; c.strokeRect(tx - 11 + 4 * (1 - k), ty - 26 + 4 * (1 - k), 22 - 8 * (1 - k), 34 - 8 * (1 - k)); outlined(c, "🧊 Ataúd de Hielo", tx, ty - 40, "#dff8ff", "bold 11px sans-serif"); } break; }
+    case "piranha": { for (const q of tipOf()) { const [ex, ey] = P(q[0], q[1]); const f = pre ? 0.1 * k : 0.1 + 0.9 * Math.min(1, t * 2.6); const rx = ox + (ex - ox) * f, ry = oy - 8 + (ey - oy + 8) * f;
+        c.save(); c.translate(rx, ry); c.rotate(now / 50); c.globalAlpha = pre ? 0.8 : 1 - t * 0.7; for (let s = 0; s < 5; s++) { c.fillStyle = s % 2 ? "#3a1020" : "#14060c"; c.beginPath(); c.ellipse(Math.cos(s * 1.26) * 2.2, Math.sin(s * 1.26) * 2.2, 2.6, 1.6, s * 1.26, 0, Math.PI * 2); c.fill(); } c.restore(); }
+      if (pre) outlined(c, "🥀 Rosas Piraña", ox, oy - 54, "#e0a0c0", "bold 11px sans-serif"); break; }
+    case "whiterose": { const f = pre ? k : 1; const rx = ox + (tx - ox) * f, ry = oy - 14 + (ty - oy + 6) * f; c.fillStyle = "#2a7a2a"; c.fillRect(rx - 0.5, ry, 1, 8); c.fillStyle = "#ffffff"; c.beginPath(); c.arc(rx, ry, 4, 0, Math.PI * 2); c.fill(); c.fillStyle = "#e8e0e8"; c.beginPath(); c.arc(rx + 1, ry - 1, 2, 0, Math.PI * 2); c.fill();
+      if (!pre) { c.globalAlpha = 1 - t; c.fillStyle = "#c01030"; for (let s = 0; s < 6; s++) c.fillRect(rx + Math.cos(s) * 8 * t * 2, ry + Math.sin(s) * 8 * t * 2, 2, 2); }
+      if (pre) outlined(c, "🌹 Rosa Sangrienta", ox, oy - 54, "#ffffff", "bold 11px sans-serif"); break; }
+    case "rosefield": { if (pre) for (const q of v.cells) { const [qx, qy] = P(q[0], q[1]); c.fillStyle = `rgba(200,30,70,${0.2 + 0.3 * k})`; c.beginPath(); c.arc(qx + ((q[0] * 7) % 9) - 4, qy + ((q[1] * 5) % 9) - 4, 2 + 2 * k, 0, Math.PI * 2); c.fill(); }
+      if (pre) outlined(c, "🌹 Rosas Diabólicas Reales", ox, oy - 54, "#ff9ab8", "bold 11px sans-serif"); break; }
+  }
+}
+/** Encima del mapa: campos de rosas, marcas de la aguja, hielo del ataúd y estados de la etapa 2. */
+function gsOverlay2(c: CanvasRenderingContext2D, g: Game, st: GsSt, now: number, sx: number, sy: number, P: (x: number, y: number) => [number, number]): void {
+  if (st.fields) for (const f of st.fields) { if (now < f.from) continue; const fade = clamp((f.until - now) / 600, 0, 1);
+    for (const q of f.cells) { const [qx, qy] = P(q[0], q[1]); const h = (q[0] * 7 + q[1] * 13) % 10; c.fillStyle = `rgba(120,10,40,${0.18 * fade})`; c.fillRect(qx - 16, qy - 16, 32, 32);
+      for (let s = 0; s < 2; s++) { const rx = qx - 8 + ((h + s * 5) % 10) * 1.7, ry = qy - 8 + ((h * 3 + s * 7) % 10) * 1.7; c.globalAlpha = fade; c.fillStyle = "#2a6a2a"; c.fillRect(rx - 0.5, ry, 1, 5); c.fillStyle = "#c0103a"; c.beginPath(); c.arc(rx, ry, 2.6, 0, Math.PI * 2); c.fill(); c.fillStyle = "#ff6088"; c.fillRect(rx - 0.8, ry - 1.2, 1.4, 1.2); c.globalAlpha = 1; } } }
+  const p = g.p;
+  if (st.needle) { c.save(); for (let i = 0; i < st.needle; i++) { const a = -Math.PI * 0.95 + (i / 14) * Math.PI * 1.9; const mx = sx + Math.cos(a) * 15, my = sy + 26 + Math.sin(a) * 15; c.fillStyle = "#3a0000"; c.fillRect(mx - 2, my - 2, 4, 4); c.fillStyle = i >= 12 ? "#ff8060" : "#ff2020"; c.fillRect(mx - 1.4, my - 1.4, 2.8, 2.8); }
+    outlined(c, `🦂${st.needle}/${GS2.NEEDLE_MAX}`, sx, sy - 12, "#ff5050", "bold 11px sans-serif"); c.restore(); }
+  if (st.coffin && now < st.coffin) { const k = clamp((st.coffin - now) / (st.coffinMax ?? GS2.COFFIN_MS), 0, 1); c.save(); c.fillStyle = `rgba(190,240,255,${0.35 + 0.3 * k})`; c.strokeStyle = "rgba(255,255,255,0.9)"; c.lineWidth = 1.5; c.fillRect(sx - 12, sy + 2, 24, 34); c.strokeRect(sx - 12, sy + 2, 24, 34);
+    c.strokeStyle = "rgba(255,255,255,0.8)"; c.lineWidth = 1; const n = Math.round((1 - k) * 6); for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(sx - 10 + i * 4, sy + 4 + (i * 7) % 20); c.lineTo(sx - 6 + i * 3, sy + 14 + (i * 5) % 16); c.lineTo(sx - 9 + i * 4, sy + 24); c.stroke(); }
+    outlined(c, `🧊 ${((st.coffin - now) / 1000).toFixed(1)} s`, sx, sy - 12, "#dff8ff", "bold 11px sans-serif"); c.restore(); }
+  else if (st.root && now < st.root) { c.save(); c.fillStyle = "rgba(190,240,255,0.5)"; c.fillRect(sx - 11, sy + 26, 22, 9); outlined(c, `❄${((st.root - now) / 1000).toFixed(1)}`, sx, sy - 12, "#dff8ff", "bold 11px sans-serif"); c.restore(); }
+  if (st.shred && now < st.shred) outlined(c, `🥀${((st.shred - now) / 1000).toFixed(1)}`, sx + 26, sy + 2, "#e090b0", "bold 10px sans-serif");
+}
 const HERO_DRAW: Record<HeroArt, (H: HeroCtx) => void> = { gojo: heroGojo, itachi: heroItachi, rengoku: heroRengoku, kirito: heroKirito, mihawk: heroMihawk, freezer: heroFreezer,
   shishio: heroShishio, gowther: heroGowther, zeldris: heroZeldris, estarossa: heroEstarossa, monspeet: heroMonspeet, deidara: heroDeidara,
   muichiro: heroMuichiro, gambit: heroGambit, bison: heroBison, vash: heroVash, dante: heroDante, a17: hero17, a16: hero16,
-  g_mu: (H: HeroCtx) => gsHero(H, "mu"), g_alde: (H: HeroCtx) => gsHero(H, "alde"), g_dm: (H: HeroCtx) => gsHero(H, "dm"), g_aioria: (H: HeroCtx) => gsHero(H, "aioria"), g_shaka: (H: HeroCtx) => gsHero(H, "shaka"), g_saga: (H: HeroCtx) => gsHero(H, "saga") };
+  g_mu: (H: HeroCtx) => gsHero(H, "mu"), g_alde: (H: HeroCtx) => gsHero(H, "alde"), g_dm: (H: HeroCtx) => gsHero(H, "dm"), g_aioria: (H: HeroCtx) => gsHero(H, "aioria"), g_shaka: (H: HeroCtx) => gsHero(H, "shaka"), g_saga: (H: HeroCtx) => gsHero(H, "saga"),
+  g_dohko: (H: HeroCtx) => gsHero(H, "dohko"), g_milo: (H: HeroCtx) => gsHero(H, "milo"), g_aioros: (H: HeroCtx) => gsHero(H, "aioros"), g_shura: (H: HeroCtx) => gsHero(H, "shura"), g_camus: (H: HeroCtx) => gsHero(H, "camus"), g_afro: (H: HeroCtx) => gsHero(H, "afro") };
 /** Atuendo de héroe del jugador: misma caja de 32×30 y el mismo paso que drawMinato (face 3 = espejo de 1). */
 function drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, art: HeroArt, face0: Dir, ph: number, now: number, shadow = true): void {
   const c = ctx; let face = face0; c.save(); if (shadow) { c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill(); }
@@ -6812,7 +7125,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v29 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v29.1 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
@@ -7797,6 +8110,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
           <br />⏳ <b>Efectos activos</b>: bajo el minimapa ves la poción de experiencia (⚗️ mm:ss, solo cuenta mientras juegas) y el Premium (👑 días/horas de calendario). Pasa el ratón para ver el efecto.
           <br />♊ <b>Géminis</b>: Saga y Kanon pelean juntos. Al 50% de Saga llega Kanon y te manda a <b>Otra Dimensión</b>: llega a la grieta ✦, vence a las sombras o resiste 25 s para volver. Esquiva el gran círculo morado de la Explosión de Galaxias. Si cae un gemelo, el otro entra en furia y repite la dimensión. Saga también lanza su propia Otra Dimensión (12 s: sal del remolino morado) y el Satán Imperial (Genrō Maō Ken): si el puño morado te alcanza, tus controles se invierten 3 s.
           <br />✨ <b>Santos dorados (v29)</b>: Mu (Muro de Cristal: tus proyectiles rebotan · Extinción de Luz Estelar), Aldebarán (Gran Cuerno: cono que te lanza lejos), Máscara Mortal (Sekishiki Meikai Ha: línea que le cura), Aioria (Plasma Relámpago y Relámpago de Voltaje), Shaka (Tenbu Hōrin: te deja sin poderes 4 s · Ten Ma Kō Fuku; al 50% abre los ojos). Todas se avisan con casillas rojas: muévete. 1 de cada 200 victorias sueltan su atuendo de armadura dorada.
+          <br />✨ <b>Santos dorados (v29.1)</b>: Dohko (Cien Dragones de Rozan · Armas de Libra · Escudo de Libra: recibe la mitad 4 s), Milo (Aguja Escarlata: cada aguja deja una marca roja; a las 15, Antares), Aioros (Trueno Atómico · Flecha Dorada en línea), Shura (Excalibur: corte en línea que sangra · Salto de la Piedra), Camus (Polvo de Diamante: lento · Ejecución Aurora: te congela · Ataúd de Hielo: forcejea para romperlo), Afrodita (Rosas Diabólicas Reales: jardín venenoso · Rosas Piraña: armadura rota · Rosa Sangrienta: roba vida).
           <br />⛶ <b>Pantalla completa</b>: botón ⛶ o tecla P (se puede cambiar en «Atajos»). Si el navegador no la permite, el juego ocupa toda la página; «✕ Salir» o Esc para volver.
         </div>}
       </div>
