@@ -339,7 +339,7 @@ const SPAWNS: Array<[MonId, number, number]> = [
   ["rat", 36, 24], ["rat", 60, 24], ["rat", 36, 44], ["rat", 60, 44], ["rat", 44, 23], ["rat", 52, 45], ["rat", 34, 34], ["rat", 62, 30],
   ["rotworm", 30, 42], ["rotworm", 63, 40], ["rotworm", 48, 16], ["rotworm", 40, 50], ["rotworm", 32, 20], ["rotworm", 62, 20],
   ["troll", 12, 12], ["troll", 18, 18], ["troll", 10, 24], ["troll", 22, 10], ["troll", 18, 28], ["troll", 8, 16],
-  ["wasp", 50, 60], ["wasp", 60, 62], ["wasp", 70, 58], ["wasp", 80, 64], ["wasp", 45, 66], ["wasp", 75, 66],
+  // v29.3: sin avispas en el sur (la zona queda vacía por ahora)
   ["mino", 72, 13], ["mino", 75, 18], ["mino", 71, 17], ["mino", 80, 23], ["mino", 85, 26], ["mino", 79, 27],
   ["guard", 84, 7], ["guard", 89, 10], ["guard", 86, 12], ["boss", 91, 22],
 ];
@@ -350,7 +350,6 @@ const EXTRA_SPAWNS: Array<[MonId, number, number]> = [
   ["rat", 38, 26], ["rat", 58, 26], ["rat", 40, 46], ["rat", 56, 46], ["rat", 33, 30], ["rat", 63, 37], ["rat", 46, 20], ["rat", 52, 49],
   ["rotworm", 28, 46], ["rotworm", 66, 42], ["rotworm", 44, 12], ["rotworm", 52, 12], ["rotworm", 36, 16], ["rotworm", 60, 16], ["rotworm", 30, 26],
   ["troll", 8, 10], ["troll", 14, 20], ["troll", 20, 24], ["troll", 24, 14], ["troll", 10, 30], ["troll", 26, 6], ["troll", 6, 22],
-  ["wasp", 55, 62], ["wasp", 65, 60], ["wasp", 72, 62], ["wasp", 85, 60], ["wasp", 40, 64], ["wasp", 90, 66], ["wasp", 60, 68], ["wasp", 78, 58],
   ["mino", 70, 12], ["mino", 74, 14], ["mino", 76, 16], ["mino", 78, 22], ["mino", 82, 26], ["mino", 84, 22], ["mino", 87, 27],
   ["guard", 83, 9], ["guard", 90, 7], ["guard", 88, 12],
 ];
@@ -2191,8 +2190,8 @@ const NQUESTS: NQDef[] = [
     offer: "El maestro Mu repara armaduras con polvo de estrellas. Las criaturas de la Casa de Aries lo llevan encima. ¿Me traes 6?", thanks: "¡Brilla muchísimo! Con esto el maestro arreglará una armadura… y a ti te toca esta.", rw: { item: "rar" } },
   { id: "k3", npc: "kiki", name: "Cuernos para la forja", kind: "collect", mons: hm(2), n: 6, lvl: 7, house: 2, item: "Cuerno de toro", chance: 0.3, task: "Junta 6 Cuernos de toro en la Casa de Tauro.",
     offer: "Para la forja necesito cuernos de los toros de la Casa de Tauro. ¡Cuidado con sus embestidas! ¿Me traes 6?", thanks: "¡Qué cuernos tan duros! Toma tus monedas, ¡te las ganaste!", rw: { coins: 2 } },
-  { id: "m1", npc: "marin", name: "Entrenamiento del Águila", kind: "kill", mons: ["troll", "wasp"], n: 15, lvl: 5, house: 0, task: "Derrota 15 trolls o avispas.",
-    offer: "Primera lección: la constancia. Derrota a 15 trolls o avispas fuera del pueblo, sin quejarte.", thanks: "Bien. No te quejaste… al menos no en voz alta. Toma tu recompensa.", rw: {} },
+  { id: "m1", npc: "marin", name: "Entrenamiento del Águila", kind: "kill", mons: ["troll"], n: 15, lvl: 5, house: 0, task: "Derrota 15 trolls.",
+    offer: "Primera lección: la constancia. Derrota a 15 trolls fuera del pueblo, sin quejarte.", thanks: "Bien. No te quejaste… al menos no en voz alta. Toma tu recompensa.", rw: {} },
   { id: "m2", npc: "marin", name: "Las sombras de Cáncer", kind: "kill", mons: hm(3), n: 25, lvl: 11, house: 3, task: "Derrota 25 monstruos de la Casa de Cáncer.",
     offer: "En la Casa de Cáncer las almas no descansan. Derrota a 25 de sus criaturas y libera a las almas atrapadas.", thanks: "Siento el cosmos de las almas en paz. Lo hiciste bien.", rw: { item: "rar" } },
   { id: "m3", npc: "marin", name: "El rugido de Leo", kind: "boss", mons: ["h4boss"], n: 1, lvl: 15, house: 4, task: "Vence a Aioria de Leo en su Casa.",
@@ -7174,7 +7173,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v29.2 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v29.3 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
