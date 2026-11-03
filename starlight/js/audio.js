@@ -42,6 +42,11 @@ SL.Audio = (() => {
     explode(size = 1) { if (!ok()) return; noise(0.25 + size * 0.3, 2600, 80, 0.35 + size * 0.15); tone('sine', 140, 38, 0.2 + size * 0.2, 0.25 * size); },
     hit() { if (!ok()) return; tone('sawtooth', 420, 50, 0.45, 0.22); noise(0.5, 1800, 60, 0.5); },
     blip(f = 660) { if (!ok()) return; tone('triangle', f, f * 1.5, 0.08, 0.12); },
+    pickup() { if (!ok()) return; [660, 880, 1320].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 1.02, 0.09, 0.12), i * 55)); },
+    launch() { if (!ok()) return; tone('sawtooth', 200, 900, 0.3, 0.1); },
+    boom() { if (!ok()) return; noise(1.4, 3000, 40, 0.8, 0.5); tone('sine', 90, 25, 1.0, 0.5); },
+    assist() { if (!ok()) return; tone('sawtooth', 220, 1760, 0.6, 0.08); [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => ok() && tone('square', f, f, 0.12, 0.06), 150 + i * 90)); },
+    ready() { if (!ok()) return; tone('triangle', 880, 1760, 0.25, 0.1); },
     deny() { if (!ok()) return; tone('square', 220, 160, 0.15, 0.08); },
     gameOver() { if (!ok()) return; [523, 392, 262].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 0.98, 0.35, 0.15), i * 220)); },
   };

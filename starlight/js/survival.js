@@ -9,14 +9,16 @@ SL.Survival = class {
     this.stats = { kills: 0, splits: 0, hits: 0, shots: 0, spawned: 0 };
     this.ship = { x: SL.W / 2, y: C.ship.startY, vx: 0, vy: 0, cool: 0, invuln: 1.0, alive: true, gun: 0 };
     this.shipSprite = SL.Sprites.ship(this.Fx.store.shipColor());
-    this.bullets = []; this.asteroids = []; this.popups = []; this.pickups = [];  // pickups: reserved for power-ups/bombs
+    this.bullets = []; this.asteroids = []; this.popups = [];
     this.fx = new SL.Particles(); this.stars = new SL.Starfield();
     this.spawnT = 0.6; this.shakeAmt = 0; this.overT = 0; this.sel = 0; this.T = 0;
     this.joy = null; this.fireId = null;
     // UI layout (logical coords)
     this.btnPause = { x: 994, y: 26, w: 40, h: 32 };
     this.btnMute = { x: 948, y: 26, w: 40, h: 32 };
-    this.fireBtn = { x: 916, y: 468, r: 62 };
+    this.fireBtn = { x: 922, y: 478, r: 58 };
+    this.bombBtn = { x: 806, y: 520, r: 32 };
+    this.avrillBtn = { x: 842, y: 398, r: 32 };
     this.joyHome = { x: 118, y: 468, r: 58 };
     this.overBtns = [
       { id: 'again', label: 'PLAY AGAIN', x: 412, y: 532, w: 210, h: 40, rgb: '255,80,220' },
@@ -31,6 +33,8 @@ SL.Survival = class {
     for (const k of Object.keys(C.asteroid.sizes)) C.asteroid.colors.forEach((col, ci) => {
       for (let v = 0; v < 3; v++) this.spr[`${k}${ci}${v}`] = SL.Sprites.asteroid(C.asteroid.sizes[k].r, col);
     });
+    for (const sp of ['gold', 'red']) for (const k of ['L', 'M']) this.spr[`${sp}${k}`] = SL.Sprites.asteroid(C.asteroid.sizes[k].r, C.special[sp + 'Rgb']);
+    SL.Features.reset(this);
     this.ev.emit('start', this);
   }
 
@@ -40,8 +44,8 @@ SL.Survival = class {
 
   spawn() {
     const D = this.C.difficulty, W = SL.W;
-    const special = this.Fx.specialAsteroids.enabled ? this.Fx.specialAsteroids.pick(this) : null;
-    const size = Math.random() < Math.min(0.35, this.t * D.mediumChanceRamp) ? 'M' : 'L';
+    const special = SL.Features.pickSpecial(this);
+    const size = special === 'gold' ? 'M' : Math.random() < Math.min(0.35, this.t * D.mediumChanceRamp) ? 'M' : 'L';
     const r = this.C.asteroid.sizes[size].r, sp = this.fallSpeed * (0.7 + Math.random() * 0.6);
     let x, y, vx, vy;
     if (Math.random() < D.sideChance) {
@@ -53,41 +57,42 @@ SL.Survival = class {
   addAsteroid(size, x, y, vx, vy, color, special = null) {
     const ci = color ?? ((Math.random() * 3) | 0);
     const a = { size, x, y, vx, vy, r: this.C.asteroid.sizes[size].r, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * (size === 'S' ? 3 : 1.6),
-      ci, sprite: this.spr[`${size}${ci}${(Math.random() * 3) | 0}`], special, entered: false, dead: false };
+      ci, sprite: special ? this.spr[special + size] : this.spr[`${size}${ci}${(Math.random() * 3) | 0}`], special, entered: false, dead: false,
+      rgb: special ? this.C.special[special + 'Rgb'] : this.C.asteroid.colors[ci] };
+    if (special === 'gold') a.spin *= 2.5;
     this.asteroids.push(a); this.stats.spawned++; this.ev.emit('asteroidSpawned', a); return a;
   }
 
   /* ---------------- events ---------------- */
-  destroy(a, byPlayer = true) {
+  destroy(a, byPlayer = true, opt = {}) {
     if (a.dead) return; a.dead = true;
-    const S = this.C.asteroid.sizes[a.size], rgb = this.C.asteroid.colors[a.ci];
+    const S = this.C.asteroid.sizes[a.size], rgb = a.rgb;
     let pts = 0;
-    if (byPlayer) {
+    if (byPlayer && this.state === 'play') {
       this.streak++; this.mult = Math.min(this.C.score.comboMax, 1 + Math.floor(this.streak / this.C.score.comboStep));
-      pts = S.points * this.mult; this.score += pts; this.stats.kills++;
-      this.popup(`+${pts}`, a.x, a.y, this.mult > 1 ? '255,230,120' : rgb);
-      this.Fx.assist.enabled && this.Fx.assist.onKill(this, pts);
-      this.Fx.powerUps.enabled && this.Fx.powerUps.maybeDrop(this, a.x, a.y);
-      this.Fx.bombs.enabled && this.Fx.bombs.maybeDrop(this, a.x, a.y);
+      pts = S.points * this.mult * (a.special === 'gold' ? this.C.special.goldMul : 1); this.score += pts; this.stats.kills++;
+      if (!opt.quiet) this.popup(`+${pts}`, a.x, a.y, a.special === 'gold' ? '255,210,70' : this.mult > 1 ? '255,230,120' : rgb);
     }
     const k = a.r / 44;
-    this.fx.burst(a.x, a.y, rgb, Math.round(14 + 26 * k), 140 + 120 * k, 0.8, 2.2);
+    this.fx.burst(a.x, a.y, rgb, Math.round((opt.quiet ? 8 : 14) + 26 * k), 140 + 120 * k, 0.8, 2.2);
     this.fx.ring(a.x, a.y, rgb, a.r * 1.4, 0.35);
-    this.shake(2 + 4 * k); SL.Audio.sfx.explode(k);
-    if (S.next) {
+    if (!opt.quiet) { this.shake(2 + 4 * k); SL.Audio.sfx.explode(k); }
+    SL.Features.onDestroyed(this, a, byPlayer && this.state === 'play');
+    if (S.next && !a.special && !opt.noSplit) {
       this.stats.splits++;
       const base = Math.atan2(a.vy, a.vx), spd = Math.max(70, Math.hypot(a.vx, a.vy)) * 1.25;
       for (const s of [-1, 1]) {
         const ang = base + s * (0.45 + Math.random() * 0.4);
         const c = this.addAsteroid(S.next, a.x + s * a.r * 0.3, a.y, Math.cos(ang) * spd + s * 30, Math.max(25, Math.sin(ang) * spd), a.ci);
-        c.entered = true;
+        c.entered = true; c.immune = opt.immune;
       }
     }
     this.ev.emit('asteroidDestroyed', { asteroid: a, points: pts, byPlayer });
+    return pts;
   }
   playerHit(a) {
     const s = this.ship;
-    if (this.Fx.powerUps.enabled && this.Fx.powerUps.absorbHit(this)) { this.destroy(a, false); return; }
+    if (SL.Features.absorbHit(this)) { this.destroy(a, false); return; }
     this.lives--; this.stats.hits++; this.streak = 0;
     if (this.mult > 1) this.popup('COMBO LOST', s.x, s.y - 40, '255,90,120');
     this.mult = 1;
@@ -130,6 +135,9 @@ SL.Survival = class {
       const list = this.state === 'over' ? this.overBtns : this.state === 'paused' ? this.pauseBtns : null;
       if (list) { const b = list.find(b => SL.inBtn(b, d)); d.role = 'ui'; if (b && (this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry'))) this.menuAction(b.id); continue; }
       if (d.type === 'mouse') continue;           // mouse plays with keyboard; touch gets stick + fire
+      const near = (b, p) => Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 10;
+      if (this.state === 'play' && near(this.bombBtn, d)) { d.role = 'ui'; SL.Features.fireBomb(this); continue; }
+      if (this.state === 'play' && near(this.avrillBtn, d)) { d.role = 'ui'; SL.Features.activateAssist(this); continue; }
       if (d.x > SL.W * 0.58) { d.role = 'fire'; this.fireId = d.id; }
       else if (d.y > 70) { d.role = 'joy'; this.joy = d; }
     }
@@ -144,6 +152,10 @@ SL.Survival = class {
     }
     // keyboard
     const k = I.axis(); ax = k.x; ay = k.y; fire = I.down('Space') || I.down('KeyJ');
+    if (this.state === 'play') {
+      if (I.hit('KeyF')) SL.Features.fireBomb(this);
+      if (I.hit('KeyR')) SL.Features.activateAssist(this);
+    }
     // touch joystick
     if (this.joy && !I.pointers.has(this.joy.id)) this.joy = null;
     if (this.joy) {
@@ -170,8 +182,9 @@ SL.Survival = class {
     const live = this.state === 'play';
     if (live) {
       this.t += dt; this.score += C.score.perSecond * dt;
-      this.ev.emit('tick', dt); this.Fx.powerUps.update(this, dt); this.Fx.assist.update(this, dt);
+      this.ev.emit('tick', dt);
     }
+    SL.Features.update(this, dt);
     // ship movement with light inertia
     if (s.alive) {
       const mag = Math.hypot(inp.ax, inp.ay), nx = mag > 1 ? inp.ax / mag : inp.ax, ny = mag > 1 ? inp.ay / mag : inp.ay;
@@ -185,7 +198,7 @@ SL.Survival = class {
     for (const b of this.bullets) { b.x += b.vx * dt; b.y += b.vy * dt; }
     this.bullets = this.bullets.filter(b => b.y > -20 && !b.dead && b.x > -20 && b.x < W + 20);
     // spawning
-    if (live) { this.spawnT -= dt; if (this.spawnT <= 0) { this.spawn(); this.spawnT = this.spawnInterval * (0.7 + Math.random() * 0.6); } }
+    if (live && this.spawnHold <= 0) { this.spawnT -= dt; if (this.spawnT <= 0) { this.spawn(); this.spawnT = this.spawnInterval * (0.7 + Math.random() * 0.6); } }
     // asteroids
     for (const a of this.asteroids) {
       a.x += a.vx * dt; a.y += a.vy * dt; a.rot += a.spin * dt;
@@ -197,9 +210,13 @@ SL.Survival = class {
     for (const b of this.bullets) {
       if (b.dead) continue;
       for (const a of this.asteroids) {
-        if (a.dead) continue;
-        const dx = a.x - b.x, dy = a.y - b.y, rr = a.r * 0.92 + 3;
-        if (dx * dx + dy * dy < rr * rr) { b.dead = true; this.fx.burst(b.x, b.y, '255,200,255', 4, 90, 0.25, 1.5); this.destroy(a, true); break; }
+        if (a.dead || (b.pierce && a.immune === b)) continue;
+        const dx = a.x - b.x, dy = a.y - b.y, rr = a.r * 0.92 + (b.pierce ? 6 : 3);
+        if (dx * dx + dy * dy < rr * rr) {
+          this.fx.burst(b.x, b.y, b.pierce ? '160,255,255' : '255,200,255', 4, 90, 0.25, 1.5);
+          if (b.pierce) { this.destroy(a, true, { immune: b }); continue; }
+          b.dead = true; this.destroy(a, true); break;
+        }
       }
     }
     // ship vs asteroids
@@ -225,9 +242,9 @@ SL.Survival = class {
     const s = this.ship, C = this.C;
     s.gun = 1 - s.gun;
     let shots = [{ x: s.x + (s.gun ? 7 : -7), y: s.y - 12, vx: 0, vy: -C.ship.bulletSpeed }];
-    if (this.Fx.powerUps.enabled) shots = this.Fx.powerUps.modifyFire(this, shots);
+    shots = SL.Features.modifyFire(this, shots);
     this.bullets.push(...shots); this.stats.shots += shots.length;
-    s.cool = C.ship.fireRate * (this.Fx.powerUps.enabled ? this.Fx.powerUps.fireRateMul(this) : 1);
+    s.cool = C.ship.fireRate * SL.Features.fireRateMul(this);
     SL.Audio.sfx.shot(); this.ev.emit('fire', shots);
   }
 
@@ -240,15 +257,22 @@ SL.Survival = class {
     this.stars.draw(g, this.T, 0.7 + Math.min(0.5, this.t / 180));
     // asteroids
     for (const a of this.asteroids) {
+      if (a.special) SL.glow(g, a.x, a.y, a.r * 1.6, a.r * 1.6, a.rgb, a.special === 'red' ? 0.18 + 0.14 * Math.sin(this.T * 9) : 0.22);
       const sz = a.sprite.size; g.save(); g.translate(a.x, a.y); g.rotate(a.rot); g.drawImage(a.sprite.c, -sz / 2, -sz / 2, sz, sz); g.restore();
     }
     // bullets
     g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-    const bpath = () => { g.beginPath(); for (const b of this.bullets) { g.moveTo(b.x, b.y); g.lineTo(b.x, b.y + 16); } };
-    bpath(); g.strokeStyle = 'rgba(255,60,200,0.25)'; g.lineWidth = 8; g.stroke();
-    bpath(); g.strokeStyle = 'rgba(255,110,230,0.9)'; g.lineWidth = 3; g.stroke();
-    bpath(); g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.2; g.stroke();
+    const KINDS = { std: ['255,60,200', '255,110,230', 16], triple: ['255,120,40', '255,170,80', 16], laser: ['60,230,255', '150,255,255', 38], avrill: ['255,60,200', '255,140,240', 14] };
+    for (const kind in KINDS) {
+      const [c1, c2, len] = KINDS[kind], list = this.bullets.filter(b => (b.kind || 'std') === kind);
+      if (!list.length) continue;
+      const bpath = () => { g.beginPath(); for (const b of list) { const n = Math.hypot(b.vx, b.vy) || 1; g.moveTo(b.x, b.y); g.lineTo(b.x - b.vx / n * len, b.y - b.vy / n * len); } };
+      bpath(); g.strokeStyle = `rgba(${c1},0.25)`; g.lineWidth = kind === 'laser' ? 10 : 8; g.stroke();
+      bpath(); g.strokeStyle = `rgba(${c2},0.9)`; g.lineWidth = 3; g.stroke();
+      bpath(); g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.2; g.stroke();
+    }
     g.restore();
+    SL.Features.draw(this, g);
     // ship
     if (s.alive && !(s.invuln > 0 && Math.floor(this.T * 14) % 2)) {
       const f = 0.75 + 0.25 * (Math.sin(this.T * 31.7) * .5 + Math.sin(this.T * 53.1) * .3 + Math.sin(this.T * 97.3) * .2);
@@ -262,10 +286,13 @@ SL.Survival = class {
       const sz = this.shipSprite.size, tilt = Math.max(-0.2, Math.min(0.2, s.vx / 2000));
       g.save(); g.translate(s.x, s.y); g.rotate(tilt); g.drawImage(this.shipSprite.c, -sz / 2, -sz / 2 + 2, sz, sz); g.restore();
     }
+    SL.Features.drawShield(this, g);
     this.fx.draw(g);
     for (const p of this.popups) SL.neonText(g, p.txt, p.x, p.y, 15, p.rgb, { alpha: Math.min(1, p.life * 2), blur: 8 });
     g.restore();
+    SL.Features.drawOverlay(this, g);
     this.drawHUD(g);
+    if (!SL.Input.touchMode && this.t < 6 && this.state === 'play') SL.neonText(g, SL.CONTROLS_HINT, 512, 556, 12, '160,200,255', { blur: 4, alpha: Math.min(0.85, (6 - this.t) / 1.5) });
     if (SL.Input.touchMode && this.state !== 'over') this.drawTouch(g);
     if (this.state === 'paused') this.drawPause(g);
     if (this.state === 'over') this.drawOver(g);
@@ -289,7 +316,7 @@ SL.Survival = class {
       g.fillStyle = `rgba(${col},0.9)`; g.fillRect(452, 58, 120 * prog, 3);
     }
     SL.neonText(g, 'BEST ' + SL.pad(Math.max(this.best, Math.floor(this.score))), 906, 26, 14, '70,160,255', { align: 'right', blur: 8 });
-    this.Fx.assist.enabled && this.Fx.assist.drawHUD(g, this);
+    SL.Features.drawHUD(this, g);
     // pause + mute icons
     for (const b of [this.btnPause, this.btnMute]) {
       g.save(); SL.roundRect(g, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 6); g.fillStyle = 'rgba(8,4,20,0.5)'; g.fill();
@@ -319,10 +346,22 @@ SL.Survival = class {
     g.beginPath(); g.arc(F.x, F.y, F.r, 0, Math.PI * 2); g.fillStyle = `rgba(255,80,220,${on ? 0.28 : 0.1})`; g.fill(); g.stroke();
     g.restore();
     SL.neonText(g, 'FIRE', F.x, F.y + 1, 22, '255,120,230', { blur: 12 });
+    const round = (b, rgb, on, label, sub) => {
+      g.save(); g.strokeStyle = `rgba(${rgb},${on ? 0.95 : 0.3})`; g.lineWidth = on ? 2.5 : 1.5;
+      g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = (on ? 14 : 0) * SL.view.scale;
+      g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fillStyle = `rgba(${on ? rgb : '120,110,150'},${on ? 0.14 : 0.08})`; g.fill(); g.stroke(); g.restore();
+      SL.neonText(g, label, b.x, b.y - (sub ? 5 : 0), 12, on ? rgb : '140,130,170', { blur: on ? 8 : 0, alpha: on ? 1 : 0.7 });
+      if (sub) SL.neonText(g, sub, b.x, b.y + 10, 12, on ? '255,255,255' : '140,130,170', { blur: on ? 6 : 0, alpha: on ? 1 : 0.7 });
+    };
+    round(this.bombBtn, '255,90,150', this.bombs > 0, 'BOMB', '×' + this.bombs);
+    const A = this.assist, rdy = A.ready && A.phase === 'idle';
+    if (rdy) SL.glow(g, this.avrillBtn.x, this.avrillBtn.y, 52, 52, '255,80,220', 0.25 + 0.15 * Math.sin(this.T * 8));
+    round(this.avrillBtn, '255,80,220', rdy, 'AVRILL', rdy ? 'READY' : Math.floor(A.energy) + '%');
   }
   drawPause(g) {
     g.fillStyle = 'rgba(3,1,12,0.65)'; g.fillRect(0, 0, SL.W, SL.H);
     SL.neonText(g, 'PAUSED', 512, 220, 48, '255,80,220', { blur: 22 });
+    SL.neonText(g, SL.Input.touchMode ? 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL' : SL.CONTROLS_HINT, 512, 430, 13, '160,200,255', { blur: 5, alpha: 0.85 });
     this.pauseBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
   drawOver(g) {

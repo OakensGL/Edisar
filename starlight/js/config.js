@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.2.0';
+SL.VERSION = '0.3.0';
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
 SL.CONFIG = {
@@ -34,6 +34,32 @@ SL.CONFIG = {
     comboStep: 4,          // kills per multiplier step: x2 after 4, x3 after 8, x4 after 12
     comboMax: 4,
   },
+  /* ---------- v0.3 features ---------- */
+  pickups: {
+    dropChance: 0.04,          // per asteroid destroyed by the player (gold = guaranteed)
+    driftEvery: [20, 32],      // seconds between pickups drifting in from the top
+    bombShare: 0.32,           // share of pickups that are bombs (rest = weapon/shield)
+    fallSpeed: 75, radius: 15, catchRadius: 30, life: 12,
+    types: {
+      bomb:   { rgb: '255,90,150', icon: 'B', name: 'BOMB' },
+      triple: { rgb: '255,150,50', icon: '3', name: 'TRIPLE SHOT' },
+      laser:  { rgb: '90,255,255', icon: 'L', name: 'LASER' },
+      rapid:  { rgb: '255,235,80', icon: 'R', name: 'RAPID FIRE' },
+      shield: { rgb: '90,255,140', icon: 'S', name: 'SHIELD' },
+    },
+  },
+  powerUps: { duration: 10, tripleSpread: 0.2, rapidMul: 0.5, laserRate: 0.09, laserSpeed: 1400 },
+  bombs: { max: 3, start: 1, speed: 520, fuse: 0.55, radius: 240, blastTime: 0.5, fullInvBonus: 250 },
+  assist: {
+    max: 100, perSecond: 0.6, perKill: 0.8, comboBonus: 0.3,   // ~1 assist per minute of decent play
+    sweepTime: 5, fireRate: 0.09, clearHold: 1.2,
+    line: 'OAKENS, HERE TO ASSIST!', pilot: 'AVRILL', color: '255,80,220',
+    portrait: [150, 292, 170, 170],   // crop (source px of assets/title.jpg) for Avrill's face
+  },
+  special: {
+    goldChance: 0.035, goldMul: 10, goldRgb: '255,210,70',     // gold: M size, no split, 10x points, guaranteed drop
+    redChance: 0.06, redAfter: 15, redRadius: 150, redRgb: '255,55,55',  // red: explodes, destroying neighbours
+  },
   storage: { best: 'starlight.survival.best', muted: 'starlight.muted' },
   font: '"Courier New", Courier, monospace',
 };
@@ -43,3 +69,4 @@ SL.store = {
   set(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} },
 };
 SL.pad = (n, len = 6) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
+SL.CONTROLS_HINT = 'MOVE WASD/ARROWS · FIRE SPACE/J · BOMB F · AVRILL R · PAUSE P/ESC · MUTE M';
