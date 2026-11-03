@@ -1881,6 +1881,13 @@ const OUTFITS: Outfit[] = [
   { id: "o_kirito", n: "Espadachín negro (Kirito)", robe: "#131318", trim: "#3cc8c0", price: 180, art: "kirito" },
   { id: "o_mihawk", n: "Ojos de halcón (Dracule Mihawk)", robe: "#16121a", trim: "#b01c2c", price: 240, art: "mihawk" },
   { id: "o_freezer", n: "Emperador del frío (Freezer, forma final)", robe: "#f6f6fa", trim: "#8a34c4", price: 260, art: "freezer" },
+  // v28.1: lote 2
+  { id: "o_shishio", n: "Espadachín vendado (Makoto Shishio)", robe: "#4a2a5e", trim: "#e6dcc4", price: 240, art: "shishio" },
+  { id: "o_gowther", n: "Arquero de luz (Gowther)", robe: "#f2f0ea", trim: "#f08ab8", price: 200, art: "gowther" },
+  { id: "o_zeldris", n: "Mandamiento de la Piedad (Zeldris)", robe: "#17141d", trim: "#6a1020", price: 240, art: "zeldris" },
+  { id: "o_estarossa", n: "Mandamiento del Amor (Estarossa)", robe: "#141218", trim: "#d8dce4", price: 220, art: "estarossa" },
+  { id: "o_monspeet", n: "Caballero de la Reticencia (Monspeet)", robe: "#ecebe4", trim: "#e8c860", price: 220, art: "monspeet" },
+  { id: "o_deidara", n: "Artista explosivo (Deidara)", robe: "#15131b", trim: "#f2d050", price: 180, art: "deidara" },
 ];
 const AURAS: Aura[] = [
   { id: "a_oro", n: "Aura dorada", c: [255, 211, 77], price: 80 },
@@ -5645,7 +5652,7 @@ function drawMinato(ctx: CanvasRenderingContext2D, x: number, y: number, face0: 
 }
 // ---------- v28: atuendos de héroe (lote 1) — pixel art propio dibujado en código, al estilo del Minato del GM ----------
 // «Inspirados en» los personajes (siluetas y colores), no copiados de ningún sprite. 4 direcciones + paso, como drawMinato.
-type HeroArt = "gojo" | "itachi" | "rengoku" | "kirito" | "mihawk" | "freezer";
+type HeroArt = "gojo" | "itachi" | "rengoku" | "kirito" | "mihawk" | "freezer" | "shishio" | "gowther" | "zeldris" | "estarossa" | "monspeet" | "deidara";
 function heroArtOf(id: string | undefined): HeroArt | null { if (!id) return null; const o = OUTFITS.find((x: Outfit) => x.id === id); return o && o.art ? o.art : null; }
 function heroArt(g: Game): HeroArt | null { return g.cs ? heroArtOf(g.cs.outfit) : null; }
 interface HeroCtx { c: CanvasRenderingContext2D; face: Dir; lg: number; top: number; hy: number; sw: number; am: number; now: number; }
@@ -5808,7 +5815,109 @@ function heroFreezer(H: HeroCtx): void {
   else { v22R(c, 12, hy + 2.6, 8, 7, WH); v22R(c, 12, hy + 8.4, 8, 1.2, WS); hEll(c, PU, 16, hy + 2.8, 4.3, 2.8); hEll(c, PL, 14.6, hy + 1.9, 1.4, 0.8);
     if (face === 2) { v22R(c, 12, hy + 5, 0.7, 3, PU); v22R(c, 19.3, hy + 5, 0.7, 3, PU); hEyes(H, EY, "#200404"); v22R(c, 15, hy + 8.3, 2, 0.7, LIP); } else hEll(c, PU, 16, hy + 5.6, 3, 1.4); }
 }
-const HERO_DRAW: Record<HeroArt, (H: HeroCtx) => void> = { gojo: heroGojo, itachi: heroItachi, rengoku: heroRengoku, kirito: heroKirito, mihawk: heroMihawk, freezer: heroFreezer };
+// v28.1: atuendos de héroe, lote 2 (mismo sistema que el lote 1)
+function hWrap(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void { v22R(c, x, y, w, h, "#e6dcc4"); for (let k = 1; k < h; k += 1.6) v22R(c, x, y + k, w, 0.45, "#b0a284"); }
+function heroShishio(H: HeroCtx): void {
+  const { c, face, top, hy, sw, am } = H; const HK = "#2c1a3a", HKD = "#1c1028", KI = "#4a2a5e", KIL = "#6a3e82", HAIR = "#1a1418", BLD = "#c8ccd4", a = am * 0.6;
+  if (face === 1) hPoly(c, HK, [[11, top + 8], [20, top + 8], [21 - sw * 0.4, 27], [9 - sw, 27]]); else { hPoly(c, HK, [[10, top + 8], [22, top + 8], [24 + sw, 27], [8 - sw, 27]]); v22R(c, 15.6, top + 10, 0.8, 27 - (top + 10), HKD); }
+  if (face === 1) hWrap(c, 13 + H.lg, 26.5, 5, 2); else { hWrap(c, 11 + H.lg, 26.5, 4.5, 2); hWrap(c, 16.5 - H.lg, 26.5, 4.5, 2); }
+  if (face === 1) { hWrap(c, 12.5, top + 1, 8, 8); hPoly(c, KI, [[12, top], [16, top], [17, top + 9], [12, top + 9]]); }
+  else if (face === 2) { hWrap(c, 10, top + 1, 12, 8); hPoly(c, KI, [[9.5, top], [13, top], [15, top + 8], [9.5, top + 8.5]]); hPoly(c, KI, [[22.5, top], [19, top], [17, top + 8], [22.5, top + 8.5]]); }
+  else { v22R(c, 10, top + 1, 12, 8.5, KI); v22R(c, 10, top + 1, 12, 0.8, KIL); }
+  v22R(c, face === 1 ? 12.5 : 10, top + 8, face === 1 ? 8 : 12, 1.4, "#c8a040"); // obi
+  // katana desenvainada en la mano (hoja dentada)
+  if (face === 2) hBlade(c, 9.2, top + 10.5 + a, 1.75, 11, 1.4, BLD, "#ffffff"); else if (face === 1) hBlade(c, 15 + am, top + 10.5, 1.2, 11, 1.4, BLD, "#ffffff"); else hBlade(c, 22.8, top + 10.5 - a, 1.4, 11, 1.4, BLD, "#ffffff");
+  if (face === 1) { hWrap(c, 13 + am, top + 1, 3, 11); v22R(c, 13 + am, top + 1, 3, 3, KI); v22R(c, 14 + am, top + 10, 1.2, 1.6, "#3a2a2a"); }
+  else { hWrap(c, 7.5, top + 1 + a, 3, 10); hWrap(c, 21.5, top + 1 - a, 3, 10); v22R(c, 7.5, top + 1 + a, 3, 3, KI); v22R(c, 21.5, top + 1 - a, 3, 3, KI); v22R(c, face === 2 ? 8.6 : 22.6, top + 10 + (face === 2 ? a : -a), 1.2, 1.6, "#3a2a2a"); }
+  hHead(H, "#e6dcc4", HAIR); if (face !== 0) for (let k = 1.5; k < 7.5; k += 1.6) v22R(c, face === 1 ? 14 : 12, hy + 2 + k, face === 1 ? 6.5 : 8, 0.45, "#b0a284");
+  if (face === 2) { hPoly(c, HAIR, [[11, hy + 4], [10.5, hy], [12, hy - 2.5], [14, hy - 1], [16, hy - 3], [18, hy - 1], [20, hy - 2.5], [21.5, hy], [21, hy + 4], [20, hy + 2], [12, hy + 2]]); hEyes(H, "#d02818", "#300404"); v22R(c, 14.6, hy + 8.2, 2.8, 0.6, "#3a2a2a"); }
+  else if (face === 1) { hPoly(c, HAIR, [[12, hy + 6], [11, hy + 1], [12.5, hy - 2.5], [15, hy - 1], [17, hy - 3], [19, hy - 1], [20.5, hy + 1.5], [15, hy + 2.5], [14, hy + 6]]); hEyes(H, "#d02818", "#300404"); v22R(c, 19, hy + 8.2, 1.4, 0.6, "#3a2a2a"); }
+  else { v22R(c, 12, hy + 2, 8, 5, HAIR); hPoly(c, HAIR, [[11, hy + 6], [10.5, hy], [12, hy - 2.5], [14, hy - 1], [16, hy - 3], [18, hy - 1], [20, hy - 2.5], [21.5, hy], [21, hy + 6]]); }
+}
+function heroGowther(H: HeroCtx): void {
+  const { c, face, top, hy, now } = H; const WH = "#f2f0ea", WS = "#cfcabe", GD = "#d8b040", PK = "#f08ab8", PKL = "#ffb8d8", SK = "#f6d6bc", GL = "#ffe680";
+  const arrow = (): void => { c.save(); c.globalAlpha = 0.55 + 0.35 * Math.sin(now / 260); c.strokeStyle = GL; c.lineWidth = 1; const ax = face === 1 ? 6 : 25.5, ay = top + 1; c.beginPath();
+    c.moveTo(ax, ay + 11); c.lineTo(ax, ay); c.moveTo(ax - 1.8, ay + 2); c.lineTo(ax, ay); c.lineTo(ax + 1.8, ay + 2); c.moveTo(ax - 1.5, ay + 11); c.lineTo(ax, ay + 9.2); c.lineTo(ax + 1.5, ay + 11); c.stroke(); c.restore(); }; // flecha de luz flotando
+  if (face !== 0) arrow();
+  hLegs(H, WH, "#6a5a7a", WS); hTorso(H, WH);
+  c.strokeStyle = GD; c.lineWidth = 0.7;
+  if (face === 2) { v22R(c, 15.5, top + 1, 1, 7.5, WS); c.beginPath(); c.moveTo(12.5, top + 7.4); c.lineTo(18.6, top + 2.4); c.moveTo(16.8, top + 2.4); c.lineTo(18.6, top + 2.4); c.lineTo(18.6, top + 4.2); c.stroke(); v22R(c, 10, top + 8.6, 12, 1, GD); }
+  else if (face === 1) { c.beginPath(); c.moveTo(14, top + 7); c.lineTo(19.5, top + 2.6); c.stroke(); v22R(c, 12.5, top + 8.6, 8, 1, GD); }
+  else v22R(c, 10, top + 8.6, 12, 1, GD);
+  c.lineWidth = 1; hArms(H, WH, SK, GD); hHead(H, SK, PK);
+  const glasses = (pts: Array<[number, number]>): void => { c.strokeStyle = "#7a5a3a"; c.lineWidth = 0.5; for (const [gx, gy] of pts) { c.beginPath(); c.arc(gx, gy, 1.6, 0, Math.PI * 2); c.stroke(); } c.lineWidth = 1; };
+  if (face === 2) { hPoly(c, PK, [[10.5, hy + 8], [10, hy + 1.5], [12, hy - 1.5], [16, hy - 2.5], [20, hy - 1.5], [22, hy + 1.5], [21.5, hy + 8], [20.2, hy + 4], [18, hy + 3.6], [16, hy + 4.6], [14, hy + 3.6], [11.8, hy + 4]]); v22R(c, 13, hy - 0.8, 5, 0.6, PKL);
+    hEyes(H, "#3a2a4a"); glasses([[14.1, hy + 6.2], [17.9, hy + 6.2]]); v22R(c, 15.6, hy + 6, 0.8, 0.4, "#7a5a3a"); hMouth(H); }
+  else if (face === 1) { hPoly(c, PK, [[12, hy + 9], [10.5, hy + 2], [12.5, hy - 1.5], [16.5, hy - 2.5], [20.5, hy - 1], [21.5, hy + 3], [20, hy + 4], [18, hy + 3.4], [15.5, hy + 9]]); v22R(c, 14, hy - 0.8, 4, 0.6, PKL); hEyes(H, "#3a2a4a"); glasses([[19.4, hy + 6.2]]); hMouth(H); }
+  else { hPoly(c, PK, [[10.5, hy + 9.5], [10, hy + 1.5], [12, hy - 1.5], [16, hy - 2.5], [20, hy - 1.5], [22, hy + 1.5], [21.5, hy + 9.5]]); v22R(c, 13, hy - 0.8, 5, 0.6, PKL); arrow(); }
+}
+function heroZeldris(H: HeroCtx): void {
+  const { c, face, top, hy, sw } = H; const BK = "#17141d", BKL = "#2c2834", RL = "#6a1020", HAIR = "#121016", SK = "#f0d2b4", MK = "#2a1236", SV = "#b8bcc8";
+  const cape = (back: boolean): void => { if (face === 1) { hPoly(c, BK, [[11, top], [15, top], [13.5 - sw, 28], [4.5 - sw, 28]]); v22R(c, 4.5 - sw, 27.2, 9, 0.8, RL); }
+    else { hPoly(c, back ? BK : RL, [[8, top], [24, top], [26.5 + sw, 28], [5.5 - sw, 28]]); if (back) { v22R(c, 8, top, 16, 1, BKL); v22R(c, 5.5 - sw, 27.2, 21 + sw * 2, 0.8, RL); } } };
+  if (face !== 0) cape(false);
+  hLegs(H, BK, "#0c0a10", "#0e0c12"); hTorso(H, BK);
+  if (face === 2) { v22R(c, 10, top + 1, 12, 1.4, BKL); v22R(c, 10, top + 8.6, 12, 1, BKL); v22R(c, 15, top + 8.4, 2, 1.4, SV); hBlade(c, 21.5, top + 9.5, 2.0, 9, 1.4, "#2a2630", SV); v22R(c, 21.6, top + 6.5, 1.4, 3, "#5a1a2a"); }
+  else if (face === 1) { v22R(c, 12.5, top + 8.6, 8, 1, BKL); hBlade(c, 18.5, top + 9.2, Math.PI - 0.45, 10, 1.4, "#2a2630", SV); hBlade(c, 18.8, top + 9, -0.45, 3.4, 1.3, "#5a1a2a", "#7a2a3a"); }
+  hArms(H, BK, SK, BKL); hHead(H, SK, HAIR);
+  if (face === 2) { hPoly(c, HAIR, [[11, hy + 6], [10.5, hy + 1], [12.5, hy - 1.5], [16, hy - 2], [19.5, hy - 1.5], [21.5, hy + 1], [21, hy + 6], [19.6, hy + 3.4], [17.5, hy + 4.4], [16, hy + 3], [14, hy + 4.4], [12.4, hy + 3.4]]);
+    hPoly(c, MK, [[12.2, hy + 3.6], [15.4, hy + 4.2], [14.8, hy + 5.2], [13.6, hy + 5], [13, hy + 7.8], [12.3, hy + 7.2]]); hEyes(H, "#1a1020"); hMouth(H); } // marca demoníaca sobre su ojo derecho
+  else if (face === 1) { hPoly(c, HAIR, [[12, hy + 8], [11, hy + 1.5], [13, hy - 1.5], [17, hy - 2], [20.5, hy - 0.5], [21.5, hy + 2.5], [19.5, hy + 3.4], [17, hy + 3], [15, hy + 8]]);
+    hPoly(c, MK, [[17.6, hy + 3.6], [20.4, hy + 4], [20, hy + 5], [18.4, hy + 5.4], [18, hy + 7.8], [17.5, hy + 7]]); hEyes(H, "#1a1020"); hMouth(H); }
+  else { hPoly(c, HAIR, [[10.8, hy + 8], [10.5, hy + 1], [12.5, hy - 1.5], [16, hy - 2], [19.5, hy - 1.5], [21.5, hy + 1], [21.2, hy + 8]]); cape(true); }
+}
+function heroEstarossa(H: HeroCtx): void {
+  const { c, face, hy, top } = H; const BK = "#141218", BKL = "#2a2630", SV = "#d8dce4", SVD = "#a8acb8", SK = "#f0d0b0", MK = "#24122e";
+  hLegs(H, BK, "#0c0a10", "#0e0c12"); hTorso(H, BK);
+  if (face === 2) { hPoly(c, SK, [[13.5, top + 0.6], [18.5, top + 0.6], [16, top + 6]]); v22R(c, 12.6, top + 1, 0.8, 6, BKL); v22R(c, 18.6, top + 1, 0.8, 6, BKL); v22R(c, 10, top + 8.6, 12, 1, SVD); v22R(c, 15.2, top + 8.4, 1.6, 1.4, SV); }
+  else if (face === 1) { v22R(c, 18.6, top + 1, 1.6, 3, SK); v22R(c, 12.5, top + 8.6, 8, 1, SVD); }
+  else { v22R(c, 10, top + 8.6, 12, 1, SVD); v22R(c, 15.6, top + 1, 0.8, 7.5, BKL); }
+  hArms(H, BK, SK, SVD); hHead(H, SK, SV);
+  if (face === 2) { hPoly(c, SV, [[10, hy + 8], [9.5, hy + 3], [10.5, hy - 0.5], [12.5, hy - 2.5], [15, hy - 1.5], [17, hy - 3], [19.5, hy - 1.5], [21.5, hy - 1], [22.5, hy + 3], [22, hy + 8], [20.5, hy + 4.4], [19, hy + 5.6], [18, hy + 3.6], [16.5, hy + 5.4], [15, hy + 3.6], [13.4, hy + 5.6], [12, hy + 4]]); v22R(c, 12, hy + 0.2, 8, 0.6, SVD);
+    hPoly(c, MK, [[16.6, hy + 4.2], [19.8, hy + 3.6], [19.7, hy + 7.4], [19, hy + 7.8], [18.4, hy + 5.2], [17.2, hy + 5.2]]); hEyes(H, "#1a1020"); hMouth(H); } // marca demoníaca sobre su ojo izquierdo
+  else if (face === 1) { hPoly(c, SV, [[12, hy + 9], [10, hy + 5], [10.5, hy + 0.5], [13, hy - 2.5], [16, hy - 1.5], [18.5, hy - 3], [20.5, hy - 0.5], [22, hy + 2.5], [20.5, hy + 3.8], [19.5, hy + 5.4], [18.5, hy + 3.4], [16, hy + 3.4], [15, hy + 9]]); v22R(c, 13, hy + 0.2, 6, 0.6, SVD); hEyes(H, "#1a1020"); hMouth(H); }
+  else { hPoly(c, SV, [[10, hy + 9.5], [9.5, hy + 3], [10.5, hy - 0.5], [12.5, hy - 2.5], [15, hy - 1.5], [17, hy - 3], [19.5, hy - 1.5], [21.5, hy - 1], [22.5, hy + 3], [22, hy + 9.5], [19, hy + 10.5], [16, hy + 9.6], [13, hy + 10.5]]); v22R(c, 12, hy + 0.2, 8, 0.6, SVD); }
+}
+function heroMonspeet(H0: HeroCtx): void {
+  const H: HeroCtx = { ...H0, top: H0.top - 1.5, hy: H0.hy - 3 }; const { c, face, top, hy, sw } = H; const WC = "#ecebe4", WCS = "#c8c6bc", BK = "#18161c", GL = "#f6f6f2", HAIR = "#e8c860", HD = "#b8962e", SK = "#f2d2b2", RD = "#7a1020";
+  hLegs(H, BK, "#0a0a0c", "#101014");
+  if (face === 1) { hPoly(c, WC, [[11, top], [20, top], [21 - sw * 0.5, 27.5], [8.5 - sw, 27.5]]); v22R(c, 8.5 - sw, 26.8, 12.5, 0.7, WCS); v22R(c, 18.5, top, 1.6, 6, BK); v22R(c, 19.6, top + 1, 1, 2, RD); }
+  else { hPoly(c, WC, [[9, top], [23, top], [25 + sw, 27.5], [7 - sw, 27.5]]); v22R(c, 7 - sw, 26.8, 18 + sw * 2, 0.7, WCS);
+    if (face === 2) { hPoly(c, BK, [[15, top + 9], [17, top + 9], [18 + sw * 0.4, 27.5], [14 - sw * 0.4, 27.5]]); hPoly(c, BK, [[12.5, top], [15.6, top], [15.6, top + 7], [13.5, top + 4]]); hPoly(c, BK, [[19.5, top], [16.4, top], [16.4, top + 7], [18.5, top + 4]]);
+      v22R(c, 15.2, top + 0.4, 1.6, 2, GL); v22R(c, 15.3, top + 2.4, 1.4, 1.8, RD); v22R(c, 13, top + 8, 1, 1, BK); v22R(c, 18, top + 8, 1, 1, BK); }
+    else { v22R(c, 15.6, top + 9, 0.8, 27 - (top + 9), WCS); v22R(c, 10.5, top, 11, 1.6, BK); } }
+  hArms(H, WC, GL, BK); hHead(H, SK, HAIR);
+  const stache = (x0: number, dir: number): void => { c.strokeStyle = HAIR; c.lineWidth = 0.9; c.beginPath(); c.moveTo(x0, hy + 7.7); c.quadraticCurveTo(x0 + dir * 2.6, hy + 8.6, x0 + dir * 3.4, hy + 6.8); c.arc(x0 + dir * 2.8, hy + 6.8, 0.6, 0, Math.PI * 1.5, dir < 0); c.stroke(); c.lineWidth = 1; };
+  if (face === 2) { hPoly(c, HAIR, [[11.5, hy + 5], [11, hy + 1], [13, hy - 1], [17, hy - 1.5], [20, hy - 0.5], [21, hy + 1.5], [20.8, hy + 5], [20, hy + 2.6], [15, hy + 2.2], [12.4, hy + 3]]); v22R(c, 13, hy + 0.2, 6, 0.5, HD);
+    v22R(c, 13.2, hy + 5.6, 1.8, 0.9, "#3a2a1a"); v22R(c, 17, hy + 5.6, 1.8, 0.9, "#3a2a1a"); stache(15.8, -1); stache(16.2, 1); }
+  else if (face === 1) { hPoly(c, HAIR, [[12.5, hy + 6.5], [12, hy + 1], [14, hy - 1.2], [18, hy - 1.3], [20.8, hy + 0.5], [20.5, hy + 2.5], [15.5, hy + 2.4], [14.5, hy + 6.5]]); v22R(c, 18.8, hy + 5.6, 1.5, 0.9, "#3a2a1a"); stache(19.4, 1); }
+  else hPoly(c, HAIR, [[11.5, hy + 8], [11, hy + 1], [13, hy - 1], [17, hy - 1.5], [20, hy - 0.5], [21, hy + 1.5], [20.8, hy + 8]]);
+}
+function heroDeidara(H: HeroCtx): void {
+  const { c, face, top, hy, sw, am, now } = H; const CL = "#15131b", CLD = "#09080d", HAIR = "#f2d050", HD = "#c8a430", SK = "#f2d2b2", HB = "#3a4a6a", PL = "#c4cad4", EY = "#3a7ad8", CLAY = "#f4f2ec", a = am * 0.6, fb = Math.sin(now / 300) * 0.5;
+  const plate = (x: number, w: number): void => { v22R(c, x, hy + 0.7, w, 1.8, PL); c.strokeStyle = "#2a2a32"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(x + 0.2, hy + 2.4); c.lineTo(x + w - 0.2, hy + 0.8); c.stroke(); c.lineWidth = 1; };
+  const bird = (bx: number, by: number): void => { hPoly(c, CLAY, [[bx, by + 1.2], [bx + 3.6, by + 0.2], [bx + 4.8, by - 1.4], [bx + 4.4, by + 1], [bx + 2.4, by + 2.2]]); hPoly(c, CLAY, [[bx + 1.6, by + 0.8], [bx + 2.4, by - 2.2], [bx + 3.2, by + 0.6]]); v22R(c, bx + 3.9, by - 0.6, 0.5, 0.5, "#222"); }; // pájaro de arcilla
+  if (face === 2) hPoly(c, HAIR, [[15, hy - 1], [17.5, hy - 1.5], [20, hy - 6], [22, hy - 5], [19, hy - 0.5]]);
+  if (face === 1) hPoly(c, HAIR, [[13, hy - 1], [15, hy - 1.5], [11, hy - 6.5], [9.5, hy - 5.5]]);
+  hLegs(H, "#1b1b2a", "#2c2c3c");
+  if (face === 1) { hPoly(c, CL, [[11, top], [19.5, top], [20 - sw * 0.5, 27], [8 - sw, 27]]); v22R(c, 8 - sw, 26.3, 12, 0.8, CLD); hCloud(c, 12.5, top + 7, 0.9); hCloud(c, 15, top + 13, 0.85); }
+  else { hPoly(c, CL, [[9, top], [23, top], [25 + sw, 27], [7 - sw, 27]]); v22R(c, 7 - sw, 26.3, 18 + sw * 2, 0.8, CLD);
+    if (face === 2) { v22R(c, 15.6, top + 7, 0.8, 8, CLD); hCloud(c, 12, top + 12, 1); hCloud(c, 19.5, top + 12.5, 0.9); hCloud(c, 12.2, top + 5.5, 0.8); }
+    else { hCloud(c, 19.5, top + 12, 1); hCloud(c, 12.5, top + 13, 0.9); } }
+  if (face === 2) { v22R(c, 7.5, top + 1 + a, 3, 8, CL); v22R(c, 8, top + 9 + a, 2.5, 2, SK); v22R(c, 11, top - 1, 10, 2.2, CL); }
+  else if (face === 1) v22R(c, 13, top - 1, 7.5, 2.2, CL); else hArms(H, CL, SK, CLD);
+  hHead(H, SK, HAIR);
+  if (face === 2) { hPoly(c, HAIR, [[11, hy + 3], [11.5, hy - 0.5], [14, hy - 2], [18, hy - 2], [20.5, hy - 0.5], [21, hy + 3], [12, hy + 3]]); hPoly(c, HAIR, [[10.6, hy + 2], [12.2, hy + 2], [12.4, hy + 10], [10.2, hy + 12], [9.8, hy + 6]]);
+    v22R(c, 11.4, hy + 0.8, 9.2, 1.6, HB); plate(12.6, 4); v22R(c, 13.2, hy + 5.5, 1.8, 1.5, EY); v22R(c, 13.8, hy + 5.9, 0.7, 0.8, "#101828"); v22R(c, 14.6, hy + 8.2, 2.4, 0.6, "#b07a5a");
+    hPoly(c, HAIR, [[16, hy + 1.5], [21.2, hy + 1.5], [21.8, hy + 11], [19.8, hy + 12.5], [19, hy + 8], [17, hy + 5]]); v22R(c, 18.5, hy + 2.5, 0.6, 6, HD); // flequillo que tapa su ojo izquierdo
+    v22R(c, 21.5, top + 1, 3, 4, CL); v22R(c, 17.5, top + 4.2 + fb, 5, 2.6, CL); v22R(c, 16, top + 4.4 + fb, 2, 2, SK); bird(13.6, top + 2.6 + fb); } // brazo en alto con un pájaro de arcilla
+  else if (face === 1) { hPoly(c, HAIR, [[12, hy + 9], [11, hy + 1], [13, hy - 1.5], [18, hy - 1.8], [20.8, hy + 0.5], [20.4, hy + 3], [16, hy + 3], [15.2, hy + 11], [13, hy + 12]]); v22R(c, 13, hy + 0.8, 8, 1.6, HB); plate(18.4, 2.4);
+    hEyes(H, EY, "#101828"); hMouth(H); v22R(c, 14, top + 1, 3, 4, CL); v22R(c, 15.5, top + 3.5 + fb, 5, 2.4, CL); v22R(c, 20.2, top + 3.6 + fb, 2, 2, SK); bird(20.6, top + 1.4 + fb); }
+  else { hPoly(c, HAIR, [[10.6, hy + 10], [10.5, hy + 1], [13, hy - 1.6], [19, hy - 1.6], [21.5, hy + 1], [21.4, hy + 10], [18, hy + 15], [14, hy + 15]]); v22R(c, 13, hy + 3, 0.6, 10, HD); v22R(c, 18.4, hy + 3, 0.6, 10, HD);
+    hPoly(c, HAIR, [[14.5, hy - 1], [17.5, hy - 1], [17, hy - 6], [15, hy - 6]]); v22R(c, 14.8, hy - 1.6, 2.4, 1, "#7a7a8a"); v22R(c, 11.4, hy + 0.8, 9.2, 1.6, HB); v22R(c, 15.2, hy + 2.4, 1, 2.4, HB); v22R(c, 16.6, hy + 2.4, 1, 2, HB); }
+}
+const HERO_DRAW: Record<HeroArt, (H: HeroCtx) => void> = { gojo: heroGojo, itachi: heroItachi, rengoku: heroRengoku, kirito: heroKirito, mihawk: heroMihawk, freezer: heroFreezer,
+  shishio: heroShishio, gowther: heroGowther, zeldris: heroZeldris, estarossa: heroEstarossa, monspeet: heroMonspeet, deidara: heroDeidara };
 /** Atuendo de héroe del jugador: misma caja de 32×30 y el mismo paso que drawMinato (face 3 = espejo de 1). */
 function drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, art: HeroArt, face0: Dir, ph: number, now: number, shadow = true): void {
   const c = ctx; let face = face0; c.save(); if (shadow) { c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x + 16, y + 29, 10, 3.5, 0, 0, Math.PI * 2); c.fill(); }
@@ -6131,7 +6240,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v28 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v28.1 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
