@@ -22,7 +22,8 @@ const MAP_JSON = fs.existsSync(P("assets/map.json")) ? fs.readFileSync(P("assets
 if (MAP_JSON) PATCHES.push({ name: "published map", find: 'const MAP_FILE = "";', repl: `const MAP_FILE = ${JSON.stringify(MAP_JSON)};` });
 // Test-only build (TESTHOOK=1 → dist-test/index.html): exposes the live game ref so headless tests can set up a boss phase quickly.
 const TEST = !!process.env.TESTHOOK;
-if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef;" });
+if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef; (globalThis as any).__edisarView = () => [VW, VH];" });
+if (TEST) PATCHES.push({ name: "test hook: npcs", find: "function placeNpcs(tiles: Uint8Array): void {", repl: "(globalThis as any).__edisarNpcs = () => [[\"Rosa\", NPC_X, NPC_Y], [\"Darío\", DARIO_X, DARIO_Y], [\"Depósito\", DEPOT_X, DEPOT_Y], [\"Tomás\", STABLE_X, STABLE_Y], ...QNPCS.map((q: QNpc) => [q.name, q.x, q.y])];\nfunction placeNpcs(tiles: Uint8Array): void {" });
 if (TEST) PATCHES.push({ name: "test hook: sprite top", find: "const MON_TOP = new Map<string, number>();", repl: "const MON_TOP = new Map<string, number>(); (globalThis as any).__edisarMonTop = (m: Mon) => monSprTop(m);" });
 const patchPlugin = { name: "edisar-patch", setup(b) {
   b.onLoad({ filter: /game\.canvas\.tsx$/ }, (args) => {
@@ -54,7 +55,7 @@ const __g = newGame((Object.values(CLASSES) as ClassDef[])[0]!, "Editor");
 const __zn: string[] = []; const __zm = new Map<string, number>(); const __zi: number[] = []; const __zs: Array<[number, number, number]> = [];
 for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const z = zoneName(__g, x, y); let k = __zm.get(z); if (k === undefined) { k = __zn.length; __zn.push(z); __zm.set(z, k); __zs.push([0, 0, 0]); } __zi.push(k); const q = __zs[k]!; q[0] += x; q[1] += y; q[2]++; }
 const __zc = __zs.map((q) => [Math.round(q[0] / q[2]), Math.round(q[1] / q[2])]);
-process.stdout.write(JSON.stringify({ W: MW, H: MH, map: exportMapFile(buildMap(), null, [], "Mapa original de Edisar"), tiles: TILE_INFO,
+process.stdout.write(JSON.stringify({ W: MW, H: MH, pub: CUSTOM_MAP ? (() => { const cm = CUSTOM_MAP!; const t = cm.tiles.slice(), u = cm.under.slice(); ashGrove(t, u); return exportMapFile(t, u, cm.marks, cm.name, MAPX); })() : null, map: exportMapFile(buildMap(), null, [], "Mapa original de Edisar"), tiles: TILE_INFO,
   mons: (Object.values(MONS) as MonDef[]).map((m) => ({ id: m.id, n: m.name, boss: !!m.boss })).sort((x, y) => Number(x.boss) - Number(y.boss) || x.n.localeCompare(y.n, "es")),
   ref: __g.mons.map((m) => [m.x, m.y, m.def.id]), zn: __zn, zr: rleEnc(__zi), zc: __zc, temple: [TEMPLE_X, TEMPLE_Y], town: [TX0, TY0, TX1, TY1], ver: GAME_VER_ED }));
 `;
@@ -62,7 +63,8 @@ process.stdout.write(JSON.stringify({ W: MW, H: MH, map: exportMapFile(buildMap(
   const r1 = await esbuild.build({ stdin: { contents: src.slice(a, b) + `\nconst GAME_VER_ED = ${JSON.stringify("Edisar · " + ver)};\n` + footer, loader: "ts", resolveDir: root }, bundle: true, platform: "node", format: "cjs", write: false, logLevel: "error" });
   const tmp = P("dist/.editor-data.cjs"); fs.writeFileSync(tmp, r1.outputFiles[0].text);
   const data = JSON.parse(execSync(`node "${tmp}"`, { maxBuffer: 64 << 20 }).toString()); fs.rmSync(tmp);
-  if (MAP_JSON) data.map = MAP_JSON; // el editor arranca desde el mapa publicado
+  if (MAP_JSON) data.map = data.pub || MAP_JSON; // el editor arranca desde el mapa publicado (v27.2: con la hierba del Bosque Muerto ya como «Tierra de ceniza»)
+  delete data.pub;
   data.tileset = TILESET_URL;
   const r2 = await esbuild.build({ entryPoints: [P("src/editor/editor.ts")], bundle: true, minify: true, write: false, format: "iife", target: ["es2020"], logLevel: "warning" });
   const tpl = fs.readFileSync(P("src/editor/editor.html"), "utf8");

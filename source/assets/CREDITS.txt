@@ -10,6 +10,8 @@ Tiles del mapa (v26): assets/tileset.png (atlas 8×5 de 32×32 px), generado con
     brick_brown_*, sandstone_wall_*, lab-rock_*), dungeon/trees (tree_*_yellow, recoloreados a verde),
     dungeon/boulder.png (desaturado), monster/fungi_plants (bush_2, bush_3). Algunos con brillo/color retocado.
   - Suelo y muro de madera y nieve: dibujados por código en scripts/make-tileset.py (propios, CC0).
+  - Tierra de ceniza (v27.2): 3 variantes dibujadas por código (scripts/tiles272.py), CC0 / propio.
+  - Puerta de hierro abierta y reja abierta (v27.2): DCSS (CC0), dungeon/doors/open_door.png y gate_open_middle.png.
   No se usa ningún sprite de Tibia.
 
 Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts/tiles27.py.

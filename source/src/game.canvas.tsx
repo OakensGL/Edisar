@@ -52,7 +52,7 @@ interface Game {
   cls: ClassDef; tiles: Uint8Array; under?: Uint8Array; p: Player; mons: Mon[]; projs: Proj[]; floats: Floater[]; fx: AreaFx[];
   fields: Field[]; ground: Ground[]; minion: Minion | null; st: Stats;
   target: number; log: string[]; status: string; statusAt: number; statusColor: string;
-  heldDirs: MoveAct[]; pending: [number, number] | null; walkGoal: { x: number; y: number; open: boolean } | null;
+  heldDirs: MoveAct[]; pending: [number, number] | null; walkGoal: { x: number; y: number; open: boolean; near?: boolean } | null; doorGoal?: [number, number] | null;
   nextRegen: number; camX: number; camY: number; zone: string; deaths: number; kills: number; nextUid: number;
   shopOpen: boolean; shopMsg: string; bigMap: boolean; mini: HTMLCanvasElement | null;
   afk: boolean; afkNext: number; afkStart: number; afkExp: number; afkGold: number; afkKills: number; afkLoot: number;
@@ -68,14 +68,19 @@ const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH 
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
 const LAVA = 14, SNOW = 15, WOODF = 16, STONEF = 17, BRICK = 18, WWALL = 19, BUSH = 20; // v26: tiles nuevos (sobre todo para el editor de mapas)
 // v27: más tiles (suelos, muros, puertas, muebles, decoración, naturaleza). Reglas: TILE_WALK = se pisa; TILE_SHOT = bloquea disparos.
-const T_DRYG = 21, T_FLOWG = 22, T_MUD = 23, T_ICE = 24, T_BMARB = 25, T_CARPR = 26, T_CARPB = 27, T_BRIDGE = 28, T_GRAVEL = 29, T_MOSS = 30, T_CWALL = 31, T_RUIN = 32, T_MWALL = 33, T_HEDGE = 34, T_IFENCE = 35, T_WFENCE = 36, T_VWALL = 37, T_DOORW = 38, T_DOORO = 39, T_DOORI = 40, T_GATE = 41, T_DOORL = 42, T_STUP = 43, T_STDN = 44, T_LADDER = 45, T_HOLE = 46, T_TABLE = 47, T_CHAIR = 48, T_BED = 49, T_SHELF = 50, T_BARREL = 51, T_CRATE = 52, T_CHEST = 53, T_CHEST2 = 54, T_TORCH = 55, T_FOUNT = 56, T_STATA = 57, T_STATS = 58, T_COLUMN = 59, T_COLR = 60, T_ALTAR = 61, T_BANNER = 62, T_BONES = 63, T_SKEL = 64, T_FLOWERS = 65, T_SHROOM = 66, T_LOG = 67, T_CACTUS = 68, T_STONES = 69, T_TALLG = 70, T_DEADT = 71, T_PALM = 72, T_BRIAR = 73;
-const TILE_WALK = new Set<number>([T_DRYG, T_FLOWG, T_MUD, T_ICE, T_BMARB, T_CARPR, T_CARPB, T_BRIDGE, T_GRAVEL, T_MOSS, T_DOORW, T_DOORO, T_DOORI, T_STUP, T_STDN, T_LADDER, T_HOLE, T_BONES, T_SKEL, T_FLOWERS, T_SHROOM, T_STONES, T_TALLG]);
-const TILE_SHOT = new Set<number>([T_CWALL, T_RUIN, T_MWALL, T_HEDGE, T_VWALL, T_DOORL, T_SHELF, T_STATA, T_STATS, T_COLUMN, T_DEADT, T_PALM]);
+const T_DRYG = 21, T_FLOWG = 22, T_MUD = 23, T_ICE = 24, T_BMARB = 25, T_CARPR = 26, T_CARPB = 27, T_BRIDGE = 28, T_GRAVEL = 29, T_MOSS = 30, T_CWALL = 31, T_RUIN = 32, T_MWALL = 33, T_HEDGE = 34, T_IFENCE = 35, T_WFENCE = 36, T_VWALL = 37, T_DOORW = 38, T_DOORO = 39, T_DOORI = 40, T_GATE = 41, T_DOORL = 42, T_STUP = 43, T_STDN = 44, T_LADDER = 45, T_HOLE = 46, T_TABLE = 47, T_CHAIR = 48, T_BED = 49, T_SHELF = 50, T_BARREL = 51, T_CRATE = 52, T_CHEST = 53, T_CHEST2 = 54, T_TORCH = 55, T_FOUNT = 56, T_STATA = 57, T_STATS = 58, T_COLUMN = 59, T_COLR = 60, T_ALTAR = 61, T_BANNER = 62, T_BONES = 63, T_SKEL = 64, T_FLOWERS = 65, T_SHROOM = 66, T_LOG = 67, T_CACTUS = 68, T_STONES = 69, T_TALLG = 70, T_DEADT = 71, T_PALM = 72, T_BRIAR = 73, T_ASH = 74, T_DOORIO = 75, T_GATEO = 76; // v27.2: tierra de ceniza y puertas abiertas (hierro, reja)
+const TILE_WALK = new Set<number>([T_DRYG, T_FLOWG, T_MUD, T_ICE, T_BMARB, T_CARPR, T_CARPB, T_BRIDGE, T_GRAVEL, T_MOSS, T_ASH, T_DOORO, T_DOORIO, T_GATEO, T_STUP, T_STDN, T_LADDER, T_HOLE, T_BONES, T_SKEL, T_FLOWERS, T_SHROOM, T_STONES, T_TALLG]);
+const TILE_SHOT = new Set<number>([T_CWALL, T_RUIN, T_MWALL, T_HEDGE, T_VWALL, T_DOORW, T_DOORI, T_GATE, T_DOORL, T_SHELF, T_STATA, T_STATS, T_COLUMN, T_DEADT, T_PALM]);
 // v27: mapa del editor más grande que el mundo (544×144): MAPX guarda el archivo entero; el mundo original empieza en (ox, oy) del archivo.
 interface MapExt { w: number; h: number; ox: number; oy: number; tiles: Uint8Array; under: Uint8Array; safe: Uint8Array | null; }
 let MAPX: MapExt | null = null;
+// v27.2: puertas estilo Tibia: clic derecho abre/cierra. Cerradas: no se pasa ni pasan disparos. Abiertas: solo pasa el jugador (los monstruos nunca pisan puertas).
+const DOOR_OPEN: Record<number, number> = { [T_DOORW]: T_DOORO, [T_DOORI]: T_DOORIO, [T_GATE]: T_GATEO };
+const DOOR_SHUT: Record<number, number> = { [T_DOORO]: T_DOORW, [T_DOORIO]: T_DOORI, [T_GATEO]: T_GATE };
+function isDoorT(t: number): boolean { return DOOR_OPEN[t] !== undefined || DOOR_SHUT[t] !== undefined || t === T_DOORL; }
+function doorClosedT(t: number): boolean { return DOOR_OPEN[t] !== undefined; }
 const WK_X0 = 2, WK_Y0 = 60, WK_X1 = 18, WK_Y1 = 101; const WK_KEEP: [number, number, number, number] = [3, 61, 10, 66]; // v27: Torre del White Knight (la de Juan Carlos, suroeste de la villa) y su cima
-const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
+const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY; let NPC_X = 53, NPC_Y = 31 + OY; // v27.2: los NPC se colocan en la plaza (placeNpcs)
 const PLAYER_T = -7;
 const NPC_NAME = "Rosa la mercader";
 const HP_POT_PRICE = 50, MANA_POT_PRICE = 50;
@@ -517,6 +522,7 @@ const TILE_INFO: TileInfo[] = [
   { id: T_CARPB, n: "Alfombra azul", cat: "suelos", layer: "floor", spr: [53], c: "#34437e", walk: true, shot: false },
   { id: T_BRIDGE, n: "Puente de tablas", cat: "suelos", layer: "floor", spr: [54], c: "#75512d", walk: true, shot: false },
   { id: T_GRAVEL, n: "Grava", cat: "suelos", layer: "floor", spr: [55, 56], c: "#77776b", walk: true, shot: false },
+  { id: T_ASH, n: "Tierra de ceniza", cat: "suelos", layer: "floor", spr: [116, 117, 118], c: "#3a3634", walk: true, shot: false },
   { id: T_MOSS, n: "Musgo", cat: "suelos", layer: "floor", spr: [57, 58], c: "#042b00", walk: true, shot: false },
   { id: T_CWALL, n: "Muro de castillo", cat: "muros", layer: "obj", spr: [59, 60], under: STONEF, c: "#414141", walk: false, shot: true },
   { id: T_RUIN, n: "Muro en ruinas", cat: "muros", layer: "obj", spr: [61], under: GRASS, c: "#818182", ov: true, walk: false, shot: true },
@@ -525,10 +531,12 @@ const TILE_INFO: TileInfo[] = [
   { id: T_IFENCE, n: "Verja de hierro", cat: "muros", layer: "obj", spr: [65], under: GRASS, c: "#47474f", ov: true, walk: false, shot: false },
   { id: T_WFENCE, n: "Valla de madera", cat: "muros", layer: "obj", spr: [66], under: GRASS, c: "#724e2b", ov: true, walk: false, shot: false },
   { id: T_VWALL, n: "Muro con enredadera", cat: "muros", layer: "obj", spr: [67, 68], under: STONEF, c: "#514301", walk: false, shot: true },
-  { id: T_DOORW, n: "Puerta de madera", cat: "puertas", layer: "obj", spr: [69], under: STONEF, c: "#423029", walk: true, shot: false },
-  { id: T_DOORO, n: "Puerta abierta", cat: "puertas", layer: "obj", spr: [70], under: STONEF, c: "#2f2827", ov: true, walk: true, shot: false },
-  { id: T_DOORI, n: "Puerta de hierro", cat: "puertas", layer: "obj", spr: [71], under: STONEF, c: "#3d3f42", walk: true, shot: false },
-  { id: T_GATE, n: "Reja (cerrada)", cat: "puertas", layer: "obj", spr: [72], under: STONEF, c: "#3a3a3a", walk: false, shot: false },
+  { id: T_DOORW, n: "Puerta de madera (cerrada)", cat: "puertas", layer: "obj", spr: [69], under: STONEF, c: "#423029", walk: false, shot: true },
+  { id: T_DOORO, n: "Puerta de madera (abierta)", cat: "puertas", layer: "obj", spr: [70], under: STONEF, c: "#2f2827", ov: true, walk: true, shot: false },
+  { id: T_DOORI, n: "Puerta de hierro (cerrada)", cat: "puertas", layer: "obj", spr: [71], under: STONEF, c: "#3d3f42", walk: false, shot: true },
+  { id: T_DOORIO, n: "Puerta de hierro (abierta)", cat: "puertas", layer: "obj", spr: [119], under: STONEF, c: "#2f3034", ov: true, walk: true, shot: false },
+  { id: T_GATE, n: "Reja (cerrada)", cat: "puertas", layer: "obj", spr: [72], under: STONEF, c: "#3a3a3a", walk: false, shot: true },
+  { id: T_GATEO, n: "Reja (abierta)", cat: "puertas", layer: "obj", spr: [120], under: STONEF, c: "#2c2c2c", ov: true, walk: true, shot: false },
   { id: T_DOORL, n: "Puerta con llave (cerrada)", cat: "puertas", layer: "obj", spr: [73], under: STONEF, c: "#4b3929", walk: false, shot: true },
   { id: T_STUP, n: "Escalera de subida", cat: "puertas", layer: "obj", spr: [74], under: STONEF, c: "#5e5e5e", ov: true, stair: true, walk: true, shot: false },
   { id: T_STDN, n: "Escalera de bajada", cat: "puertas", layer: "obj", spr: [75], under: STONEF, c: "#515151", stair: true, walk: true, shot: false },
@@ -727,10 +735,26 @@ function zoneName(g: Game, x: number, y: number): string {
 }
 function monAt(g: Game, x: number, y: number): Mon | null { for (const m of regionMons(g, x, y)) if (m.alive && m.x === x && m.y === y) return m; return null; }
 function findMon(g: Game, id: number): Mon | null { if (id < 0) return null; for (const m of g.mons) if (m.id === id) return m; return null; }
+function doorSet(g: Game, x: number, y: number, open: boolean, now: number): boolean {
+  if (x < 0 || y < 0 || x >= MW || y >= MH) return false; const i = y * MW + x; const t = g.tiles[i] ?? ROCK;
+  if (open) { const o = DOOR_OPEN[t]; if (o === undefined) return false; g.tiles[i] = o; return true; }
+  const c = DOOR_SHUT[t]; if (c === undefined) return false;
+  if ((g.p.x === x && g.p.y === y) || (g.minion && g.minion.x === x && g.minion.y === y) || monAt(g, x, y) || isNpcAt(x, y)) { setStatus(g, "No puedes cerrar la puerta: hay alguien en ella.", now); return false; }
+  g.tiles[i] = c; return true;
+}
+// Clic derecho sobre una puerta: si estás al lado la abres/cierras; si está lejos, caminas hasta ella y luego la usas.
+function doorUse(g: Game, x: number, y: number, now: number): boolean {
+  const t = tileAt(g, x, y);
+  if (t === T_DOORL) { setStatus(g, "🔒 Esta puerta está cerrada con llave.", now); return true; }
+  if (!isDoorT(t)) return false;
+  const p = g.p;
+  if (cheb(p.x, p.y, x, y) <= 1) { const op = doorClosedT(t); if (doorSet(g, x, y, op, now)) setStatus(g, op ? "🚪 Abriste la puerta." : "🚪 Cerraste la puerta.", now); return true; }
+  g.doorGoal = [x, y]; g.walkGoal = { x, y, open: false, near: true }; g.chase = false; setStatus(g, "Caminando hacia la puerta...", now); return true;
+}
 function canPlayerEnter(g: Game, x: number, y: number): boolean { if (!walkable(tileAt(g, x, y))) return false; if (isNpcAt(x, y)) return false; return monAt(g, x, y) === null; }
 function canMonEnter(g: Game, x: number, y: number): boolean {
   const t = tileAt(g, x, y);
-  if (!walkable(t) || t === PORTAL || isSafe(x, y) || inCastleBlock(x, y)) return false; // the Torre de Croqui hall stays monster-free
+  if (!walkable(t) || t === PORTAL || isDoorT(t) || isSafe(x, y) || inCastleBlock(x, y)) return false; // the Torre de Croqui hall stays monster-free
   if (g.p.x === x && g.p.y === y) return false;
   if (g.minion && g.minion.x === x && g.minion.y === y) return false;
   return monAt(g, x, y) === null;
@@ -765,7 +789,7 @@ function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) =
       const nx = cx + dx, ny = cy + dy;
       if (nx + BOX < 0 || ny + BOY < 0 || nx + BOX >= BW || ny + BOY >= BH) continue;
       const ni = bix(nx, ny); const t = tileAt(g, nx, ny);
-      if ((BFS_PREV[ni] ?? 0) !== -1 || (OCC[ni] ?? 0) === 1 || !walkable(t)) continue;
+      if ((BFS_PREV[ni] ?? 0) !== -1 || (OCC[ni] ?? 0) === 1 || !(walkable(t) || doorClosedT(t))) continue; // v27.2: el jugador abre las puertas cerradas del camino
       const isGoal = goal(nx, ny);
       if (t === PORTAL && !isGoal) continue;
       BFS_PREV[ni] = cur;
@@ -923,8 +947,8 @@ function teleport(g: Game, x: number, y: number, now: number): void {
   dropCarry(g, x, y, now);
 }
 function newGame(cls: ClassDef, name: string): Game {
-  const cmap = customMap(); MAPX = cmap ? cmap.x : null; const base = buildMap(); const tiles = cmap ? cmap.tiles.slice() : base; /* v27: buildMap() siempre: también rellena las salas de las Casas (HRT), que un mapa del editor no trae */ const used = new Set<number>(); const mons: Mon[] = []; // v26: mapa del editor si hay uno cargado
-  const okSpot = (x: number, y: number): boolean => { const tt = outCore(x, y) ? extAt(x, y) : (tiles[y * MW + x] ?? ROCK); return walkable(tt) && tt !== PORTAL && !isSafe(x, y) && !used.has((y + 2048) * 8192 + x + 2048); };
+  const cmap = customMap(); MAPX = cmap ? cmap.x : null; const base = buildMap(); const tiles = cmap ? cmap.tiles.slice() : base; /* v27: buildMap() siempre: también rellena las salas de las Casas (HRT), que un mapa del editor no trae */ if (cmap) ashGrove(tiles, null); placeNpcs(tiles); const used = new Set<number>(); const mons: Mon[] = []; // v26: mapa del editor si hay uno cargado
+  const okSpot = (x: number, y: number): boolean => { const tt = outCore(x, y) ? extAt(x, y) : (tiles[y * MW + x] ?? ROCK); return walkable(tt) && tt !== PORTAL && !isDoorT(tt) && !isSafe(x, y) && !used.has((y + 2048) * 8192 + x + 2048); };
   let id = 0;
   const all: Array<[MonId, number, number]> = [...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]): [MonId, number, number] => [s[0], s[1], s[2] + OY]);
   for (const rt of HRT) if (rt) for (const s of rt.spawns) all.push(s);
@@ -1485,20 +1509,21 @@ function autoAttack(g: Game, now: number): void {
 }
 
 // ===================== Lógica: movimiento =====================
-function tryStep(g: Game, dx: number, dy: number, now: number): boolean {
+function tryStep(g: Game, dx: number, dy: number, now: number, auto = false): boolean { // auto: paso de un camino (clic, AFK): abre la puerta cerrada que haya delante
   const p = g.p; if (dx === 0 && dy === 0) return false;
   p.face = dirFrom(dx, dy);
   const nx = p.x + dx, ny = p.y + dy;
+  if (auto && doorClosedT(tileAt(g, nx, ny))) doorSet(g, nx, ny, true, now);
   if (!canPlayerEnter(g, nx, ny)) return false;
   p.fx = p.x; p.fy = p.y; p.x = nx; p.y = ny; p.moveStart = now; p.moveDur = (stepTime(g) / mountMul(g)) * (dx !== 0 && dy !== 0 ? DIAG_MUL : 1) * (now < p.slowUntil ? 1.8 : 1);
   afterMove(g, now); return true;
 }
 function walkStep(g: Game, now: number): void {
   const wg = g.walkGoal; if (!wg) return; const p = g.p;
-  const goal = (x: number, y: number): boolean => wg.open ? cheb(x, y, wg.x, wg.y) <= (wg.x === DEPOT_X && wg.y === DEPOT_Y ? 1 : 2) : x === wg.x && y === wg.y;
-  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (wg.x === STABLE_X && wg.y === STABLE_Y) { mt(g).open = true; mt(g).msg = ""; if (g.dep) g.dep.open = false; } else if (qnpcAt(wg.x, wg.y)) { openTalk(g, qnpcAt(wg.x, wg.y)!.id); } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
+  const goal = (x: number, y: number): boolean => wg.near ? cheb(x, y, wg.x, wg.y) <= 1 : wg.open ? cheb(x, y, wg.x, wg.y) <= (wg.x === DEPOT_X && wg.y === DEPOT_Y ? 1 : 2) : x === wg.x && y === wg.y;
+  if (goal(p.x, p.y)) { g.walkGoal = null; if (wg.near) { const d = g.doorGoal; g.doorGoal = null; if (d) doorUse(g, d[0], d[1], now); return; } if (wg.open) { const c = cs(g); if (wg.x === DEPOT_X && wg.y === DEPOT_Y) { if (depotNear(g)) { dep(g).open = true; dep(g).msg = ""; } } else if (wg.x === STABLE_X && wg.y === STABLE_Y) { mt(g).open = true; mt(g).msg = ""; if (g.dep) g.dep.open = false; } else if (qnpcAt(wg.x, wg.y)) { openTalk(g, qnpcAt(wg.x, wg.y)!.id); } else if (c.exWalk) { c.exWalk = false; c.exOpen = true; c.msg = ""; } else { g.shopOpen = true; g.shopMsg = ""; } } return; }
   const st = bfsStep(g, p.x, p.y, goal, 20000);
-  if (!st || !tryStep(g, st[0], st[1], now)) { g.walkGoal = null; setStatus(g, "No hay camino hasta allí.", now); }
+  if (!st || !tryStep(g, st[0], st[1], now, true)) { g.walkGoal = null; setStatus(g, "No hay camino hasta allí.", now); }
 }
 function clickTile(g: Game, x: number, y: number, now: number): void {
   if (Math.abs(x - NPC_X) <= 0 && Math.abs(y - NPC_Y) <= 0) { requestShop(g, now); return; }
@@ -1780,12 +1805,12 @@ function afkThink(g: Game, now: number): void {
     if (w.range >= 3 && d <= 1 && p.hp < mhp * 0.6) {
       let bx = 0, by = 0, bs = 0;
       for (const [dx, dy] of DIRS8) { const x = p.x + dx, y = p.y + dy; if (!canPlayerEnter(g, x, y) || isSafe(x, y) || tileAt(g, x, y) === PORTAL) continue; const s = cheb(x, y, t.x, t.y); if (s > bs) { bs = s; bx = dx; by = dy; } }
-      if (bs > 1) { tryStep(g, bx, by, now); return; }
+      if (bs > 1) { tryStep(g, bx, by, now, true); return; }
     }
     if (!inReach(g, t, w.range)) {
       const tt = t; const rng = Math.min(w.range, 4);
       const st = bfsStep(g, p.x, p.y, (x: number, y: number) => cheb(x, y, tt.x, tt.y) <= rng && !isSafe(x, y) && (rng <= 1 || los(g, x, y, tt.x, tt.y)), 2500);
-      if (st) tryStep(g, st[0], st[1], now); else g.target = -1;
+      if (st) tryStep(g, st[0], st[1], now, true); else g.target = -1;
     }
     return;
   }
@@ -1796,7 +1821,7 @@ function afkThink(g: Game, now: number): void {
   for (const m of near) { if (!afkOk(g, m)) continue; const same = zoneName(g, m.sx, m.sy) === zn; if (same) zoneHas = true; if (!m.alive) continue; const d = cheb(m.x, m.y, p.x, p.y) + (same ? 0 : 500); if (d < gd) { gd = d; goal = m; } }
   if (!goal || (zoneHas && gd >= 500)) return; const gm = goal;
   const st = bfsStep(g, p.x, p.y, (x: number, y: number) => cheb(x, y, gm.x, gm.y) <= 3 && !isSafe(x, y), 5000);
-  if (st) tryStep(g, st[0], st[1], now);
+  if (st) tryStep(g, st[0], st[1], now, true);
 }
 // @@ENDAFK
 function runAction(g: Game, a: Action, now: number): void {
@@ -1825,13 +1850,13 @@ function chaseStep(g: Game, now: number): void {
   if (d > 14) { g.chase = false; setStatus(g, "El objetivo está demasiado lejos para perseguirlo.", now); return; }
   const tt = t;
   const st = bfsStep(g, p.x, p.y, (x: number, y: number) => cheb(x, y, tt.x, tt.y) <= 1 && !isSafe(x, y), 2500);
-  if (st) tryStep(g, st[0], st[1], now);
+  if (st) tryStep(g, st[0], st[1], now, true);
 }
 
 // ===================== Edisar Coins (tienda de PRUEBA: sin pagos reales) =====================
 // Prototipo: las coins sólo se ganan jugando (guardianes, casas superadas) o con el botón «Modo prueba». No hay pagos, formularios ni enlaces.
 const COIN_GOLD = 10000; // 1 Edisar Coin = 10 000 de oro (Cambista Darío)
-const DARIO_X = 51, DARIO_Y = 36 + OY; const DARIO_NAME = "Cambista Darío";
+let DARIO_X = 51, DARIO_Y = 36 + OY; const DARIO_NAME = "Cambista Darío";
 const COIN_HOUSE = 5, COIN_TEST = 100; const PREM_DAYS = 30, PREM_EXP = 0.1, XP_BOOST = 0.5, XP_BOOST_MS = 3600000, XP_BOOST_MAX = 5 * 3600000;
 const BAG_STEP = 6, BAG_BUYS = 2, BAG_CAP = 20 + BAG_STEP * BAG_BUYS;
 type CoinCat = "cosmetic" | "mount" | "premium" | "util";
@@ -2007,7 +2032,7 @@ function loadCS(g: Game, s: SaveCS | undefined): void {
 
 // ===================== Monturas (estilo Tibia) =====================
 // Se compran con Edisar Coins, una barata con oro (Tomás, en el establo del pueblo) y otras se doman venciendo a ciertos jefes.
-const STABLE_X = 41, STABLE_Y = 39 + OY; const STABLE_NAME = "Tomás, el mozo de cuadra";
+let STABLE_X = 41, STABLE_Y = 39 + OY; const STABLE_NAME = "Tomás, el mozo de cuadra";
 interface MountState { owned: string[]; active: string; riding: boolean; open: boolean; msg: string; msgBad: boolean; flip: boolean; }
 interface Game { mt?: MountState; }
 function mt(g: Game): MountState { if (!g.mt) g.mt = { owned: [], active: "", riding: false, open: false, msg: "", msgBad: false, flip: false }; return g.mt; }
@@ -2163,6 +2188,19 @@ interface NQSt { s: "a" | "r" | "d"; k: number; }
 interface NQState { q: Record<string, NQSt>; talk: string; say: string; offer: string; log: boolean; }
 interface Game { nq?: NQState; }
 function nq(g: Game): NQState { if (!g.nq) g.nq = { q: {}, talk: "", say: "", offer: "", log: false }; return g.nq; }
+// v27.2: todos los NPC de la villa juntos en una plaza ordenada (dos filas de 4 con un pasillo en medio), al este del templo,
+// sobre suelo libre de la zona segura: nunca encima de estatuas ni objetos del mapa. Si el sitio preferido no está libre, busca el hueco libre más cercano al templo.
+const NPC_PLAZA: Array<[string, number, number]> = [["rosa", 0, 0], ["dario", 2, 0], ["depot", 4, 0], ["stable", 6, 0], ["kiki", 0, 3], ["marin", 2, 3], ["shaina", 4, 3], ["pitia", 6, 3]];
+const NPC_PLAZA_AT: [number, number] = [49, 30 + OY]; // (49, 62): al este del templo, sin tapar el cartel del portal
+function placeNpcs(tiles: Uint8Array): void {
+  const free = (x: number, y: number): boolean => { if (x <= TX0 || x >= TX1 || y <= TY0 || y >= TY1 || (x === TEMPLE_X && y === TEMPLE_Y)) return false; const t = tiles[y * MW + x] ?? ROCK; return walkable(t) && t !== PORTAL && TILE_BY_ID[t]?.layer !== "obj"; };
+  const fits = (ax: number, ay: number): boolean => { for (let dy = -1; dy <= 3; dy++) for (let dx = 0; dx <= 6; dx++) if (!free(ax + dx, ay + dy)) return false; return true; };
+  let at: [number, number] | null = fits(NPC_PLAZA_AT[0], NPC_PLAZA_AT[1]) ? NPC_PLAZA_AT : null;
+  if (!at) { let best = 1e9; for (let ay = TY0 + 2; ay + 3 < TY1; ay++) for (let ax = TX0 + 1; ax + 6 < TX1; ax++) if (fits(ax, ay)) { const d = Math.abs(ax + 3 - TEMPLE_X) + Math.abs(ay + 1 - TEMPLE_Y); if (d < best) { best = d; at = [ax, ay]; } } }
+  if (!at) return; // sin hueco libre: se quedan donde estaban
+  for (const [id, dx, dy] of NPC_PLAZA) { const x = at[0] + dx, y = at[1] + dy;
+    if (id === "rosa") { NPC_X = x; NPC_Y = y; } else if (id === "dario") { DARIO_X = x; DARIO_Y = y; } else if (id === "depot") { DEPOT_X = x; DEPOT_Y = y; } else if (id === "stable") { STABLE_X = x; STABLE_Y = y; } else { const q = qnpc(id); if (q) { q.x = x; q.y = y; } } }
+}
 function qnpc(id: string): QNpc | undefined { return QNPCS.find((n: QNpc) => n.id === id); }
 function qdef(id: string): NQDef | undefined { return NQUESTS.find((q: NQDef) => q.id === id); }
 function qnpcAt(x: number, y: number): QNpc | undefined { return QNPCS.find((n: QNpc) => n.x === x && n.y === y); }
@@ -3861,6 +3899,11 @@ const CQC_GATE: [number, number] = [70, OY + 62];
 const CQC_PILLARS: Array<[number, number]> = [[74, OY + 60], [74, OY + 64], [80, OY + 60], [80, OY + 64]];
 const CQC_ZONE: [number, number, number, number] = [CQC_GROVE[0], CQC_TOWER[1], CQC_GROVE[2], CQC_GROVE[3]];
 function inCastleZone(x: number, y: number): boolean { return inRect(CQC_ZONE, x, y); }
+// v27.2: la hierba del Bosque Muerto (también la de un mapa del editor) pasa a «Tierra de ceniza» (se pisa igual); el camino de la villa (x 47–49) no se toca.
+function ashGrove(tiles: Uint8Array, under: Uint8Array | null): void {
+  for (let y = CQC_ZONE[1]; y <= CQC_ZONE[3]; y++) for (let x = CQC_ZONE[0]; x <= CQC_ZONE[2]; x++) { if (x >= 47 && x <= 49) continue; const i = y * MW + x;
+    if (tiles[i] === GRASS) tiles[i] = T_ASH; if (under && under[i] === GRASS) under[i] = T_ASH; }
+}
 function inCastleHall(x: number, y: number): boolean { return x > CQC_WALLS[0] && x < CQC_WALLS[2] && y > CQC_WALLS[1] && y < CQC_WALLS[3]; }
 function inCastleBlock(x: number, y: number): boolean { return inRect([CQC_WALLS[0], CQC_TOWER[1], CQC_WALLS[2], CQC_WALLS[3]], x, y); } // walls + tower + hall (no spawns here)
 function cqcIsWall(x: number, y: number): boolean {
@@ -3876,7 +3919,7 @@ function buildCroqCastle(m: Uint8Array): void {
     if (x >= 47 && x <= 49) continue; // the town road and its verges stay as they are
     const h = hash(x * 7 + 3, y * 13 + 1); const lane = Math.abs(y - CQC_GATE[1]) <= 1 && x < CQC_WALLS[0];   // open lane to the gate
     const edge = x === CQC_GROVE[0] || x === CQC_GROVE[2] || y === CQC_GROVE[3] ? 0.5 : 1;                    // thinner at the edge
-    set(x, y, !lane && !near(x, y) && !spawn.has(x * 1000 + y) && h % 100 < 46 * edge ? TREE : GRASS);
+    set(x, y, !lane && !near(x, y) && !spawn.has(x * 1000 + y) && h % 100 < 46 * edge ? TREE : T_ASH); // v27.2: suelo real de ceniza
   }
   for (let y = CQC_TOWER[1]; y <= CQC_WALLS[3]; y++) for (let x = CQC_WALLS[0]; x <= CQC_WALLS[2]; x++) { if (!inRect(CQC_WALLS, x, y) && !inRect(CQC_TOWER, x, y)) continue; set(x, y, cqcIsWall(x, y) ? WALL : FLOOR); }
   for (let x = 49; x < CQC_GATE[0]; x++) set(x, CQC_GATE[1], PATH);                                         // branch from the road x = 48
@@ -3923,7 +3966,7 @@ function cqcHallFloor(ctx: CanvasRenderingContext2D, x: number, y: number, wx: n
   if (wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] + 1 || wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] - 1 || wx === CROQ_DOOR[0] + 1 && wy === CROQ_DOOR[1]) { ctx.fillStyle = "#3a3646"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "#4a4658"; ctx.fillRect(x + 2, y + 2, TS - 4, 2); } // dais
 }
 function drawCroqCastleTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): boolean {
-  if (!inCastleZone(wx, wy) || wx === 48 || t === LAVA || t > 20) return false; const h = hash(wx, wy); // v27: lava y tiles nuevos del editor se ven tal cual
+  if (!inCastleZone(wx, wy) || wx === 48 || t === LAVA || (t > 20 && t !== T_ASH)) return false; const h = hash(wx, wy); // v27: lava y tiles nuevos del editor se ven tal cual
   if (t === TREE) cqcDeadTree(ctx, x, y, h, now);
   else if (t === WALL) cqcWall(ctx, x, y, wx, wy, h);
   else if (t === PATH) cqcCobble(ctx, x, y, h);
@@ -3933,7 +3976,7 @@ function drawCroqCastleTile(ctx: CanvasRenderingContext2D, t: number, x: number,
   return true;
 }
 function croqMiniCol(x: number, y: number, t: number): string | undefined {
-  if (!inCastleZone(x, y) || t === LAVA || t > 20) return undefined;
+  if (!inCastleZone(x, y) || t === LAVA || (t > 20 && t !== T_ASH)) return undefined;
   return t === TREE ? "#2a2018" : t === WALL ? "#121218" : t === FLOOR ? "#3a2e44" : t === PATH ? "#4a4448" : t === PORTAL ? "#5fe6dc" : "#3a3634";
 }
 function castleZoneName(x: number, y: number): string { return inCastleHall(x, y) ? "🏰 Torre de Croqui — Recomendado: grupo" : "🌲 Bosque Muerto de la Torre"; }
@@ -4093,7 +4136,7 @@ function drawDebuffs(ctx: CanvasRenderingContext2D, ds: Debuff[], cx: number, cy
 const AOE_R2 = { target: 8, self: 10, spin: 8, field: 8 }; const WAVE_LEN = 5;
 
 // ===================== Depósito (estilo Tibia): baúl junto al templo =====================
-const DEPOT_X = 41, DEPOT_Y = 29 + OY; const DEPOT_MAX = 80;
+let DEPOT_X = 41, DEPOT_Y = 29 + OY; const DEPOT_MAX = 80;
 interface DepotState { items: Inst[]; open: boolean; msg: string; msgBad: boolean; }
 interface Game { dep?: DepotState; }
 function dep(g: Game): DepotState { if (!g.dep) g.dep = { items: [], open: false, msg: "", msgBad: false }; return g.dep; }
@@ -4431,7 +4474,8 @@ function drawTset(ctx: CanvasRenderingContext2D, t: number, x: number, y: number
   const h = hash(wx, wy);
   if (inf.layer === "floor") { tsetFloor(ctx, t, x, y, wx, wy, h, now); return true; }
   if (inf.ov || t === TREE || t === BUSH || t === BOULDER) { // objeto sobre su suelo (el del mapa del editor, o el suyo por defecto)
-    const fu = u >= 0 && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS); tsetFloor(ctx, fu, x, y, wx, wy, hash(wx + 7, wy), now);
+    const fu = u >= 0 && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS);
+    if (inCastleZone(wx, wy) && wx !== 48 && (fu === GRASS || fu === T_ASH)) cqcGround(ctx, x, y, hash(wx, wy)); else tsetFloor(ctx, fu, x, y, wx, wy, hash(wx + 7, wy), now); // v27.2: en el Bosque Muerto, bajo los objetos hay ceniza, nunca hierba
   }
   tsetSpr(ctx, inf.spr[(inf.anim ? Math.floor(now / 170) + (h & 3) : h) % inf.spr.length] ?? 0, x, y);
   if (inf.light) { const f = 0.7 + 0.3 * Math.sin(now / 90 + h) * Math.sin(now / 137 + h * 3); const gr = ctx.createRadialGradient(x + 16, y + 9, 1, x + 16, y + 12, 17); gr.addColorStop(0, `rgba(255,190,80,${0.42 * f})`); gr.addColorStop(1, "rgba(255,140,40,0)"); ctx.fillStyle = gr; ctx.fillRect(x, y, TS, TS); }
@@ -4444,7 +4488,7 @@ function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number
   if (wx >= UW_X0 && drawUwTile(ctx, t, x, y, wx, wy, now)) return;
   if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
   if (drawTset(ctx, t, x, y, wx, wy, now, u)) return;
-  if (t > 20) { const ti = TILE_BY_ID[t]; const fu = ti && ti.layer === "obj" ? (u >= 0 ? u : ti.under ?? GRASS) : t; ctx.fillStyle = TILE_COL[fu] ?? TILE_BY_ID[fu]?.c ?? "#3f8f3a"; ctx.fillRect(x, y, TS, TS);
+  if (t > 20) { const ti = TILE_BY_ID[t]; const fu = ti && ti.layer === "obj" ? (u >= 0 ? u : ti.under ?? GRASS) : t; ctx.fillStyle = inCastleZone(wx, wy) && (fu === GRASS || fu === T_ASH) ? "#34302d" : TILE_COL[fu] ?? TILE_BY_ID[fu]?.c ?? "#3f8f3a"; ctx.fillRect(x, y, TS, TS);
     if (ti && ti.layer === "obj") { ctx.fillStyle = ti.c ?? "#888"; if (ti.ov) { ctx.beginPath(); ctx.arc(x + 16, y + 17, 10, 0, Math.PI * 2); ctx.fill(); } else ctx.fillRect(x, y, TS, TS); } return; } // v27: sin atlas (vista previa del lienzo)
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
@@ -5408,7 +5452,7 @@ function mapRect(g: Game): [number, number, number, number] { return extRect(g.p
 // ---------- v26: mapas del editor desde el Modo GM ----------
 function gmApplyMap(g: Game, cm: EdMap | null, now: number): void {
   CUSTOM_MAP = cm; MINI_CACHE = null; MAPX = cm ? cm.x : null;
-  g.tiles = cm ? cm.tiles.slice() : buildMap(); g.under = cm ? cm.under : undefined; g.mini = buildMini(g.tiles);
+  g.tiles = cm ? cm.tiles.slice() : buildMap(); if (cm) ashGrove(g.tiles, null); placeNpcs(g.tiles); g.under = cm ? cm.under : undefined; g.mini = buildMini(g.tiles);
   const p = g.p; if (!walkable(tileAt(g, p.x, p.y))) teleport(g, TEMPLE_X, TEMPLE_Y, now);
 }
 function gmLoadMapText(g: Game, txt: string, now: number): boolean {
@@ -5905,7 +5949,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v27.1 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v27.2 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
@@ -6804,6 +6848,7 @@ function GameScreen(props: { cls: ClassId; name: string; save?: SaveData | null;
     if (g.bigMap) { g.bigMap = false; refresh(); return; }
     const s = slotAt(px, py); if (s >= 0) { runAction(g, SLOT_ACTS[s] ?? "power1", now); refresh(); return; }
     const tx = Math.floor((px + g.camX) / TS), ty = Math.floor((py + g.camY) / TS);
+    if (e.button === 2) { doorUse(g, tx, ty, now); refresh(); return; } // v27.2: clic derecho = usar (puertas); nunca abre el menú del navegador
     const gi = floorAt(g, tx, ty);
     if (gi && !monAt(g, tx, ty) && cheb(tx, ty, g.p.x, g.p.y) <= DROP_RANGE && regionOf(tx, ty) === regionOf(g.p.x, g.p.y)) { startDrag(e.clientX, e.clientY, { kind: "floor", gi }, () => { clickTile(g, tx, ty, performance.now()); refresh(); }); return; }
     if (tx === NPC_X && (ty === NPC_Y || ty === NPC_Y - 1)) requestShop(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DARIO_X && (ty === DARIO_Y || ty === DARIO_Y - 1)) requestExchange(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === DEPOT_X && (ty === DEPOT_Y || ty === DEPOT_Y - 1)) requestDepot(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && tx === STABLE_X && (ty === STABLE_Y || ty === STABLE_Y - 1)) requestStable(g, now); else if (regionOf(g.p.x, g.p.y) === 0 && (qnpcAt(tx, ty) || qnpcAt(tx, ty + 1))) talkTo(g, (qnpcAt(tx, ty) ?? qnpcAt(tx, ty + 1))!.id, now); else clickTile(g, tx, ty, now);
