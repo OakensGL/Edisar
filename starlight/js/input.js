@@ -4,6 +4,7 @@ SL.Input = (() => {
   let downs = [], touchMode = /[?&]touch/.test(location.search);
   const PREVENT = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'];
   addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
     if (PREVENT.includes(e.code)) e.preventDefault();
     if (!e.repeat) pressed.add(e.code);
     keys.add(e.code); SL.Audio.unlock();
@@ -12,7 +13,7 @@ SL.Input = (() => {
   addEventListener('blur', () => { keys.clear(); pointers.clear(); });
   // block pinch / double-tap zoom & scroll on touch devices
   ['gesturestart', 'gesturechange', 'dblclick'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
-  document.addEventListener('touchmove', e => { if (!e.target.closest || !e.target.closest('a')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', e => { if (!e.target.closest || !e.target.closest('a,input,button')) e.preventDefault(); }, { passive: false });
 
   function attach(cv) {
     cv.addEventListener('pointerdown', e => {

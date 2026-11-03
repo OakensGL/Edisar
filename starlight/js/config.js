@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.1.0';
+SL.VERSION = '0.2.0';
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
 SL.CONFIG = {
@@ -42,5 +42,4 @@ SL.store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} },
 };
-SL.getBest = () => parseInt(SL.store.get(SL.CONFIG.storage.best, '0'), 10) || 0;
 SL.pad = (n, len = 6) => String(Math.max(0, Math.floor(n))).padStart(len, '0');

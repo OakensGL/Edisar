@@ -6,7 +6,7 @@
   SL.view = { scale: 1 };
   function fit() {
     const vw = innerWidth, vh = innerHeight, w = Math.min(vw, vh * 16 / 9), h = w * 9 / 16;
-    stage.style.width = w + 'px'; stage.style.height = h + 'px';
+    stage.style.width = w + 'px'; stage.style.height = h + 'px'; stage.style.setProperty('--u', (h / H) + 'px');
     const dpr = Math.min(devicePixelRatio || 1, 2);
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); SL.view.scale = cv.width / W;
   }
@@ -18,6 +18,7 @@
   SL.start = (s) => {
     if (s === 'play') { SL.state = 'play'; SL.game = new SL.Survival(); }
     else { SL.state = 'title'; SL.game = null; SL.Title.enter(s === 'menu' ? 'menu' : 'press'); }
+    SL.NameEntry.close();
     credit.style.display = SL.state === 'title' ? '' : 'none';
     SL.Input.takeDowns();
   };

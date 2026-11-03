@@ -19,8 +19,8 @@ SL.Survival = class {
     this.fireBtn = { x: 916, y: 468, r: 62 };
     this.joyHome = { x: 118, y: 468, r: 58 };
     this.overBtns = [
-      { id: 'again', label: 'PLAY AGAIN', x: 412, y: 430, w: 210, h: 46, rgb: '255,80,220' },
-      { id: 'menu',  label: 'MENU',       x: 632, y: 430, w: 170, h: 46, rgb: '70,160,255' },
+      { id: 'again', label: 'PLAY AGAIN', x: 412, y: 532, w: 210, h: 40, rgb: '255,80,220' },
+      { id: 'menu',  label: 'MENU',       x: 632, y: 532, w: 170, h: 40, rgb: '70,160,255' },
     ];
     this.pauseBtns = [
       { id: 'resume', label: 'RESUME', x: 512, y: 300, w: 220, h: 46, rgb: '255,80,220' },
@@ -101,9 +101,19 @@ SL.Survival = class {
     } else s.invuln = this.C.ship.invuln;
   }
   gameOver() {
-    this.state = 'over'; this.sel = 0; this.score = Math.floor(this.score);
-    if (this.score > this.best) { this.best = this.score; this.newBest = true; SL.store.set(this.C.storage.best, this.score); }
-    SL.Audio.sfx.gameOver(); this.ev.emit('gameOver', { score: this.score, best: this.best });
+    this.state = 'over'; this.sel = 0; this.score = Math.floor(this.score); this.hiRank = -1;
+    if (this.score > this.best) { this.best = this.score; this.newBest = true; }
+    SL.Audio.sfx.gameOver();
+    if (SL.Scores.qualifies(this.score)) {
+      this.overPhase = 'entry';
+      SL.NameEntry.open(SL.Scores.lastName, name => this.saveScore(name));
+    } else this.overPhase = 'table';
+    this.ev.emit('gameOver', { score: this.score, best: this.best });
+  }
+  saveScore(name) {
+    SL.Scores.lastName = name;
+    this.hiRank = SL.Scores.add({ name, score: this.score, time: this.t, kills: this.stats.kills, date: new Date().toISOString() });
+    this.overPhase = 'table'; this.overT = Math.min(this.overT, -0.5);
   }
   popup(txt, x, y, rgb) { this.popups.push({ txt, x, y, rgb, life: 0.9 }); }
   shake(n) { this.shakeAmt = Math.max(this.shakeAmt, n); }
@@ -118,7 +128,7 @@ SL.Survival = class {
       if (SL.inBtn(this.btnPause, d)) { d.role = 'ui'; if (this.state === 'play') this.pause(true); else if (this.state === 'paused') this.pause(false); SL.Audio.sfx.blip(); continue; }
       if (SL.inBtn(this.btnMute, d)) { d.role = 'ui'; SL.Audio.toggleMute(); continue; }
       const list = this.state === 'over' ? this.overBtns : this.state === 'paused' ? this.pauseBtns : null;
-      if (list) { const b = list.find(b => SL.inBtn(b, d)); d.role = 'ui'; if (b && (this.state === 'paused' || this.overT <= -0.5)) this.menuAction(b.id); continue; }
+      if (list) { const b = list.find(b => SL.inBtn(b, d)); d.role = 'ui'; if (b && (this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry'))) this.menuAction(b.id); continue; }
       if (d.type === 'mouse') continue;           // mouse plays with keyboard; touch gets stick + fire
       if (d.x > SL.W * 0.58) { d.role = 'fire'; this.fireId = d.id; }
       else if (d.y > 70) { d.role = 'joy'; this.joy = d; }
@@ -128,7 +138,7 @@ SL.Survival = class {
     if (this.state === 'over' || this.state === 'paused') {
       const list = this.state === 'over' ? this.overBtns : this.pauseBtns;
       if (I.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) { this.sel = 1 - this.sel; SL.Audio.sfx.blip(520); }
-      const ready = this.state === 'paused' || this.overT <= -0.5;
+      const ready = this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry');
       if (ready && (I.hitAny('Enter', 'NumpadEnter') || (this.state === 'over' && I.hit('Space')))) this.menuAction(list[this.sel].id);
       return { ax: 0, ay: 0, fire: false };
     }
@@ -317,13 +327,21 @@ SL.Survival = class {
   }
   drawOver(g) {
     const k = Math.min(1, (-this.overT + 0.01) * 3 + 0.3);
-    g.fillStyle = `rgba(3,1,12,${0.7 * k})`; g.fillRect(0, 0, SL.W, SL.H);
-    SL.neonText(g, 'GAME OVER', 512, 150, 64, '255,70,210', { blur: 26, alpha: k });
-    SL.neonText(g, 'SCORE  ' + SL.pad(this.score), 512, 238, 30, '255,235,255', { blur: 12, alpha: k });
-    SL.neonText(g, 'BEST   ' + SL.pad(this.best), 512, 280, 22, '70,160,255', { blur: 10, alpha: k });
-    if (this.newBest) SL.neonText(g, '★ NEW HIGH SCORE ★', 512, 318, 18, '255,220,90', { blur: 14, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
+    g.fillStyle = `rgba(3,1,12,${0.78 * k})`; g.fillRect(0, 0, SL.W, SL.H);
     const m = Math.floor(this.t / 60), sec = Math.floor(this.t % 60);
-    SL.neonText(g, `TIME ${m}:${String(sec).padStart(2, '0')}   ·   ASTEROIDS ${this.stats.kills}`, 512, 352, 14, '200,180,255', { blur: 6, alpha: 0.85 * k });
+    if (this.overPhase === 'entry') {
+      SL.neonText(g, 'GAME OVER', 512, 96, 52, '255,70,210', { blur: 24, alpha: k });
+      SL.neonText(g, 'NEW HIGH SCORE — ENTER YOUR NAME', 512, 160, 22, '255,220,90', { blur: 14, alpha: (0.75 + 0.25 * Math.sin(this.T * 7)) * k });
+      SL.neonText(g, 'SCORE ' + SL.pad(this.score) + `   ·   TIME ${m}:${String(sec).padStart(2, '0')}   ·   KILLS ${this.stats.kills}`, 512, 196, 15, '255,235,255', { blur: 8, alpha: k });
+      SL.neonText(g, SL.Input.touchMode ? 'TAP THE BOX TO TYPE  ·  A–Z 0–9  ·  MAX 10' : 'TYPE YOUR NAME  ·  ENTER TO CONFIRM', 512, 330, 13, '160,200,255', { blur: 5, alpha: 0.85 * k });
+      return;
+    }
+    SL.neonText(g, 'GAME OVER', 512, 44, 40, '255,70,210', { blur: 22, alpha: k });
+    SL.neonText(g, 'SCORE ' + SL.pad(this.score) + `   TIME ${m}:${String(sec).padStart(2, '0')}   KILLS ${this.stats.kills}`, 512, 86, 17, '255,235,255', { blur: 8, alpha: k });
+    if (this.newBest) SL.neonText(g, '★ NEW #1 ★', 512, 112, 15, '255,220,90', { blur: 12, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
+    SL.neonText(g, 'SURVIVAL TOP 10', 512, 140, 16, '170,90,255', { blur: 10, alpha: k });
+    SL.drawScoreTable(g, SL.Scores.list(), 168, this.hiRank, this.T);
     this.overBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
+
 };

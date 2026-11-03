@@ -4,9 +4,11 @@ SL.Title = (() => {
   const img = new Image(); img.src = 'assets/title.jpg';
   let phase = 'press', T = 0, flashAt = -1, sel = 0, denyAt = -1;
   const stars = new SL.Starfield();
+  const backBtn = { label: 'BACK', x: 512, y: 520, w: 200, h: 40, rgb: '70,160,255' };
   const menu = [
-    { id: 'survival', label: 'SURVIVAL', x: 512, y: 446, w: 300, h: 40, rgb: '255,80,220' },
-    { id: 'story', label: 'STORY MODE', sub: 'COMING SOON', x: 512, y: 496, w: 300, h: 44, rgb: '70,160,255', disabled: true },
+    { id: 'survival', label: 'SURVIVAL', x: 512, y: 442, w: 300, h: 34, rgb: '255,80,220' },
+    { id: 'scores', label: 'HIGH SCORES', x: 512, y: 482, w: 300, h: 34, rgb: '170,90,255', size: 20 },
+    { id: 'story', label: 'STORY MODE', sub: 'COMING SOON', x: 512, y: 525, w: 300, h: 40, rgb: '70,160,255', disabled: true, size: 20 },
   ];
 
   // mask: where moving stars may appear (soft holes over title art)
@@ -64,13 +66,12 @@ SL.Title = (() => {
   function drawMenu(g, t) {
     // opaque panel over the baked PRESS START / TAP THE SCREEN text
     SL.softRect(g, 512, 476, 250, 90, 'rgba(3,1,12,0.9)', .7);
-    g.save(); SL.roundRect(g, 322, 418, 380, 128, 12); g.fillStyle = 'rgba(4,2,14,0.97)'; g.fill();
+    g.save(); SL.roundRect(g, 322, 418, 380, 134, 12); g.fillStyle = 'rgba(4,2,14,0.97)'; g.fill();
     g.strokeStyle = 'rgba(170,90,255,0.35)'; g.lineWidth = 1; g.stroke(); g.restore();
     menu.forEach((b, i) => {
       const shake = (b.disabled && denyAt >= 0 && T - denyAt < 0.3) ? Math.sin((T - denyAt) * 80) * 4 : 0;
       SL.drawButton(g, Object.assign({}, b, { x: b.x + shake }), i === sel, t);
     });
-    SL.neonText(g, SL.Input.touchMode ? 'TAP TO SELECT' : '↑↓ SELECT · ENTER START', 512, 536, 11, '160,200,255', { blur: 4, alpha: 0.7 });
   }
   function drawFlash(g) {
     if (flashAt < 0) return; const e = T - flashAt; if (e > 0.5) { flashAt = -1; return; }
@@ -80,7 +81,9 @@ SL.Title = (() => {
   function choose(i) {
     sel = i; const b = menu[i];
     if (b.disabled) { denyAt = T; SL.Audio.sfx.deny(); return; }
-    SL.Audio.sfx.blip(880); SL.start('play');
+    SL.Audio.sfx.blip(880);
+    if (b.id === 'scores') { phase = 'scores'; return; }
+    SL.start('play');
   }
   return {
     enter(p = 'press') { phase = p; flashAt = -1; },
@@ -92,7 +95,12 @@ SL.Title = (() => {
         if (downs.length || I.confirm() || I.hitAny('KeyA', 'KeyS', 'KeyD', 'KeyW', 'ArrowUp', 'ArrowDown')) { phase = 'menu'; flashAt = T; SL.Audio.sfx.blip(); }
         return;
       }
-      if (I.hitAny('ArrowUp', 'KeyW', 'ArrowDown', 'KeyS')) { sel = 1 - sel; SL.Audio.sfx.blip(520); }
+      if (phase === 'scores') {
+        if (I.hitAny('Escape', 'Enter', 'Space', 'Backspace') || downs.some(d => SL.inBtn(backBtn, d))) { phase = 'menu'; SL.Audio.sfx.blip(520); }
+        return;
+      }
+      if (I.hitAny('ArrowUp', 'KeyW')) { sel = (sel + menu.length - 1) % menu.length; SL.Audio.sfx.blip(520); }
+      if (I.hitAny('ArrowDown', 'KeyS')) { sel = (sel + 1) % menu.length; SL.Audio.sfx.blip(520); }
       if (I.confirm()) choose(sel);
       for (const d of downs) menu.forEach((b, i) => { if (SL.inBtn(b, d)) choose(i); });
       if (I.hit('KeyM')) SL.Audio.toggleMute();
@@ -107,6 +115,14 @@ SL.Title = (() => {
       ast.forEach(A => drawAsteroid(g, A, T));
       drawThruster(g, T); drawVisors(g, T); drawHiScore(g);
       if (phase === 'press') drawPress(g, T); else drawMenu(g, T);
+      if (phase === 'scores') {
+        g.fillStyle = 'rgba(3,1,12,0.9)'; g.fillRect(0, 0, W, H);
+        SL.neonText(g, 'HIGH SCORES', 512, 60, 40, '255,80,220', { blur: 22 });
+        SL.neonText(g, 'SURVIVAL · TOP 10 · THIS DEVICE', 512, 100, 13, '160,200,255', { blur: 5, alpha: 0.8 });
+        SL.drawScoreTable(g, SL.Scores.list(), 140, -1, T);
+        SL.drawButton(g, backBtn, true, T);
+      }
+      SL.neonText(g, 'v' + SL.VERSION.replace(/\.0$/, ''), 1012, 566, 10, '160,200,255', { align: 'right', blur: 3, alpha: 0.6 });
       drawFlash(g);
       SL.drawScanlines(g);
     },
