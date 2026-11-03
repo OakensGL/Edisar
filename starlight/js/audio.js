@@ -51,6 +51,7 @@ SL.Audio = (() => {
       } catch (e) { ac = null; }
     }
     if (ac && ac.state === 'suspended') ac.resume();
+    loadSamples();
     started = true; ensure();        // every gesture re-asserts playback (also re-unlocks after a mobile tab switch)
   }
   function setMuted(m) {
@@ -70,7 +71,24 @@ SL.Audio = (() => {
     f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     env(g, t, 0.004, peak, dur); s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.02);
   }
-  let lastShot = 0;
+  /* v0.5.2 sampled SFX (assets/*.ogg, CC0, synthesized for Project Starlight). Decoded into the same WebAudio graph
+     (master gain -> mute + iOS unlock path). If a file can't load (e.g. file://), the old synth version plays instead. */
+  const SAMPLES = { avrillBoom: ['assets/avrill-explosion.ogg', 0.95], thunderBig: ['assets/thunder-strike.ogg', 0.9], thunderShort: ['assets/thunder-short.ogg', 0.42] };
+  const bufs = {}; let sampLoading = false;
+  function loadSamples() {
+    if (sampLoading || !ac || !window.fetch) return; sampLoading = true;
+    for (const [k, [url]] of Object.entries(SAMPLES)) {
+      fetch(url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+        .then(ab => new Promise((res, rej) => { const pr = ac.decodeAudioData(ab, res, rej); if (pr && pr.catch) pr.catch(rej); }))
+        .then(b => { bufs[k] = b; }).catch(() => {});
+    }
+  }
+  function sample(k) {
+    const b = bufs[k]; if (!b) return false;
+    const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = b; g.gain.value = SAMPLES[k][1];
+    s.connect(g).connect(master); s.start(); return true;
+  }
+  let lastShot = 0, lastBolt = 0;
   const sfx = {
     shot() { if (!ok()) return; const t = ac.currentTime; if (t - lastShot < 0.05) return; lastShot = t;
       tone('square', 1400, 320, 0.07, 0.05); },
@@ -88,6 +106,9 @@ SL.Audio = (() => {
     ebullet() { if (!ok()) return; tone('triangle', 520, 260, 0.08, 0.03); },
     zap() { if (!ok()) return; noise(0.35, 9000, 900, 0.6, 2); tone('sawtooth', 1800, 90, 0.3, 0.12); },
     thunder() { if (!ok()) return; noise(1.0, 6000, 200, 0.7, 1.2); setTimeout(() => ok() && noise(1.0, 900, 50, 0.6, 0.6), 160); tone('sine', 70, 28, 1.4, 0.45); },
+    avrillBoom() { if (!ok()) return; if (!sample('avrillBoom')) { this.boom(); tone('sine', 60, 22, 2.2, 0.5); } },
+    thunderBig() { if (!ok()) return; if (!sample('thunderBig')) { this.thunder(); this.zap(); } },
+    thunderShort() { if (!ok()) return; const t = ac.currentTime; if (t - lastBolt < 0.25) return; lastBolt = t; if (!sample('thunderShort')) this.zap(); },
     warn() { if (!ok()) return; tone('square', 1200, 1150, 0.08, 0.04); },
     whoosh() { if (!ok()) return; noise(1.3, 400, 5000, 0.45, 1.6); tone('sawtooth', 110, 1500, 1.0, 0.07); tone('sine', 60, 220, 0.9, 0.18); },
     deny() { if (!ok()) return; tone('square', 220, 160, 0.15, 0.08); },
@@ -97,5 +118,5 @@ SL.Audio = (() => {
     preload() {}, tick,
     /* music volume multiplier 0..1 (fades / dramatic silence). Never pauses the element, so the watchdog stays happy. */
     setMusicVolume(k) { player.volume = Math.max(0, Math.min(1, k)) * BASE_VOL; }, get musicVolume() { return player.volume / BASE_VOL; },
-    get track() { return resolve(want); }, get wanted() { return want; }, get music() { return player; } };
+    get track() { return resolve(want); }, get samplesLoaded() { return Object.keys(bufs); }, get wanted() { return want; }, get music() { return player; } };
 })();

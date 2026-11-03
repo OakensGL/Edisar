@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.5.1
+PROJECT STARLIGHT v0.5.2
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -41,7 +41,9 @@ File:    assets/full-moon-mix.ogg (used unmodified)
 
 SOUND EFFECTS
 -------------
-Synthesized at runtime with the Web Audio API (no external sound files).
+Level 30 cinematic SFX (v0.5.2): assets/avrill-explosion.ogg, assets/thunder-strike.ogg, assets/thunder-short.ogg
+  Synthesized for Project Starlight with numpy + ffmpeg (no third-party samples). Released as CC0.
+All other sound effects are synthesized at runtime with the Web Audio API.
 
 ART
 ---

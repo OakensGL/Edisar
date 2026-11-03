@@ -108,11 +108,11 @@ class FinalOpening {
       if (T > 6.6 && T < 7.2 && Math.random() < 0.15) { this.flash = Math.max(this.flash, 0.15); }       // crackle in the clouds
       if (T >= 6.7 && this.once('warn')) SL.Audio.sfx.warn();
       if (T >= 7.2 && this.once('strike')) {
-        this.bolt = 0; this.flash = 1; this.shakeAmt = 20; SL.Audio.sfx.thunder(); SL.Audio.sfx.zap(); SL.Audio.setMusicVolume(0); this.slow = 0.3;   // v0.5.1: total music silence from here until the fight starts
+        this.bolt = 0; this.flash = 1; this.shakeAmt = 20; SL.Audio.sfx.thunderBig(); SL.Audio.setMusicVolume(0); this.slow = 0.3;   // v0.5.1: total music silence from here until the fight starts
       }
       if (this.bolt >= 0) this.bolt += dt;
       if (T >= 7.4 && this.once('boom')) {
-        const { x, y } = this.av; this.av.alive = false; SL.Audio.sfx.boom();
+        const { x, y } = this.av; this.av.alive = false; SL.Audio.sfx.avrillBoom();
         this.fx.burst(x, y, '255,80,220', 140, 420, 2.2, 3.4); this.fx.burst(x, y, '255,255,255', 60, 260, 1.4, 2.4); this.fx.burst(x, y, '40,10,40', 50, 200, 2.6, 4);
         this.fx.ring(x, y, '255,120,230', 140, 0.9); this.fx.ring(x, y, '255,255,255', 70, 0.5);
       }
@@ -211,7 +211,7 @@ P.updateBoss = function (dt) {
     }
     for (const k of [1.2, 2.4]) if (B.dieT >= k && !B['boom' + k]) { B['boom' + k] = true; this.fx.ring(B.x, B.y, '255,255,255', 180, 0.6); this.flash = 0.45; this.flashRgb = '255,230,180'; this.shake(16); SL.Audio.sfx.boom(); }
     if (B.dieT >= 3.4 && !B.gone) {
-      B.gone = true; this.flash = 1; this.flashRgb = '255,255,255'; this.shake(26); SL.Audio.sfx.boom(); SL.Audio.sfx.thunder();
+      B.gone = true; this.flash = 1; this.flashRgb = '255,255,255'; this.shake(26); SL.Audio.sfx.avrillBoom();
       this.fx.burst(B.x, B.y, '255,255,255', 160, 620, 1.8, 3.6); this.fx.burst(B.x, B.y, '255,205,90', 120, 480, 2.0, 3.2); this.fx.burst(B.x, B.y, '120,240,255', 120, 520, 2.0, 3.2);
       this.fx.ring(B.x, B.y, '255,255,255', 320, 0.9); this.fx.ring(B.x, B.y, '120,240,255', 220, 0.7);
     }
@@ -263,7 +263,7 @@ P.updateBolts = function (dt) {
     b.t += dt;
     if (b.t < b.warn) { b.tick -= dt; if (b.tick <= 0) { b.tick = 0.25; SL.Audio.sfx.warn(); } }
     else {
-      if (!b.struck) { b.struck = true; SL.Audio.sfx.zap(); this.shake(8); this.flash = Math.max(this.flash || 0, 0.25); this.flashRgb = '200,220,255'; }
+      if (!b.struck) { b.struck = true; SL.Audio.sfx.thunderShort(); this.shake(8); this.flash = Math.max(this.flash || 0, 0.25); this.flashRgb = '200,220,255'; }
       if (b.t < b.warn + 0.3 && s.alive && s.invuln <= 0 && Math.abs(s.x - b.x) < FB.boltHalfW) this.playerHit(null);
     }
   }
