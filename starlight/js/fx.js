@@ -22,12 +22,12 @@ SL.Starfield = class {
   update(dt, mul = 1) {
     for (const s of this.stars) { s.y += s.v * mul * dt; if (s.y > H + 40) { s.y = -40 * Math.random(); s.x = Math.random() * W; } }
   }
-  draw(g, t, mul = 1) {
+  draw(g, t, mul = 1, warp = 0) {          // warp 0..1: every star stretches into a streak (Story warp exit)
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const s of this.stars) {
       const L = this.layers[s.li], a = s.a * (0.85 + 0.15 * Math.sin(t * 3 + s.tw));
-      if (L.streak) {
-        const len = s.v * 0.15 * mul;
+      if (L.streak || warp > 0) {
+        const len = (L.streak ? s.v * 0.15 * mul : 0) + warp * (30 + s.v * 0.9);
         const gr = g.createLinearGradient(s.x, s.y - len, s.x, s.y);
         gr.addColorStop(0, `rgba(${s.c},0)`); gr.addColorStop(1, `rgba(${s.c},${a * .8})`);
         g.strokeStyle = gr; g.lineWidth = s.s * 0.8; g.beginPath(); g.moveTo(s.x, s.y - len); g.lineTo(s.x, s.y); g.stroke();
@@ -139,6 +139,47 @@ SL.Particles = class {
     for (const r of this.rings) { const k = 1 - r.life / r.max; g.strokeStyle = `rgba(${r.rgb},${(1 - k) * 0.8})`; g.lineWidth = 2.5 * (1 - k) + 0.5; g.beginPath(); g.arc(r.x, r.y, r.r * (0.3 + k), 0, Math.PI * 2); g.stroke(); }
     g.restore();
   }
+};
+
+/* ---------- compact dialogue popup (Dr. Nebula / Avrill), v0.4.1 ----------
+   Small, semi-transparent, parked in a top corner just below the boss health bar. It swaps to the other
+   corner if the ship flies under it, and fades to ~35% while asteroids / bullets pass behind it.
+   Touch buttons all sit below y=330, so a popup at y=118..176 can never cover them. */
+SL.POP = { w: 262, h: 58, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 42 };
+SL.dialogPopup = (ctx, game, key, o) => {
+  // o: { side:'left'|'right', t, dur, name, lines[], typed (chars), rgb, por (canvas), textRgb }
+  const P = SL.POP, st = (game._pops ||= {})[key] ||= { side: o.side, x: null, a: P.alpha };
+  const H = Math.max(P.h, 30 + Math.min(3, o.lines.length) * 13);
+  const rectAt = side => ({ x: side === 'left' ? P.margin : SL.W - P.margin - P.w, y: P.y, w: P.w, h: H });
+  const near = (r, px, py, m) => px > r.x - m && px < r.x + r.w + m && py > r.y - m && py < r.y + r.h + m;
+  const s = game.ship, other = st.side === 'left' ? 'right' : 'left';
+  if (s && s.alive && near(rectAt(st.side), s.x, s.y, 40) && !near(rectAt(other), s.x, s.y, 40)) st.side = other;
+  const R = rectAt(st.side); if (st.x === null) st.x = R.x;
+  st.x += (R.x - st.x) * Math.min(1, 0.25);                       // glide when switching corners
+  const r = { x: st.x, y: R.y, w: P.w, h: H };
+  // anything flying behind it?
+  let busy = false;
+  const hitC = (x, y, rad) => x + rad > r.x && x - rad < r.x + r.w && y + rad > r.y && y - rad < r.y + r.h;
+  for (const a of game.asteroids || []) if (!a.dead && hitC(a.x, a.y, a.r * 0.9)) { busy = true; break; }
+  if (!busy) for (const b of (game.ebullets || []).concat(game.bullets || [], game.pickups || [])) if (hitC(b.x, b.y, 8)) { busy = true; break; }
+  if (!busy && s && s.alive && hitC(s.x, s.y, 26)) busy = true;
+  st.a += ((busy ? P.behind : P.alpha) - st.a) * 0.2;
+  const inK = Math.min(1, o.t / 0.25), outK = Math.max(0, Math.min(1, (o.t - (o.dur - 0.6)) / 0.6));
+  const vis = st.a * inK * (1 - outK); if (vis <= 0.01) return r;
+  const slide = (1 - inK) * (st.side === 'left' ? -20 : 20);
+  ctx.save(); ctx.globalAlpha = vis; ctx.translate(slide, 0);
+  SL.roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.fillStyle = 'rgba(12,3,20,0.85)'; ctx.fill();
+  ctx.strokeStyle = `rgba(${o.rgb},0.9)`; ctx.lineWidth = 1.5; ctx.shadowColor = `rgba(${o.rgb},1)`; ctx.shadowBlur = 8 * SL.view.scale; ctx.stroke();
+  ctx.shadowBlur = 0;
+  if (o.por) ctx.drawImage(o.por, r.x + 8, r.y + 8, P.por, P.por);
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = vis; ctx.translate(slide, 0);
+  const tx = r.x + 8 + P.por + 10;
+  SL.neonText(ctx, o.name, tx, r.y + 13, 10, o.rgb, { align: 'left', blur: 3 });
+  let n = o.typed ?? 999;
+  o.lines.slice(0, 3).forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(ctx, part, tx, r.y + 29 + i * 13, 11, o.textRgb || '255,240,245', { align: 'left', blur: 3 }); });
+  ctx.restore();
+  return r;
 };
 
 /* scanlines overlay (pre-rendered) */

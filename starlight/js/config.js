@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.4.0';
+SL.VERSION = '0.4.1';
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
 SL.CONFIG = {
@@ -62,9 +62,13 @@ SL.CONFIG = {
   },
   /* ---------- v0.4 Story mode ---------- */
   story: {
-    goalBase: 12, goalPerLevel: 6,                 // asteroids to destroy: 12, 18, 24, ...
-    spawnBase: 1.35, spawnPerLevel: 0.09, spawnMin: 0.32, spawnInLevel: 0.006,
-    speedBase: 70, speedPerLevel: 11, speedMax: 250, speedInLevel: 0.8,
+    // v0.4.1 longer levels: a mission lasts a sector timer (60 s at level 1, +5 s per level, max 150 s)
+    // and also needs a kill goal (30 at level 1, +5 per level). The warp opens when both are met.
+    durBase: 60, durPerLevel: 5, durMax: 150,
+    goalBase: 30, goalPerLevel: 5,
+    warpTime: 2.3,                                 // warp-exit animation (s) before the recount
+    spawnBase: 1.45, spawnPerLevel: 0.07, spawnMin: 0.34, spawnInLevel: 0.0025,
+    speedBase: 70, speedPerLevel: 9, speedMax: 250, speedInLevel: 0.35,
     goldPerLevel: 0.004, redPerLevel: 0.012, redFromLevel: 2,
     introTime: 2.4,
     bonus: { perKill: 25, accuracy: 2000, timePerSec: 20, comboStep: 500, bossPerEncounter: 3000, weakPointPerEncounter: 300 },
@@ -78,7 +82,7 @@ SL.CONFIG = {
       tauntEvery: [13, 19], asteroidInterval: 2.6,
     },
   },
-  storage: { best: 'starlight.survival.best', muted: 'starlight.muted' },
+  storage: { best: 'starlight.survival.best', muted: 'starlight.muted', unlocked: 'starlight.story.unlocked' },
   font: '"Courier New", Courier, monospace',
 };
 

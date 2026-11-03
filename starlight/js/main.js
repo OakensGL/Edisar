@@ -15,30 +15,38 @@
   SL.Input.attach(cv);
 
   SL.state = 'title'; SL.game = null;
-  SL.start = (s) => {
+  SL.start = (s, opt = {}) => {
     if (s === 'play') { SL.state = 'play'; SL.game = new SL.Survival(); }
     else if (s === 'story') {
-      // debug jump: ?level=N (1..99). Harmless: debug runs are marked and never ranked.
-      const m = /[?&]level=(\d{1,2})\b/.exec(location.search), lv = m ? Math.max(1, Math.min(99, +m[1])) : 1;
-      SL.state = 'play'; SL.game = new SL.Story(lv, !!m);
+      // debug jump: ?level=N (1..99) skips the map. Harmless: debug runs are marked, never ranked, never unlock levels.
+      const m = /[?&]level=(\d{1,2})\b/.exec(location.search);
+      if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(99, +m[1])), true); }
+      else return SL.start('map', { session: null });
     }
+    else if (s === 'map') { SL.state = 'map'; SL.game = null; SL.Map.enter(opt); }
     else { SL.state = 'title'; SL.game = null; SL.Title.enter(s === 'menu' ? 'menu' : 'press'); SL.Audio.playTrack('main'); }
     SL.NameEntry.close();
     credit.style.display = SL.state === 'title' ? '' : 'none';
     SL.Input.takeDowns();
   };
+  SL.startMission = (L, debug = false, session = null) => {
+    SL.state = 'play'; SL.game = new SL.Story(L, debug, session);
+    SL.NameEntry.close(); credit.style.display = 'none'; SL.Input.takeDowns();
+  };
   document.addEventListener('visibilitychange', () => { if (document.hidden && SL.game) SL.game.pause(true); });
 
   let last = 0;
   SL.step = (dt) => {
-    if (SL.state === 'title') SL.Title.update(dt); else SL.game.update(dt);
+    const scr = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.game;
+    scr.update(dt);
+    const now = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.game;   // update may switch screens
     g.setTransform(SL.view.scale, 0, 0, SL.view.scale, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-    if (SL.state === 'title') SL.Title.draw(g); else SL.game.draw(g);
+    now.draw(g);
     SL.Input.endFrame();
   };
   function loop(now) {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60; last = now;
-    SL.step(dt); requestAnimationFrame(loop);
+    SL.step(dt); SL.Audio.tick(dt); requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 })();

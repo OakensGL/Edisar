@@ -79,12 +79,23 @@ function hull() {
 }
 
 SL.Story = class extends SL.Survival {
-  constructor(startLevel = 1, debug = false) {
+  constructor(startLevel = 1, debug = false, session = null) {
     super();
     this.mode = 'story'; this.timeScore = false; this.debug = debug;
+    // v0.4.1 session: points / kills / time carry across missions launched from the map until game over
+    this.session0 = session || { score: 0, kills: 0, time: 0 };
+    this.score = this.session0.score; this.stats.kills = this.session0.kills; this.t = this.session0.time;
+    this.overBtns = [
+      { id: 'map',   label: 'MAP',   x: 412, y: 532, w: 190, h: 40, rgb: '255,80,220' },
+      { id: 'retry', label: 'RETRY', x: 632, y: 532, w: 190, h: 40, rgb: '70,160,255' },
+    ];
+    this.pauseBtns[1] = { id: 'map', label: 'MAP', x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' };
+    this.clearBtns = [
+      { id: 'continue', label: 'CONTINUE', x: 412, y: 520, w: 220, h: 40, rgb: '255,80,220' },
+      { id: 'map',      label: 'MAP',        x: 632, y: 520, w: 190, h: 40, rgb: '70,160,255' },
+    ];
     this.best = (SL.Scores.list('story')[0] || { score: 0 }).score;
     this.ebullets = []; this.dialogs = []; this.dialog = null; this.boss = null; this.clearData = null;
-    SL.Audio.preload(['boss', 'clear']);
     if (SL.Story._off) SL.Story._off();
     SL.Story._off = SL.Events.on('assist', g => {
       if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
@@ -97,13 +108,16 @@ SL.Story = class extends SL.Survival {
   startLevel(L) {
     const S = SC(), boss = L % S.boss.every === 0;
     this.level = L; this.state = 'play';
-    this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
+    this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), dur: boss ? 0 : SL.Story.levelDuration(L), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
       score0: this.score, maxMult: this.mult, done: false, doneT: 0 };
     this.asteroids.length = 0; this.bullets.length = 0; this.ebullets = []; this.pickups.length = 0; this.bombShots.length = 0; this.blasts.length = 0;
     this.weapon = null; this.dialogs = []; this.dialog = null; this.clearData = null;
     this.introT = S.introTime; this.spawnHold = S.introTime; this.spawnT = 0.3;
     this.goldBonus = S.goldPerLevel * L; this.redBonus = S.redPerLevel * (L - 1); this.redAfter = L >= S.redFromLevel ? -1 : 1e9;
-    this.ship.invuln = Math.max(this.ship.invuln, 1.5);
+    const sh = this.ship; Object.assign(sh, { x: SL.W / 2, y: this.C.ship.startY, vx: 0, vy: 0, alive: true });
+    sh.invuln = Math.max(sh.invuln, 1.5);
+    this.lives = this.C.ship.startLives;                     // every mission starts with full lives
+    this.warpK = 0; this.warpT = 0; this._pops = {};
     this.theme = SL.Features.story.worldTheme(L);            // hook: palette change every 10 levels (not used yet)
     SL.Features.story.onLevelStart(this, L);
     this.boss = null;
@@ -116,13 +130,18 @@ SL.Story = class extends SL.Survival {
     return Math.max(S.spawnMin, S.spawnBase - S.spawnPerLevel * (this.level - 1) - S.spawnInLevel * (this.lv ? this.lv.t : 0));
   }
   get fallSpeed() { const S = SC(); return Math.min(S.speedMax, S.speedBase + S.speedPerLevel * (this.level - 1) + S.speedInLevel * (this.lv ? this.lv.t : 0)); }
-  scoreEntry() { return { score: Math.floor(this.score), level: this.level, time: this.t, kills: this.stats.kills }; }
+  /* Top 10 rule (v0.4.1): a run is submitted at game over (or when leaving the map with points).
+     Ranked by SCORE = points earned in this session (carried across missions until game over / BACK).
+     LEVEL (informational) = furthest level unlocked on this device (debug runs: the level played, never ranked). */
+  scoreEntry() { return { score: Math.floor(this.score), level: this.debug ? this.level : Math.max(SL.Progress.unlocked, this.level), time: this.t, kills: this.stats.kills }; }
+  sessionNow() { return { score: Math.floor(this.score), kills: this.stats.kills, time: this.t }; }
 
-  onKill() {
-    const lv = this.lv; lv.kills++;
-    if (!lv.boss && !lv.done && lv.kills >= lv.goal) {
-      lv.done = true; lv.doneT = 1.3; this.spawnHold = 99;
-      this.popup('LEVEL CLEAR!', 512, 260, '255,220,90'); SL.Audio.sfx.ready();
+  onKill() { this.lv.kills++; }
+  checkGoal() {
+    const lv = this.lv;
+    if (!lv.boss && !lv.done && lv.kills >= lv.goal && lv.t >= lv.dur) {
+      lv.done = true; lv.doneT = 1.2; this.spawnHold = 99;
+      this.popup('SECTOR CLEAR — WARP!', 512, 260, '255,220,90'); SL.Audio.sfx.ready();
     }
   }
 
@@ -213,7 +232,7 @@ SL.Story = class extends SL.Survival {
       } else {
         B.vy += 520 * dt; B.y -= B.vy * dt;
         this.fx.burst(B.x + (Math.random() - 0.5) * 120, B.y + 50, '160,160,170', 3, 60, 0.8, 3);
-        if (B.y < -240 && !B.gone && (!this.dialog || B.escT > 5.5)) { B.gone = true; this.startClear(); }
+        if (B.y < -240 && !B.gone && (!this.dialog || B.escT > 5.5)) { B.gone = true; this.startWarp(); }
       }
     }
   }
@@ -221,32 +240,54 @@ SL.Story = class extends SL.Survival {
   /* ---------- dialog (Dr. Nebula popup) ---------- */
   say(text, mood = 'normal', delay = 0) { this.dialogs.push({ text, mood, delay }); }
   updateDialog(dt) {
-    const avrillBusy = this.assist.phase === 'active' && this.assist.t < 3.9;
+    const avrillBusy = this.assist.phase === 'active' && this.assist.t < SL.Features.POP_DUR;
     if (!this.dialog && this.dialogs.length) {
       const d = this.dialogs[0]; d.delay -= dt;
-      if (d.delay <= 0 && !avrillBusy) { this.dialogs.shift(); this.dialog = { ...d, t: 0, lines: wrap(d.text, 30), dur: 1.0 + d.text.length / 28 + 2.0 }; SL.Events.emit('nebulaLine', d.text); }
+      if (d.delay <= 0 && !avrillBusy) { this.dialogs.shift(); this.dialog = { ...d, t: 0, lines: wrap(d.text, 30), dur: 2.0 + d.text.length / 24 }; SL.Events.emit('nebulaLine', d.text); }
     }
     if (this.dialog) { this.dialog.t += dt; if (this.dialog.t > this.dialog.dur) this.dialog = null; }
   }
   drawDialog(g) {
+    // v0.4.1: compact, semi-transparent, top-right corner just below the boss health bar; fades out on its own
     const d = this.dialog; if (!d) return;
-    const ease = k => 1 - Math.pow(1 - k, 3), inK = Math.min(1, d.t / 0.35), outK = d.t > d.dur - 0.4 ? Math.min(1, (d.t - (d.dur - 0.4)) / 0.4) : 0;
-    const w = 400, h = 30 + Math.max(2, d.lines.length) * 22 + 22, x = SL.W - 20 - w + (w + 40) * (1 - ease(inK)) + (w + 40) * ease(outK), y = 248;
-    const rgb = d.mood === 'angry' ? '255,60,40' : '255,70,70';
-    g.save(); SL.roundRect(g, x, y, w, h, 10); g.fillStyle = 'rgba(24,3,8,0.92)'; g.fill();
-    g.strokeStyle = `rgba(${rgb},0.95)`; g.lineWidth = 2; g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = 16 * SL.view.scale; g.stroke(); g.restore();
-    const por = portrait(d.mood); if (por) g.drawImage(por, x + 10, y + 10, 92, 92);
-    SL.neonText(g, NEBULA.name, x + 116, y + 20, 13, '255,120,110', { align: 'left', blur: 6 });
-    let n = Math.max(0, Math.floor((d.t - 0.3) * 34));
-    d.lines.forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(g, part, x + 116, y + 46 + i * 22, 15, '255,240,240', { align: 'left', blur: 6 }); });
+    SL.dialogPopup(g, this, 'nebula', { side: 'right', t: d.t, dur: d.dur, name: NEBULA.name, lines: d.lines, typed: Math.floor((d.t - 0.2) * 40),
+      rgb: d.mood === 'angry' ? '255,60,40' : '255,70,70', por: portrait(d.mood) });
+  }
+
+  /* ---------- warp exit (v0.4.1): ship shoots upward, stars stretch, whoosh ---------- */
+  startWarp() {
+    if (this.state !== 'play') return;
+    for (const a of this.asteroids) if (!a.dead) this.destroy(a, false, { noSplit: true, quiet: true });
+    this.state = 'warp'; this.warpT = 0; this.ebullets = []; this.pickups.length = 0; this.bullets.length = 0; this.dialog = null; this.dialogs = [];
+    this.ship.invuln = 0; this.ship.vy = 0; this.whooshed = false;
+    SL.Events.emit('warp', { level: this.level });
+  }
+  updateWarp(dt) {
+    const s = this.ship, W = SC().warpTime, t = (this.warpT += dt);
+    SL.Input.takeDowns(); if (SL.Input.hit('KeyM')) SL.Audio.toggleMute();
+    s.x += (SL.W / 2 - s.x) * Math.min(1, dt * 3); s.vx = 0;
+    if (t < 0.45) { s.vy += (60 - s.vy) * Math.min(1, dt * 6); s.y += s.vy * dt; }          // brief dip: charging
+    else {
+      if (!this.whooshed) { this.whooshed = true; SL.Audio.sfx.whoosh(); this.fx.ring(s.x, s.y, '255,255,255', 80, 0.4); }
+      s.vy -= 2600 * dt; s.y += s.vy * dt;
+      if (Math.random() < 0.8) this.fx.burst(s.x, s.y + 22, '255,90,220', 3, 120, 0.4, 2);
+    }
+    this.warpK = Math.min(1, Math.max(0, (t - 0.2) / 0.7));
+    this.stars.update(dt, 1 + this.warpK * 16); this.fx.update(dt);
+    for (const p of this.popups) { p.life -= dt; p.y -= 40 * dt; } this.popups = this.popups.filter(p => p.life > 0);
+    this.asteroids = this.asteroids.filter(a => !a.dead);
+    if (t > W - 0.35) { this.flash = Math.max(this.flash || 0, (t - (W - 0.35)) / 0.35 * 0.8); this.flashRgb = '255,230,255'; }
+    if (t >= W) this.startClear();
   }
 
   /* ---------- level clear recount ---------- */
   startClear() {
-    if (this.state !== 'play') return;
+    if (this.state !== 'play' && this.state !== 'warp') return;
+    this.warpK = 0; this.flash = 0;
+    if (!this.debug) SL.Progress.unlock(this.level + 1);       // map: next mission unlocked
     const lv = this.lv, Bn = SC().bonus, shots = this.stats.shots - lv.shots0, hits = (this.stats.bulletHits || 0) - lv.hits0;
     const acc = shots > 0 ? Math.min(1, hits / shots) : 0;
-    const e = lv.boss ? this.level / SC().boss.every : 0, par = lv.boss ? 50 + 15 * e : 12 + lv.goal * 1.6;
+    const e = lv.boss ? this.level / SC().boss.every : 0, par = lv.boss ? 50 + 15 * e : lv.dur + 20;   // timed sectors: bonus for meeting the kill goal quickly
     const rows = [
       { label: 'ASTEROIDS DESTROYED', disp: String(lv.kills), bonus: lv.kills * Bn.perKill },
       { label: 'ACCURACY', disp: Math.round(acc * 100) + '%', bonus: Math.round(acc * acc * Bn.accuracy) },
@@ -265,7 +306,7 @@ SL.Story = class extends SL.Survival {
     const c = this.clearData, I = SL.Input, downs = I.takeDowns();
     for (const d of downs) { if (SL.inBtn(this.btnMute, d)) { SL.Audio.toggleMute(); d.used = true; } }
     if (I.hit('KeyM')) SL.Audio.toggleMute();
-    const go = I.confirm() || downs.some(d => !d.used);
+    const go = !c.done && (I.confirm() || downs.some(d => !d.used));
     c.t += dt;
     if (!c.done) {
       const r = c.rows[c.i], dur = 0.6;
@@ -275,9 +316,17 @@ SL.Story = class extends SL.Survival {
         r.shown = r.bonus; c.i++; c.t = 0; SL.Audio.sfx.blip(700);
         if (c.i >= c.rows.length) { c.done = true; this.score = c.total0 + c.rows.reduce((s, r) => s + r.bonus, 0); SL.Audio.sfx.pickup(); }
       }
-    } else if (go && c.t > 0.2) this.nextLevel();
+    } else if (c.t > 0.25) {
+      if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyS')) { c.sel = 1 - c.sel; SL.Audio.sfx.blip(520); }
+      let pick = I.confirm() ? this.clearBtns[c.sel].id : null;
+      for (const d of downs) { if (d.used) continue; const b = this.clearBtns.find(b => SL.inBtn(b, d)); if (b) pick = b.id; }
+      if (I.hitAny('Escape', 'Backspace')) pick = 'map';
+      if (pick === 'continue') this.nextLevel();
+      else if (pick === 'map') { SL.Audio.sfx.blip(780); SL.start('map', { session: this.sessionNow(), sel: this.level + 1 }); return; }
+    }
     this.stars.update(dt, 0.6); this.fx.update(dt);
   }
+  static levelDuration(L) { const S = SC(); return Math.min(S.durMax, S.durBase + S.durPerLevel * (L - 1)); }
   nextLevel() {
     const from = this.level, to = from + 1;
     const cut = SL.Features.story.cutsceneBetween(from, to);   // hook: story clue cutscene (null for now)
@@ -290,13 +339,24 @@ SL.Story = class extends SL.Survival {
   /* ---------- per-frame ---------- */
   update(dt) {
     if (this.state === 'clear') { this.T += dt; this.updateClear(dt); return; }
+    if (this.state === 'warp') { this.T += dt; this.updateWarp(dt); return; }
     super.update(dt);
+  }
+  menuAction(id) {
+    if (id === 'map') {
+      SL.Audio.sfx.blip(780);
+      // game over: session ends (already ranked). Pause -> MAP: mission abandoned, keep the session as it was at launch.
+      const sess = this.state === 'over' ? null : this.session0;
+      SL.start('map', { session: sess, sel: this.level });
+    } else if (id === 'retry') { SL.Audio.sfx.blip(780); SL.startMission(this.level, this.debug, null); }
+    else super.menuAction(id);
   }
   onUpdate(dt) {
     if (this.state !== 'play') return;
     const lv = this.lv, s = this.ship;
     lv.t += dt; this.introT -= dt; lv.maxMult = Math.max(lv.maxMult, this.mult);
-    if (lv.done) { lv.doneT -= dt; if (lv.doneT <= 0) { for (const a of this.asteroids) if (!a.dead) this.destroy(a, false, { noSplit: true, quiet: true }); this.startClear(); return; } }
+    this.checkGoal();
+    if (lv.done) { lv.doneT -= dt; if (lv.doneT <= 0) { this.startWarp(); return; } }
     if (this.boss) this.updateBoss(dt);
     for (const b of this.ebullets) {
       b.x += b.vx * dt; b.y += b.vy * dt;
@@ -339,8 +399,14 @@ SL.Story = class extends SL.Survival {
   }
   hudCenter(g) {
     const lv = this.lv;
-    if (lv.boss) SL.neonText(g, `LEVEL ${this.level} · BOSS`, 512, 20, 16, '255,110,110', { blur: 8 });
-    else SL.neonText(g, `LEVEL ${this.level} · ${Math.min(lv.kills, lv.goal)}/${lv.goal}`, 512, 20, 16, '160,200,255', { blur: 8 });
+    if (lv.boss) { SL.neonText(g, `LEVEL ${this.level} · BOSS`, 512, 20, 16, '255,110,110', { blur: 8 }); return; }
+    const left = Math.max(0, lv.dur - lv.t), need = Math.max(0, lv.goal - lv.kills);
+    const tm = left > 0 ? fmt(Math.ceil(left)) : 'WARP READY';
+    SL.neonText(g, `LEVEL ${this.level} · ${tm} · ${Math.min(lv.kills, lv.goal)}/${lv.goal}`, 512, 20, 16, left <= 0 && need > 0 ? '255,220,90' : '160,200,255', { blur: 8 });
+    // sector progress bar (time)
+    const k = lv.dur ? Math.min(1, lv.t / lv.dur) : 1;
+    g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(432, 31, 160, 2); g.fillStyle = 'rgba(120,190,255,0.8)'; g.fillRect(432, 31, 160 * k, 2);
+    if (left <= 0 && need > 0 && !lv.done) SL.neonText(g, `DESTROY ${need} MORE TO WARP`, 512, 70, 13, '255,220,90', { blur: 8, alpha: 0.6 + 0.4 * Math.sin(this.T * 6) });
   }
   drawTop(g) {
     const B = this.boss, W = SL.W;
@@ -363,12 +429,13 @@ SL.Story = class extends SL.Survival {
           SL.neonText(g, 'DESTROY THE GLOWING WEAK POINTS', 512, 324, 14, '255,220,90', { blur: 6, alpha: a });
         } else {
           SL.neonText(g, `LEVEL ${this.level}`, 512, 246, 54, '255,80,220', { blur: 24, alpha: a });
-          SL.neonText(g, `DESTROY ${this.lv.goal} ASTEROIDS`, 512, 308, 20, '160,200,255', { blur: 10, alpha: a });
+          SL.neonText(g, `DESTROY ${this.lv.goal} ASTEROIDS · HOLD THE SECTOR ${fmt(this.lv.dur)}`, 512, 308, 20, '160,200,255', { blur: 10, alpha: a });
         }
       }
       this.drawDialog(g);
       if (this.lv.boss && B && B.t < 7) SL.neonText(g, 'Music: "HellDrake" by Centurion_of_war — CC-BY 4.0', 512, 571, 9, '220,200,230', { blur: 2, alpha: 0.7 });
     }
+    if (this.state === 'warp' && this.warpT > 0.4) SL.neonText(g, 'WARP!', 512, 250, 46, '255,255,255', { blur: 26, alpha: Math.min(1, (this.warpT - 0.4) * 3) * (1 - Math.max(0, this.warpT - 1.6)) });
     if (this.state === 'clear') this.drawClear(g);
   }
   drawClear(g) {
@@ -391,7 +458,8 @@ SL.Story = class extends SL.Survival {
     SL.neonText(g, SL.pad(c.levelPts + sum), 724, y + 4, 20, '255,235,255', { align: 'right', blur: 10 });
     SL.neonText(g, 'RUNNING TOTAL', 300, y + 40, 19, '70,160,255', { align: 'left', blur: 10 });
     SL.neonText(g, SL.pad(c.total0 + sum), 724, y + 40, 22, '255,255,255', { align: 'right', blur: 12 });
-    if (c.done) SL.neonText(g, SL.Input.touchMode ? 'TAP TO CONTINUE ▶' : 'PRESS ENTER TO CONTINUE ▶', 512, 520, 18, '255,220,90', { blur: 12, alpha: 0.6 + 0.4 * Math.sin(this.T * 6) });
+    if (c.done) this.clearBtns.forEach((b, i) => SL.drawButton(g, b, i === c.sel, this.T));
+    else SL.neonText(g, SL.Input.touchMode ? 'TAP TO SKIP' : 'ENTER TO SKIP', 512, 520, 12, '160,200,255', { blur: 4, alpha: 0.5 });
     SL.neonText(g, 'Music: "The Last Encounter" mix by Matthew Pablo, Zefz & neocrey — CC-BY-SA 3.0', 512, 562, 10, '220,200,230', { blur: 2, alpha: 0.7 });
   }
 };

@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.4
+PROJECT STARLIGHT v0.4.1
 ======================
 
 Game design, art direction: Juan Carlos Garcia

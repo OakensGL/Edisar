@@ -125,7 +125,7 @@ SL.Title = (() => {
         g.fillStyle = 'rgba(3,1,12,0.9)'; g.fillRect(0, 0, W, H);
         SL.neonText(g, 'HIGH SCORES', 512, 46, 36, '255,80,220', { blur: 22 });
         tabs.forEach(b => SL.drawButton(g, b, b.id === tab, T));
-        SL.neonText(g, (tab === 'story' ? 'RANKED BY LEVEL, THEN POINTS' : 'RANKED BY POINTS') + ' · TOP 10 · THIS DEVICE', 512, 128, 11, '160,200,255', { blur: 4, alpha: 0.8 });
+        SL.neonText(g, 'RANKED BY POINTS' + ' · TOP 10 · THIS DEVICE', 512, 128, 11, '160,200,255', { blur: 4, alpha: 0.8 });
         SL.drawScoreTable(g, SL.Scores.list(tab), 158, -1, T, tab);
         SL.drawButton(g, backBtn, false, T);
         SL.neonText(g, '◀ ▶ SWITCH  ·  ESC BACK', 512, 548, 10, '160,200,255', { blur: 3, alpha: 0.6 });

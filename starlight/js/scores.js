@@ -11,9 +11,8 @@ SL.Scores = (() => {
     score: Math.max(0, Math.floor(+e.score || 0)), time: Math.max(0, Math.floor(+e.time || 0)),
     kills: Math.max(0, Math.floor(+e.kills || 0)), level: Math.max(0, Math.min(999, Math.floor(+e.level || 0))), date: isNaN(Date.parse(e.date)) ? new Date().toISOString() : new Date(e.date).toISOString(),
   });
-  // survival: by points; story: by furthest level reached, tiebreak points
-  const cmp = mode => mode === 'story' ? (a, b) => b.level - a.level || b.score - a.score || a.date.localeCompare(b.date)
-                                       : (a, b) => b.score - a.score || a.date.localeCompare(b.date);
+  // both modes rank by points (v0.4.1: Story LEVEL is informational only); ties: earlier date first
+  const cmp = mode => (a, b) => b.score - a.score || a.date.localeCompare(b.date);
   let sortMode = 'survival';
   const sortTrim = (l, mode = sortMode) => l.sort(cmp(mode)).slice(0, MAX);
 

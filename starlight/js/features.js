@@ -208,23 +208,13 @@ const F = SL.Features = {
   drawOverlay(g, ctx) {
     if (g.flash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(${g.flashRgb},${Math.min(0.55, g.flash * 0.55)})`; ctx.fillRect(0, 0, SL.W, SL.H); ctx.restore(); }
     const A = g.assist;
-    if (A.phase !== 'active' || A.t > 3.9) return;
-    // popup panel: slides in from the left, typewriter line
-    const t = A.t, inK = Math.min(1, t / 0.35), outK = t > 3.4 ? Math.min(1, (t - 3.4) / 0.4) : 0;
-    const ease = k => 1 - Math.pow(1 - k, 3);
-    const x = -360 + 380 * ease(inK) - 380 * ease(outK), y = 120, w = 350, h = 112;
-    ctx.save();
-    SL.roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(14,3,24,0.9)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,80,220,0.95)'; ctx.lineWidth = 2; ctx.shadowColor = 'rgba(255,80,220,1)'; ctx.shadowBlur = 16 * SL.view.scale; ctx.stroke();
-    ctx.restore();
-    const por = F.portrait();
-    if (por) ctx.drawImage(por, x + 10, y + 10, 92, 92);
-    SL.neonText(ctx, C().assist.pilot, x + 116, y + 22, 13, '255,120,230', { align: 'left', blur: 6 });
-    const line = C().assist.line, n = Math.max(0, Math.floor((t - 0.35) * 24)), shown = line.slice(0, n);
-    const cut = line.indexOf(',') + 1, l1 = shown.slice(0, cut), l2 = shown.slice(cut).trimStart();
-    SL.neonText(ctx, l1, x + 116, y + 52, 21, '255,235,255', { align: 'left', blur: 10 });
-    SL.neonText(ctx, l2 + (n < line.length && Math.floor(t * 8) % 2 ? '_' : ''), x + 116, y + 80, 21, '255,235,255', { align: 'left', blur: 10 });
+    if (A.phase !== 'active' || A.t > F.POP_DUR) return;
+    // v0.4.1: compact semi-transparent popup, top-left corner (see SL.dialogPopup)
+    const line = C().assist.line, cut = line.indexOf(',') + 1;
+    SL.dialogPopup(ctx, g, 'avrill', { side: 'left', t: A.t, dur: F.POP_DUR, name: C().assist.pilot, rgb: '255,80,220',
+      lines: [line.slice(0, cut), line.slice(cut).trim()], typed: Math.floor((A.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
   },
+  POP_DUR: 2.6,
   portrait() {
     if (F._por) return F._por;
     if (!F._img) { F._img = new Image(); F._img.src = 'assets/title.jpg'; }

@@ -261,7 +261,7 @@ SL.Survival = class {
     g.save();
     if (this.shakeAmt > 0.1) g.translate((Math.random() - .5) * this.shakeAmt, (Math.random() - .5) * this.shakeAmt);
     SL.drawSpaceBg(g);
-    this.stars.draw(g, this.T, 0.7 + Math.min(0.5, this.t / 180));
+    this.stars.draw(g, this.T, 0.7 + Math.min(0.5, this.t / 180), this.warpK || 0);
     // asteroids
     for (const a of this.asteroids) {
       if (a.special) SL.glow(g, a.x, a.y, a.r * 1.6, a.r * 1.6, a.rgb, a.special === 'red' ? 0.18 + 0.14 * Math.sin(this.T * 9) : 0.22);
@@ -301,7 +301,7 @@ SL.Survival = class {
     SL.Features.drawOverlay(this, g);
     this.drawHUD(g);
     if (!SL.Input.touchMode && this.t < 6 && this.state === 'play') SL.neonText(g, SL.CONTROLS_HINT, 512, 556, 12, '160,200,255', { blur: 4, alpha: Math.min(0.85, (6 - this.t) / 1.5) });
-    if (SL.Input.touchMode && this.state !== 'over' && this.state !== 'clear') this.drawTouch(g);
+    if (SL.Input.touchMode && this.state !== 'over' && this.state !== 'clear' && this.state !== 'warp') this.drawTouch(g);
     this.drawTop && this.drawTop(g);
     if (this.state === 'paused') this.drawPause(g);
     if (this.state === 'over') this.drawOver(g);
