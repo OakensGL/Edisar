@@ -570,7 +570,7 @@ const TILE_INFO: TileInfo[] = [
   { id: T_BRIAR, n: "Matorral", cat: "natu", layer: "obj", spr: [113], under: GRASS, c: "#1e2901", ov: true, walk: false, shot: false },
 ];
 const TILE_BY_ID: Array<TileInfo | undefined> = []; for (const ti of TILE_INFO) TILE_BY_ID[ti.id] = ti;
-const TILE_N = 74; const OBJ_NONE = 255; const MAP_MAX = 1024;
+const TILE_N = TILE_INFO.reduce((a: number, t: TileInfo) => Math.max(a, t.id + 1), 0); /* v29.4: antes fijo en 74 (la Tierra de ceniza y las puertas abiertas se volvían hierba) */ const OBJ_NONE = 255; const MAP_MAX = 1024;
 // ---------- v26: mapas exportados por el editor (editor.html) ----------
 // Formato JSON: { format: "edisar-map", v: 2, name, w, h, ox, oy, floor: RLE, obj: RLE (255 = vacío), safe?: RLE (1 = zona segura), marks: [...] }. RLE = "id" o "id*veces" separados por comas.
 // v2: w×h puede ser mayor que el mundo (hasta 1024×1024); el mundo original (544×144) empieza en (ox, oy). Las coordenadas de marks van en el archivo. v1 = 544×144 sin ox/oy.
@@ -7173,7 +7173,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v29.3 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v29.4 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
