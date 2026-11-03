@@ -23,6 +23,7 @@ if (MAP_JSON) PATCHES.push({ name: "published map", find: 'const MAP_FILE = "";'
 // Test-only build (TESTHOOK=1 → dist-test/index.html): exposes the live game ref so headless tests can set up a boss phase quickly.
 const TEST = !!process.env.TESTHOOK;
 if (TEST) PATCHES.push({ name: "test hook", find: "const gRef = useRef<Game | null>(null);", repl: "const gRef = useRef<Game | null>(null); (globalThis as any).__edisarG = gRef;" });
+if (TEST) PATCHES.push({ name: "test hook: sprite top", find: "const MON_TOP = new Map<string, number>();", repl: "const MON_TOP = new Map<string, number>(); (globalThis as any).__edisarMonTop = (m: Mon) => monSprTop(m);" });
 const patchPlugin = { name: "edisar-patch", setup(b) {
   b.onLoad({ filter: /game\.canvas\.tsx$/ }, (args) => {
     let s = fs.readFileSync(args.path, "utf8"); const warnings = [];

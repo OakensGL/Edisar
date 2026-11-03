@@ -4555,6 +4555,18 @@ function drawBrute(ctx: CanvasRenderingContext2D, x: number, y: number, body: st
   if (horns) { ctx.fillStyle = "#eee3c8"; ctx.beginPath(); ctx.moveTo(10, 5); ctx.lineTo(4, -1); ctx.lineTo(11, 3); ctx.moveTo(22, 5); ctx.lineTo(28, -1); ctx.lineTo(21, 3); ctx.fill(); }
   ctx.restore();
 }
+// v27.1: fila más alta pintada de cada sprite de monstruo (relativa a la casilla), medida una vez en un lienzo aparte,
+// para poner la barra de vida y el nombre justo encima de la cabeza en vez de encima de la cara.
+const MON_TOP = new Map<string, number>();
+function monSprTop(m: Mon): number {
+  const k = m.def.id; const c0 = MON_TOP.get(k); if (c0 !== undefined) return c0;
+  if (typeof document === "undefined") return 2;
+  const c = document.createElement("canvas"); c.width = 96; c.height = 128; const x2 = c.getContext("2d"); if (!x2) return 2;
+  let r = -1;
+  try { drawMonster(x2, { ...m, enraged: false, def: { ...m.def, boss: undefined } } as Mon, 32, 80, 0); const d = x2.getImageData(0, 0, 96, 128).data;
+    for (let yy = 0; yy < 128 && r < 0; yy++) for (let xx = 0; xx < 96; xx++) if ((d[(yy * 96 + xx) * 4 + 3] ?? 0) > 60) { r = yy; break; } } catch { return 2; }
+  if (r < 0) return 2; const top = r - 80; MON_TOP.set(k, top); return top;
+}
 function drawMonster(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): void {
   if (m.def.monk) { drawSplinter(ctx, x, y, m.face, now, now - (m.angryUntil - 15000) < 150); return; }
   if (drawCroqMon(ctx, m, x, y, now)) return;
@@ -5073,7 +5085,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     if (t === m) { ctx.strokeStyle = "#ff2a2a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, TS - 2, TS - 2); ctx.lineWidth = 1; }
     drawMonster(ctx, m, x, y, now);
     if (now < m.slowUntil) { ctx.fillStyle = "rgba(155,232,255,0.25)"; ctx.fillRect(x, y, TS, TS); }
-    const big = m.def.id === "boss" || !!m.def.boss || (m.def.look ? m.def.look.s : 1) > 1.2; const top = big ? y - 22 : y - 4;
+    const top = Math.max(y - 40, Math.min(y - 4, y + monSprTop(m) - 6)); // v27.1: la vida y el nombre van encima de la cabeza (sprites altos: Boris, jefes…)
     hpBar(ctx, x + 4, top, 24, m.hp / m.def.hp); outlined(ctx, m.def.name, x + 16, top - 2, m.def.boss ? "#ffd34d" : m.def.id === "boss" ? "#ff9a5a" : "#e8e8e8", m.def.boss ? "bold 10px sans-serif" : "9px sans-serif");
     const dbf = monDebuffs(g, m, now); if (dbf) drawDebuffs(ctx, dbf, x + 16, top - 18);
   } }); }
@@ -5758,7 +5770,7 @@ function drawBorisSlash(ctx: CanvasRenderingContext2D, cx: number, cy: number, n
 const WK_ID = "wknight";
 const WK_REPL: string[] = [WK_ID, BORIS_ID]; // si un mapa del editor trae marcadores de estos, sustituyen sus respawns de fábrica
 (MONS as Record<string, MonDef>)[WK_ID] = { id: WK_ID, name: "White Knight", hp: 1150, exp: 720, atk: 205, speed: 520, gold: 85, respawn: 8000, armored: true, drop: 0.11, dropN: 1, lootLvl: 56, rar: [0.24, 0.085, 0.014], afk: 50, atkMs: 1500,
-  look: { body: "wknight", c1: "#f4f4f8", c2: "#22346c", c3: "#f2c64a", s: 1.2, horn: "none", glyph: "", alpha: 1 } };
+  look: { body: "wknight", c1: "#f4f4f8", c2: "#22346c", c3: "#f2c64a", s: 0.88, horn: "none", glyph: "", alpha: 1 } }; // v27.1: cabe en una casilla de 32 px
 const WK_SPAWNS: Array<[MonId, number, number]> = [[WK_ID, 15, 93], [WK_ID, 13, 97], [WK_ID, 17, 98], [WK_ID, 6, 97], [WK_ID, 8, 92], [WK_ID, 5, 86], [WK_ID, 8, 81], [WK_ID, 5, 76], [WK_ID, 6, 69], [WK_ID, 4, 62]];
 // La torre está en el mapa oficial (assets/map.json); sin ese mapa (mundo original) no hay torre y estos respawns no salen.
 function wkOnT(tiles: Uint8Array): boolean { return tiles[BORIS_HOME[1] * MW + BORIS_HOME[0]] === STONEF; }
@@ -5893,7 +5905,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v27 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v27.1 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
