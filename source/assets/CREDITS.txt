@@ -36,6 +36,7 @@ Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts
   - Atuendos de héroe (v28): Gojo, Itachi, Rengoku, Kirito, Mihawk y Freezer, pixel art propio dibujado en código
     (src/game.canvas.tsx, drawHero), inspirados en los personajes; sin sprites ni arte de terceros.
   - Atuendos de héroe lote 2 (v28.1): Shishio, Gowther, Zeldris, Estarossa, Monspeet y Deidara, mismo sistema (pixel art propio).
+  - Atuendos de héroe lote 3 (v28.2): Muichiro, Gambit, M. Bison, Vash, Dante (Inferno), Androides 17 y 16, mismo sistema (pixel art propio).
   - Mapa oficial v27.3 (assets/map.json): juan-map-nov2b de Juan Carlos, 584×164 con margen ox/oy 10 (templo de mármol,
     estatuas, torre del White Knight con alfombras y puerta de hierro), copiado byte a byte.
   No se usa ningún sprite de Tibia.

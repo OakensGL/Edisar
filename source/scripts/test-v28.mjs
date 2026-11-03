@@ -45,7 +45,8 @@ const compose = async (rows, title, file, big) => { const p2 = await browser.new
 const FACES = [[2, "abajo"], [1, "derecha"], [3, "izquierda"], [0, "arriba"]];
 const HEROES = [["o_gojo", "gojo", "Satoru Gojo"], ["o_itachi", "itachi", "Itachi Uchiha"], ["o_rengoku", "rengoku", "Kyojuro Rengoku"], ["o_kirito", "kirito", "Kirito"], ["o_mihawk", "mihawk", "Dracule Mihawk"], ["o_freezer", "freezer", "Freezer (forma final)"]];
 const HEROES2 = [["o_shishio", "shishio", "Makoto Shishio"], ["o_gowther", "gowther", "Gowther"], ["o_zeldris", "zeldris", "Zeldris"], ["o_estarossa", "estarossa", "Estarossa"], ["o_monspeet", "monspeet", "Monspeet"], ["o_deidara", "deidara", "Deidara"]];
-const ALLH = HEROES.concat(HEROES2);
+const HEROES3 = [["o_muichiro", "muichiro", "Muichiro Tokito"], ["o_gambit", "gambit", "Gambit"], ["o_bison", "bison", "M. Bison"], ["o_vash", "vash", "Vash the Stampede"], ["o_dante", "dante", "Dante (Inferno)"], ["o_a17", "a17", "Androide 17"], ["o_a16", "a16", "Androide 16"]];
+const ALLH = HEROES.concat(HEROES2, HEROES3);
 await newChar("knight", "Heroe", 60);
 // hoja de sprites: 6 atuendos × (sur, este, norte, oeste, paso sur, paso este)
 const COLS = [[2, 0, "sur"], [1, 0, "este"], [0, 0, "norte"], [3, 0, "oeste"], [2, 1, "paso sur"], [1, 2, "paso este"]];
@@ -57,17 +58,17 @@ const makeSheet = async (HEROES, lote, file) => { const sheet = await ev(([H, C]
   await p2.setContent(`<html><body style="margin:0;background:#141018;color:#f4ead8;font-family:sans-serif"><h2 style="margin:10px 18px">Edisar ${lote} — atuendos de héroe: filas = atuendo · columnas = ${COLS.map((c) => c[2]).join(" · ")}</h2><div style="display:flex;margin:0 18px"><div>${HEROES.map((h) => `<div style="height:${46 * 3}px;display:flex;align-items:center;width:190px;font-weight:bold">${h[2]}</div>`).join("")}</div><img src="data:image/png;base64,${sheet}" style="height:${HEROES.length * 46 * 3}px;image-rendering:pixelated"></div></body></html>`);
   if (process.env.RAWSHEET) fs.writeFileSync(process.env.RAWSHEET + file, Buffer.from(sheet, "base64"));
   await sleep(300); await p2.screenshot({ path: path.join(G, "shots", file), fullPage: true }); await p2.close(); }
-check(`hoja de los 6 atuendos ${lote} (4 direcciones + paso)`, fs.existsSync(path.join(G, "shots", file))); };
-await makeSheet(HEROES, "v28 (lote 1)", "v28-outfits.png"); await makeSheet(HEROES2, "v28.1 (lote 2)", "v28-1-outfits.png");
+check(`hoja de los ${HEROES.length} atuendos ${lote} (4 direcciones + paso)`, fs.existsSync(path.join(G, "shots", file))); };
+await makeSheet(HEROES, "v28 (lote 1)", "v28-outfits.png"); await makeSheet(HEROES2, "v28.1 (lote 2)", "v28-1-outfits.png"); await makeSheet(HEROES3, "v28.2 (lote 3)", "v28-2-outfits.png");
 // tienda de Edisar Coins: sección «Atuendos de héroe», compra con coins, «Usar», y el GM sigue siendo Minato
-await ev(() => { const g = globalThis.__edisarG.current; g.cs.coins = 4000; }); await click("[data-coinbtn]"); await sleep(500);
+await ev(() => { const g = globalThis.__edisarG.current; g.cs.coins = 6000; }); await click("[data-coinbtn]"); await sleep(500);
 const cards = await ev(() => [...document.querySelectorAll("[data-heroes] [data-coinitem]")].map((e) => e.getAttribute("data-coinitem")));
-check("la tienda muestra los 12 atuendos de héroe (lotes 1 y 2) en su sección", JSON.stringify(cards) === JSON.stringify(ALLH.map((h) => h[0])), JSON.stringify(cards));
+check("la tienda muestra los 19 atuendos de héroe (lotes 1, 2 y 3) en su sección", JSON.stringify(cards) === JSON.stringify(ALLH.map((h) => h[0])), JSON.stringify(cards));
 const prices = await ev(() => [...document.querySelectorAll("[data-heroes] [data-coinitem]")].map((e) => e.textContent.replace(/\s+/g, " ").slice(-14)));
 console.log("precios: " + JSON.stringify(prices));
 for (const [id] of ALLH) { await click(`[data-heroes] [data-coinitem="${id}"] button`); await sleep(150); }
 const st1 = await ev(() => { const c = globalThis.__edisarG.current.cs; return { owned: c.owned, outfit: c.outfit, coins: c.coins }; });
-check("se compran con coins (lote 1: 1280, lote 2: 240/200/240/220/220/180 = 1300) y quedan puestos", ALLH.every((h) => st1.owned.includes(h[0])) && st1.outfit === "o_deidara" && st1.coins === 4000 - 2580, JSON.stringify(st1));
+check("se compran con coins (lote 1: 1280, lote 2: 1300, lote 3: 220/200/240/220/240/200/260 = 1580) y quedan puestos", ALLH.every((h) => st1.owned.includes(h[0])) && st1.outfit === "o_a16" && st1.coins === 6000 - 4160, JSON.stringify(st1));
 await click('[data-heroes] [data-coinitem="o_itachi"] button'); await sleep(250);
 check("«Usar» cambia de atuendo (Itachi)", (await ev(() => globalThis.__edisarG.current.cs.outfit)) === "o_itachi");
 await ev(() => { const h = [...document.querySelectorAll("[data-coinstore] div")].find((d) => d.textContent === "Atuendos de héroe"); if (h) h.scrollIntoView({ block: "start" }); }); await sleep(300);
@@ -75,9 +76,9 @@ await shot("v28-menu.png");
 await click("[data-coinbtn]"); await sleep(300);
 // en el mundo: el jugador lleva el sprite de héroe (paso + 4 direcciones), y montado también
 await put(48, 80); await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; for (const m of g.mons) if (m.alive && Math.abs(m.x - 48) <= 8 && Math.abs(m.y - 80) <= 6) { m.alive = false; m.respawnAt = Infinity; } g.lootToast = null; g.status = ""; }); await sleep(600); const rows = [];
-for (const [id, , nm] of HEROES2) { await ev((id) => { globalThis.__edisarG.current.cs.outfit = id; }, id); const r = { label: nm, out: [] };
+for (const [id, , nm] of HEROES3) { await ev((id) => { globalThis.__edisarG.current.cs.outfit = id; }, id); const r = { label: nm, out: [] };
   for (const [f, fl] of FACES) { await ev((f) => { globalThis.__edisarG.current.p.face = f; }, f); await sleep(90); r.out.push({ img: await crop(47.4, 79.25, 2.2, 2), cap: fl }); } rows.push(r); }
-await compose(rows, "v28.1 — atuendos de héroe (lote 2) en el juego (camino al sur de Villa Esmeralda)", "v28-1-ingame.png");
+await compose(rows, "v28.2 — atuendos de héroe (lote 3) en el juego (camino al sur de Villa Esmeralda)", "v28-2-ingame.png");
 await ev(() => { const g = globalThis.__edisarG.current; g.cs.outfit = "o_mihawk"; if (g.mt) { if (!g.mt.owned.includes("m_caballo")) g.mt.owned.push("m_caballo"); g.mt.active = "m_caballo"; g.mt.riding = true; } }); await sleep(500);
 check("montado también se dibuja el atuendo de héroe (sin errores)", errs.length === 0, errs.slice(0, 2).join(" | "));
 await ev(() => { const g = globalThis.__edisarG.current; if (g.mt) g.mt.riding = false; g.cs.outfit = "o_itachi"; }); await sleep(300);
@@ -88,7 +89,7 @@ check("la lista de personajes muestra su atuendo (retrato + nombre)", !!li && li
 await shot("v28-charlist.png");
 await cont(); await sleep(1200);
 const st2 = await ev(() => { const c = globalThis.__edisarG.current.cs; return { owned: c.owned.length, outfit: c.outfit }; });
-check("al volver a entrar sigue con Itachi y los 12 comprados", st2.outfit === "o_itachi" && st2.owned >= 12, JSON.stringify(st2));
+check("al volver a entrar sigue con Itachi y los 19 comprados", st2.outfit === "o_itachi" && st2.owned >= 19, JSON.stringify(st2));
 // partidas antiguas: sin «cs», y con atuendos/auras viejos y de Croqui
 await page.reload(); await sleep(700); await seed((d) => { delete d.cs; }); await page.reload(); await sleep(600); await cont(); await sleep(1000);
 check("partida antigua sin tienda carga (sin atuendo)", (await ev(() => (globalThis.__edisarG.current.cs || { outfit: "" }).outfit)) === "");
