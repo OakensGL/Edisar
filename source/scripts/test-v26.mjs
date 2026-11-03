@@ -41,7 +41,7 @@ const OY = 32;
 const ed = await browser.newPage(); ed.on("pageerror", (e) => errs.push("editor: " + String(e))); await ed.setViewport({ width: 1366, height: 860 });
 await ed.goto("file://" + path.join(G, "dist/editor.html")); await ed.evaluate(() => localStorage.removeItem("edisar.editor.v1")); await ed.reload(); await sleep(900);
 const e1 = await ed.evaluate(() => ({ ok: !!window.__edisarEditor, pal: document.querySelectorAll("[data-tile]").length, w: window.__ED.W, h: window.__ED.H, zones: document.querySelectorAll("#zone option").length }));
-check("editor loads with the full tile palette", e1.ok && e1.pal === 21 && e1.w === 544 && e1.h === 144, JSON.stringify(e1));
+check("editor loads with the full tile palette", e1.ok && e1.pal >= 21 && e1.w === 544 && e1.h === 144, JSON.stringify(e1));
 const txt = await ed.evaluate((OY) => { const E = window.__edisarEditor; const st = E.st; const W = 544;
   for (let y = OY + 44; y <= OY + 46; y++) for (let x = 51; x <= 53; x++) st.floor[y * W + x] = 15; // nieve
   st.obj[(OY + 44) * W + 55] = 20; // arbusto

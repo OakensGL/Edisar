@@ -48,13 +48,14 @@ const html = `<!doctype html>
 async function buildEditor() {
   const src = fs.readFileSync(P("src/game.canvas.tsx"), "utf8"); const a = src.indexOf("// ===================== Tipos"), b = src.indexOf("// ===================== Interfaz");
   const footer = `
+const __mf: string = ${JSON.stringify(MAP_JSON)}; if (__mf) { const __r = parseMapFile(__mf); if (typeof __r !== "string") CUSTOM_MAP = __r; } // v27: zonas y respawns de referencia salen del mapa publicado
 const __g = newGame((Object.values(CLASSES) as ClassDef[])[0]!, "Editor");
 const __zn: string[] = []; const __zm = new Map<string, number>(); const __zi: number[] = []; const __zs: Array<[number, number, number]> = [];
 for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const z = zoneName(__g, x, y); let k = __zm.get(z); if (k === undefined) { k = __zn.length; __zn.push(z); __zm.set(z, k); __zs.push([0, 0, 0]); } __zi.push(k); const q = __zs[k]!; q[0] += x; q[1] += y; q[2]++; }
 const __zc = __zs.map((q) => [Math.round(q[0] / q[2]), Math.round(q[1] / q[2])]);
 process.stdout.write(JSON.stringify({ W: MW, H: MH, map: exportMapFile(buildMap(), null, [], "Mapa original de Edisar"), tiles: TILE_INFO,
   mons: (Object.values(MONS) as MonDef[]).map((m) => ({ id: m.id, n: m.name, boss: !!m.boss })).sort((x, y) => Number(x.boss) - Number(y.boss) || x.n.localeCompare(y.n, "es")),
-  ref: __g.mons.map((m) => [m.x, m.y, m.def.id]), zn: __zn, zr: rleEnc(__zi), zc: __zc, temple: [TEMPLE_X, TEMPLE_Y], ver: GAME_VER_ED }));
+  ref: __g.mons.map((m) => [m.x, m.y, m.def.id]), zn: __zn, zr: rleEnc(__zi), zc: __zc, temple: [TEMPLE_X, TEMPLE_Y], town: [TX0, TY0, TX1, TY1], ver: GAME_VER_ED }));
 `;
   const ver = (src.match(/const GAME_VER = `([^`]*)`/) || ["", "Edisar"])[1].replace(/\$\{[^}]*\}/g, "2");
   const r1 = await esbuild.build({ stdin: { contents: src.slice(a, b) + `\nconst GAME_VER_ED = ${JSON.stringify("Edisar · " + ver)};\n` + footer, loader: "ts", resolveDir: root }, bundle: true, platform: "node", format: "cjs", write: false, logLevel: "error" });

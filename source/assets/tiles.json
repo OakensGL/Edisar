@@ -1,0 +1,825 @@
+[
+{
+"key": "DRYG",
+"id": 21,
+"n": "Hierba seca",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+40,
+41,
+42
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#625527"
+},
+{
+"key": "FLOWG",
+"id": 22,
+"n": "Hierba con flores",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+43,
+44,
+45
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#0e490e"
+},
+{
+"key": "MUD",
+"id": 23,
+"n": "Barro",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+46,
+47
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#2c1f0b"
+},
+{
+"key": "ICE",
+"id": 24,
+"n": "Hielo",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+48,
+49
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#1d3d50"
+},
+{
+"key": "BMARB",
+"id": 25,
+"n": "Mármol negro",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+50,
+51
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#29282a"
+},
+{
+"key": "CARPR",
+"id": 26,
+"n": "Alfombra roja",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+52
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#962923"
+},
+{
+"key": "CARPB",
+"id": 27,
+"n": "Alfombra azul",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+53
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#34437e"
+},
+{
+"key": "BRIDGE",
+"id": 28,
+"n": "Puente de tablas",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+54
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#75512d"
+},
+{
+"key": "GRAVEL",
+"id": 29,
+"n": "Grava",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+55,
+56
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#77776b"
+},
+{
+"key": "MOSS",
+"id": 30,
+"n": "Musgo",
+"cat": "suelos",
+"layer": "floor",
+"spr": [
+57,
+58
+],
+"walk": true,
+"shot": false,
+"under": null,
+"ov": false,
+"c": "#042b00"
+},
+{
+"key": "CWALL",
+"id": 31,
+"n": "Muro de castillo",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+59,
+60
+],
+"walk": false,
+"shot": true,
+"under": "STONEF",
+"ov": false,
+"c": "#414141"
+},
+{
+"key": "RUIN",
+"id": 32,
+"n": "Muro en ruinas",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+61
+],
+"walk": false,
+"shot": true,
+"under": "GRASS",
+"ov": true,
+"c": "#818182"
+},
+{
+"key": "MWALL",
+"id": 33,
+"n": "Muro de mármol",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+62,
+63
+],
+"walk": false,
+"shot": true,
+"under": "TEMPLE",
+"ov": false,
+"c": "#6d9394"
+},
+{
+"key": "HEDGE",
+"id": 34,
+"n": "Seto",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+64
+],
+"walk": false,
+"shot": true,
+"under": "GRASS",
+"ov": false,
+"c": "#275e23"
+},
+{
+"key": "IFENCE",
+"id": 35,
+"n": "Verja de hierro",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+65
+],
+"walk": false,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#47474f"
+},
+{
+"key": "WFENCE",
+"id": 36,
+"n": "Valla de madera",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+66
+],
+"walk": false,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#724e2b"
+},
+{
+"key": "VWALL",
+"id": 37,
+"n": "Muro con enredadera",
+"cat": "muros",
+"layer": "obj",
+"spr": [
+67,
+68
+],
+"walk": false,
+"shot": true,
+"under": "STONEF",
+"ov": false,
+"c": "#514301"
+},
+{
+"key": "DOORW",
+"id": 38,
+"n": "Puerta de madera",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+69
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": false,
+"c": "#423029"
+},
+{
+"key": "DOORO",
+"id": 39,
+"n": "Puerta abierta",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+70
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#2f2827"
+},
+{
+"key": "DOORI",
+"id": 40,
+"n": "Puerta de hierro",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+71
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": false,
+"c": "#3d3f42"
+},
+{
+"key": "GATE",
+"id": 41,
+"n": "Reja (cerrada)",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+72
+],
+"walk": false,
+"shot": false,
+"under": "STONEF",
+"ov": false,
+"c": "#3a3a3a"
+},
+{
+"key": "DOORL",
+"id": 42,
+"n": "Puerta con llave (cerrada)",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+73
+],
+"walk": false,
+"shot": true,
+"under": "STONEF",
+"ov": false,
+"c": "#4b3929"
+},
+{
+"key": "STUP",
+"id": 43,
+"n": "Escalera de subida",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+74
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#5e5e5e",
+"stair": true
+},
+{
+"key": "STDN",
+"id": 44,
+"n": "Escalera de bajada",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+75
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": false,
+"c": "#515151",
+"stair": true
+},
+{
+"key": "LADDER",
+"id": 45,
+"n": "Escalera de mano",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+76
+],
+"walk": true,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#392717",
+"stair": true
+},
+{
+"key": "HOLE",
+"id": 46,
+"n": "Agujero",
+"cat": "puertas",
+"layer": "obj",
+"spr": [
+77
+],
+"walk": true,
+"shot": false,
+"under": "CAVE",
+"ov": true,
+"c": "#2d2d2d",
+"stair": true
+},
+{
+"key": "TABLE",
+"id": 47,
+"n": "Mesa",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+78
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#805830"
+},
+{
+"key": "CHAIR",
+"id": 48,
+"n": "Silla",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+79
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#6f4927"
+},
+{
+"key": "BED",
+"id": 49,
+"n": "Cama",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+80,
+81
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#924840"
+},
+{
+"key": "SHELF",
+"id": 50,
+"n": "Estantería de libros",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+82,
+83
+],
+"walk": false,
+"shot": true,
+"under": "WOODF",
+"ov": true,
+"c": "#624f41"
+},
+{
+"key": "BARREL",
+"id": 51,
+"n": "Barril",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+84
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#775230"
+},
+{
+"key": "CRATE",
+"id": 52,
+"n": "Caja",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+85
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#793f05"
+},
+{
+"key": "CHEST",
+"id": 53,
+"n": "Cofre",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+86
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#8a621d"
+},
+{
+"key": "CHEST2",
+"id": 54,
+"n": "Cofre grande",
+"cat": "muebles",
+"layer": "obj",
+"spr": [
+87
+],
+"walk": false,
+"shot": false,
+"under": "WOODF",
+"ov": true,
+"c": "#7f4709"
+},
+{
+"key": "TORCH",
+"id": 55,
+"n": "Antorcha (encendida)",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+88,
+89,
+90,
+91
+],
+"walk": false,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#694728",
+"anim": true,
+"light": true
+},
+{
+"key": "FOUNT",
+"id": 56,
+"n": "Fuente",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+92,
+93
+],
+"walk": false,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#417474",
+"anim": true
+},
+{
+"key": "STATA",
+"id": 57,
+"n": "Estatua de ángel",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+94
+],
+"walk": false,
+"shot": true,
+"under": "STONEF",
+"ov": true,
+"c": "#525252"
+},
+{
+"key": "STATS",
+"id": 58,
+"n": "Estatua de piedra",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+95
+],
+"walk": false,
+"shot": true,
+"under": "STONEF",
+"ov": true,
+"c": "#6f6f6f"
+},
+{
+"key": "COLUMN",
+"id": 59,
+"n": "Columna",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+96
+],
+"walk": false,
+"shot": true,
+"under": "TEMPLE",
+"ov": true,
+"c": "#b6b2ab"
+},
+{
+"key": "COLR",
+"id": 60,
+"n": "Columna rota",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+97
+],
+"walk": false,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#6c6c6c"
+},
+{
+"key": "ALTAR",
+"id": 61,
+"n": "Altar",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+98
+],
+"walk": false,
+"shot": false,
+"under": "TEMPLE",
+"ov": true,
+"c": "#a5a5a5"
+},
+{
+"key": "BANNER",
+"id": 62,
+"n": "Estandarte",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+99
+],
+"walk": false,
+"shot": false,
+"under": "STONEF",
+"ov": true,
+"c": "#311d1d"
+},
+{
+"key": "BONES",
+"id": 63,
+"n": "Huesos",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+100
+],
+"walk": true,
+"shot": false,
+"under": "CAVE",
+"ov": true,
+"c": "#9c9686"
+},
+{
+"key": "SKEL",
+"id": 64,
+"n": "Esqueleto",
+"cat": "deco",
+"layer": "obj",
+"spr": [
+101
+],
+"walk": true,
+"shot": false,
+"under": "CAVE",
+"ov": true,
+"c": "#434142"
+},
+{
+"key": "FLOWERS",
+"id": 65,
+"n": "Flores",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+102,
+103
+],
+"walk": true,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#888a52"
+},
+{
+"key": "SHROOM",
+"id": 66,
+"n": "Setas",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+104
+],
+"walk": true,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#a15148"
+},
+{
+"key": "LOG",
+"id": 67,
+"n": "Tronco caído",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+105
+],
+"walk": false,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#6e4e2d"
+},
+{
+"key": "CACTUS",
+"id": 68,
+"n": "Cactus",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+106
+],
+"walk": false,
+"shot": false,
+"under": "SAND",
+"ov": true,
+"c": "#357935"
+},
+{
+"key": "STONES",
+"id": 69,
+"n": "Piedritas",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+107
+],
+"walk": true,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#6f6b64"
+},
+{
+"key": "TALLG",
+"id": 70,
+"n": "Hierba alta",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+108,
+109
+],
+"walk": true,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#3d872d"
+},
+{
+"key": "DEADT",
+"id": 71,
+"n": "Árbol seco",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+110,
+111
+],
+"walk": false,
+"shot": true,
+"under": "GRASS",
+"ov": true,
+"c": "#414141"
+},
+{
+"key": "PALM",
+"id": 72,
+"n": "Palmera",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+112
+],
+"walk": false,
+"shot": true,
+"under": "SAND",
+"ov": true,
+"c": "#4e702b"
+},
+{
+"key": "BRIAR",
+"id": 73,
+"n": "Matorral",
+"cat": "natu",
+"layer": "obj",
+"spr": [
+113
+],
+"walk": false,
+"shot": false,
+"under": "GRASS",
+"ov": true,
+"c": "#1e2901"
+}
+]

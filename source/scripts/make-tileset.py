@@ -63,6 +63,7 @@ T = [L(F+"grass/grass_0_new.png"), L(F+"grass/grass_1_new.png"), L(F+"grass/gras
      ImageEnhance.Color(L("dungeon/boulder.png")).enhance(0.35),
      L("monster/fungi_plants/bush_2.png"), L("monster/fungi_plants/bush_3.png"),
      L(F+"white_marble_2.png")]
+exec(open(__file__.replace("make-tileset.py", "tiles27.py")).read())  # v27: más tiles (añade a T y escribe assets/tiles.json)
 atlas = Image.new("RGBA", (8 * 32, ((len(T) + 7) // 8) * 32), (0, 0, 0, 0))
 for i, t in enumerate(T): atlas.alpha_composite(t.resize((32, 32), Image.NEAREST), ((i % 8) * 32, (i // 8) * 32))
 atlas.save(sys.argv[2] if len(sys.argv) > 2 else "assets/tileset.png", optimize=True); print(len(T), "tiles", atlas.size)

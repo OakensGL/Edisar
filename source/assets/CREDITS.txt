@@ -11,3 +11,24 @@ Tiles del mapa (v26): assets/tileset.png (atlas 8×5 de 32×32 px), generado con
     dungeon/boulder.png (desaturado), monster/fungi_plants (bush_2, bush_3). Algunos con brillo/color retocado.
   - Suelo y muro de madera y nieve: dibujados por código en scripts/make-tileset.py (propios, CC0).
   No se usa ningún sprite de Tibia.
+
+Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts/tiles27.py.
+  - Del mismo paquete DCSS (CC0): grass_flowers_*, mud_*, ice_*_new, white_marble (invertido = mármol negro),
+    floor_sand_rock_* (grava), moss_*, brick_gray_* (muro de castillo), stone_brick_1 (ruinas), marble_wall_*,
+    brick_brown-vines_* (muro con enredadera), doors/closed_door, doors/open_door, doors/gate_closed_middle,
+    gateways/stone_stairs_up, gateways/stone_stairs_down, traps/shaft (agujero), large_box (caja), chest,
+    chest_2_closed, wall/torches/torch_1..4 (antorcha animada), blue_fountain(_2), statues/statue_angel,
+    statues/granite_statue, statues/crumbled_column, altars/altar_zin, wall/banners/banner_1,
+    skeletons/skeleton_humanoid_small_new, trees/tree_*_lightred (en gris = árbol seco), fungi_plants/briar_patch.
+    Hierba seca y algunos más: recoloreados/retocados a partir de esos mismos tiles.
+  - Dibujados por código (propios, CC0): alfombras roja/azul, puente de tablas, corte de ruina, seto, verja de hierro,
+    valla de madera, candado de la puerta cerrada, escalera de mano, mesa, silla, camas, estanterías, barril, columna,
+    huesos, flores, setas, tronco caído, cactus, piedritas, hierba alta, palmera.
+  - Lava (rehecha en v27): 4 fotogramas de lava fundida naranja/rojo/amarillo con grietas brillantes, generados por
+    código (campos senoidales periódicos, sin costuras); en el juego además brilla y burbujea.
+  - Boris, el Caballero Blanco (v27): sprite pixel art propio (30×34, dibujado en código, src/game.canvas.tsx),
+    inspirado en el diseño de referencia del dueño; sin arte de terceros.
+  - White Knight (v27): sprite pixel art propio (30×34, dibujado en código, src/game.canvas.tsx), caballera de
+    uniforme blanco y capa azul marino, inspirado en la referencia del dueño; sin arte de terceros (CC0 / propio).
+  - Mapa oficial (assets/map.json, v27): dibujado por Juan Carlos en el editor (torre del White Knight incluida).
+  No se usa ningún sprite de Tibia.

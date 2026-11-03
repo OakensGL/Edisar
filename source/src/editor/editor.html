@@ -11,7 +11,7 @@ button{cursor:pointer}button:hover{border-color:#ffd34d}button.on{background:#5a
 aside{overflow:auto;padding:8px;background:#141210;border-right:1px solid #3a3020;display:flex;flex-direction:column;gap:10px}
 aside h2{font:700 12px Georgia,serif;color:#ffd34d;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px}
 .row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}.pal{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px;font-size:10px;line-height:1.1;text-align:center}.tile canvas{width:40px;height:40px;image-rendering:pixelated}
+.tabs{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}.tabs button{padding:3px 7px;font-size:12px}.tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px;font-size:10px;line-height:1.1;text-align:center}.tile canvas{width:40px;height:40px;image-rendering:pixelated}
 main{position:relative;overflow:hidden}#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 #ov{width:100%;image-rendering:pixelated;border:1px solid #3a3020;cursor:pointer}
 footer{grid-column:1/3;display:flex;gap:12px;padding:4px 10px;background:#141210;border-top:1px solid #3a3020;font-size:12px}#info{flex:1;color:#cfc6b8}#status{color:#7dffb0}#saved{color:#aaa}
@@ -26,16 +26,19 @@ footer{grid-column:1/3;display:flex;gap:12px;padding:4px 10px;background:#141210
 <aside>
 <div><h2>Herramientas</h2><div class="row"><button data-tool="brush" title="B">🖌 Pincel</button><button data-tool="erase" title="E">🧽 Borrar</button><button data-tool="fill" title="F">🪣 Rellenar</button><button data-tool="pick" title="I">💧 Cuentagotas</button><button data-tool="pan" title="H">✋ Mover</button></div>
 <div class="row" style="margin-top:4px">Pincel: <button data-brush="1" class="on">1</button><button data-brush="2">2</button><button data-brush="3">3</button><button data-brush="5">5</button></div>
-<div class="hint" style="margin-top:4px">Capa activa: <b id="layer">Suelo</b>. Borrar en «Suelo» pone hierba; en «Muros y objetos» deja la casilla vacía (se ve el suelo).</div></div>
-<div><h2>Suelos</h2><div id="pal-floor" class="pal"></div></div>
-<div><h2>Muros y objetos</h2><div id="pal-obj" class="pal"></div></div>
-<div><h2>Marcadores</h2><div class="row"><button data-mark="spawn"><span class="dot" style="background:#ff4a4a"></span>Monstruo</button><button data-mark="npc"><span class="dot" style="background:#4aa8ff"></span>NPC</button><button data-mark="portal"><span class="dot" style="background:#d070ff"></span>Portal</button></div>
+<div class="hint" style="margin-top:4px">Capa activa: <b id="layer">Suelo</b>. Borrar en «Suelo» pone hierba; en objetos deja la casilla vacía (se ve el suelo).</div></div>
+<div><h2>Paleta</h2><div id="tabs" class="tabs"></div><div id="pal" class="pal"></div>
+<div id="markbox" style="display:none"><div class="row"><button data-mark="spawn"><span class="dot" style="background:#ff4a4a"></span>Monstruo</button><button data-mark="npc"><span class="dot" style="background:#4aa8ff"></span>NPC</button><button data-mark="portal"><span class="dot" style="background:#d070ff"></span>Portal</button><button data-mark="safe"><span class="dot" style="background:#5aff8c"></span>Zona segura</button></div>
 <div class="row" style="margin-top:4px">Monstruo <select id="mon" style="flex:1;min-width:0"></select></div>
 <div class="row" style="margin-top:4px">NPC <input id="npcname" placeholder="Nombre" style="flex:1;min-width:0"></div>
 <div class="row" style="margin-top:4px">Portal a x <input id="ptx" style="width:52px"> y <input id="pty" style="width:52px"> <input id="pname" placeholder="Nombre (opcional)" style="flex:1;min-width:80px"></div>
+<div class="row" style="margin-top:4px"><button id="wkmarks" title="Convierte los respawns de fábrica de la Fortaleza del White Knight (y Boris) en marcadores que puedes mover o borrar">🛡 Editar respawns White Knight / Boris</button></div>
 <div class="row" style="margin-top:4px"><button id="clearmarks">Borrar todos los marcadores</button></div>
-<div class="hint">En el juego: los monstruos aparecen al entrar con el personaje; el portal pone una casilla de portal que te lleva a x, y. Los NPC se guardan en el archivo pero el juego aún no los crea. Puntos naranjas = monstruos del mapa original (solo referencia).</div></div>
-<div><h2>Ver</h2><div class="row"><label><input type="checkbox" data-view="floor" checked> Suelo</label><label><input type="checkbox" data-view="obj" checked> Objetos</label><label><input type="checkbox" data-view="marks" checked> Marcadores</label><label><input type="checkbox" data-view="ref" checked> Monstruos originales</label><label><input type="checkbox" data-view="grid"> Cuadrícula (G)</label></div></div>
+<div class="hint">Si el mapa trae marcadores de White Knight o de Boris, en el juego sustituyen a sus respawns de fábrica (los puntos naranjas de ese monstruo desaparecen).</div>
+<div class="hint">En el juego: los monstruos aparecen al entrar con el personaje; el portal te lleva a x, y (coordenadas del editor). Pon un portal encima de una escalera, escalera de mano o agujero (pestaña Puertas) y funcionará como escalera. «Zona segura»: píntala con el pincel (sin monstruos, como la villa); la línea verde discontinua es la zona segura original. Los NPC se guardan pero el juego aún no los crea. Puntos naranjas = monstruos del mapa original.</div></div></div>
+<div><h2>Tamaño del mapa</h2><div id="size" class="hint"></div><div class="row" style="margin-top:4px">Agrandar <input id="grown" value="10" style="width:46px"> casillas: <button data-grow="n">⬆ Norte</button><button data-grow="s">⬇ Sur</button><button data-grow="w">⬅ Oeste</button><button data-grow="e">➡ Este</button></div>
+<div class="hint">La tierra nueva sale de hierba; todo lo demás (marcadores, portales, zona segura) se mueve con el mapa. El marco amarillo es el mundo original. Para hacer más grande la villa: agranda el mapa si hace falta, pinta muros/suelo más afuera y pinta «Zona segura» (Marcadores). Máximo 1024×1024.</div></div>
+<div><h2>Ver</h2><div class="row"><label><input type="checkbox" data-view="floor" checked> Suelo</label><label><input type="checkbox" data-view="obj" checked> Objetos</label><label><input type="checkbox" data-view="marks" checked> Marcadores</label><label><input type="checkbox" data-view="ref" checked> Monstruos originales</label><label><input type="checkbox" data-view="safe" checked> Zona segura</label><label><input type="checkbox" data-view="grid"> Cuadrícula (G)</label></div></div>
 <div><h2>Vista general</h2><canvas id="ov"></canvas></div>
 <div class="hint">Rueda: zoom · clic derecho / rueda pulsada / espacio + arrastrar: mover · flechas: desplazar. Todo se guarda solo en este navegador. Para usar el mapa en el juego: «Exportar JSON» y luego, en el juego, Modo GM → «Cargar mapa…».</div>
 </aside>

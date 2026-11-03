@@ -67,6 +67,14 @@ const GEM_BHP = 1.2, GEM_BATK = 1.0, GEM_KHP = 0.8, GEM_KATK = 1.1; // Saga y Ka
 const MW = OW_W + 7 * HW; const UW_X0 = OW_W + 4 * HW, UW_R0 = NH + 2; const MH = Math.max(OW_H, 3 * HH); const EXP_RATE = 3; /* v22: era 5 (×0,6) */ const DIAG_MUL = 1.4; const BAG_MAX = 20;
 const GRASS = 0, TREE = 1, WATER = 2, WALL = 3, FLOOR = 4, TEMPLE = 5, ROCK = 6, CAVE = 7, SAND = 8, PATH = 9, BOULDER = 10, PORTAL = 11, MARBLE = 12, HWALL = 13;
 const LAVA = 14, SNOW = 15, WOODF = 16, STONEF = 17, BRICK = 18, WWALL = 19, BUSH = 20; // v26: tiles nuevos (sobre todo para el editor de mapas)
+// v27: más tiles (suelos, muros, puertas, muebles, decoración, naturaleza). Reglas: TILE_WALK = se pisa; TILE_SHOT = bloquea disparos.
+const T_DRYG = 21, T_FLOWG = 22, T_MUD = 23, T_ICE = 24, T_BMARB = 25, T_CARPR = 26, T_CARPB = 27, T_BRIDGE = 28, T_GRAVEL = 29, T_MOSS = 30, T_CWALL = 31, T_RUIN = 32, T_MWALL = 33, T_HEDGE = 34, T_IFENCE = 35, T_WFENCE = 36, T_VWALL = 37, T_DOORW = 38, T_DOORO = 39, T_DOORI = 40, T_GATE = 41, T_DOORL = 42, T_STUP = 43, T_STDN = 44, T_LADDER = 45, T_HOLE = 46, T_TABLE = 47, T_CHAIR = 48, T_BED = 49, T_SHELF = 50, T_BARREL = 51, T_CRATE = 52, T_CHEST = 53, T_CHEST2 = 54, T_TORCH = 55, T_FOUNT = 56, T_STATA = 57, T_STATS = 58, T_COLUMN = 59, T_COLR = 60, T_ALTAR = 61, T_BANNER = 62, T_BONES = 63, T_SKEL = 64, T_FLOWERS = 65, T_SHROOM = 66, T_LOG = 67, T_CACTUS = 68, T_STONES = 69, T_TALLG = 70, T_DEADT = 71, T_PALM = 72, T_BRIAR = 73;
+const TILE_WALK = new Set<number>([T_DRYG, T_FLOWG, T_MUD, T_ICE, T_BMARB, T_CARPR, T_CARPB, T_BRIDGE, T_GRAVEL, T_MOSS, T_DOORW, T_DOORO, T_DOORI, T_STUP, T_STDN, T_LADDER, T_HOLE, T_BONES, T_SKEL, T_FLOWERS, T_SHROOM, T_STONES, T_TALLG]);
+const TILE_SHOT = new Set<number>([T_CWALL, T_RUIN, T_MWALL, T_HEDGE, T_VWALL, T_DOORL, T_SHELF, T_STATA, T_STATS, T_COLUMN, T_DEADT, T_PALM]);
+// v27: mapa del editor más grande que el mundo (544×144): MAPX guarda el archivo entero; el mundo original empieza en (ox, oy) del archivo.
+interface MapExt { w: number; h: number; ox: number; oy: number; tiles: Uint8Array; under: Uint8Array; safe: Uint8Array | null; }
+let MAPX: MapExt | null = null;
+const WK_X0 = 2, WK_Y0 = 60, WK_X1 = 18, WK_Y1 = 101; const WK_KEEP: [number, number, number, number] = [3, 61, 10, 66]; // v27: Torre del White Knight (la de Juan Carlos, suroeste de la villa) y su cima
 const TX0 = 40, TY0 = 28 + OY, TX1 = 56, TY1 = 40 + OY, TEMPLE_X = 44, TEMPLE_Y = 31 + OY, NPC_X = 53, NPC_Y = 31 + OY;
 const PLAYER_T = -7;
 const NPC_NAME = "Rosa la mercader";
@@ -344,7 +352,7 @@ const EXTRA_SPAWNS: Array<[MonId, number, number]> = [
 function monDef(id: string): MonDef | undefined { return MONS[id]; }
 
 // ===================== Las 12 Casas del Zodiaco =====================
-type Body = "quad" | "crab" | "scorp" | "fish" | "ghost" | "golem" | "plant" | "centaur" | "crystal" | "warrior" | "saint" | "shadow";
+type Body = "quad" | "crab" | "scorp" | "fish" | "ghost" | "golem" | "plant" | "centaur" | "crystal" | "warrior" | "saint" | "shadow" | "boris" | "wknight";
 type Horn = "curl" | "bull" | "goat" | "mane" | "none";
 interface MonLook { body: Body; c1: string; c2: string; c3: string; s: number; horn: Horn; glyph: string; alpha: number; }
 type SpecKind = "nova" | "line" | "pull" | "freeze" | "poison" | "blink" | "summon" | "ranged" | "clones" | "banish" | "galaxy";
@@ -462,46 +470,105 @@ function moveVec(held: MoveAct[]): [number, number] | null {
 }
 function expFor(L: number): number { return Math.round((50 / 3) * (L * L * L - 6 * L * L + 17 * L - 12)); }
 function levelFor(exp: number): number { let L = 1; while (L < 500 && expFor(L + 1) <= exp) L++; return L; }
-function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL || t === SNOW || t === WOODF || t === STONEF; }
-function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL || t === BRICK || t === WWALL; }
-function regionOf(x: number, y: number): number { if (x >= UW_X0) return UW_R0 + clamp(Math.floor(y / HH), 0, 2) * 3 + clamp(Math.floor((x - UW_X0) / HW), 0, 2); if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
-function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r >= UW_R0) { const i = r - UW_R0; return [UW_X0 + (i % 3) * HW, Math.floor(i / 3) * HH, HW, HH]; } if (r <= 0) return [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
+function walkable(t: number): boolean { return t === GRASS || t === FLOOR || t === TEMPLE || t === CAVE || t === SAND || t === PATH || t === MARBLE || t === PORTAL || t === SNOW || t === WOODF || t === STONEF || (t > 20 && TILE_WALK.has(t)); }
+function blocksShot(t: number): boolean { return t === TREE || t === WALL || t === ROCK || t === BOULDER || t === HWALL || t === BRICK || t === WWALL || (t > 20 && TILE_SHOT.has(t)); }
+function regionOf(x: number, y: number): number { if (outCore(x, y)) return 0; if (x >= UW_X0) return UW_R0 + clamp(Math.floor(y / HH), 0, 2) * 3 + clamp(Math.floor((x - UW_X0) / HW), 0, 2); if (x < OW_W) return inDim(x, y) ? NH : inCroq(x, y) ? CROQ_R : 0; const c = Math.floor((x - OW_W) / HW), r = Math.floor(y / HH); return clamp(r * 4 + c + 1, 1, NH); }
+function regionRect(r: number): [number, number, number, number] { if (r === CROQ_R) return CROQ_RECT; if (r >= UW_R0) { const i = r - UW_R0; return [UW_X0 + (i % 3) * HW, Math.floor(i / 3) * HH, HW, HH]; } if (r <= 0) return MAPX ? [-MAPX.ox, -MAPX.oy, OW_W + MAPX.ox, OW_H + MAPX.oy] : [0, 0, OW_W, OW_H]; const i = r - 1; return [OW_W + (i % 4) * HW, Math.floor(i / 4) * HH, HW, HH]; }
 function inRect(q: [number, number, number, number], x: number, y: number): boolean { return x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]; }
-function isSafe(x: number, y: number): boolean { return x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1; }
+function isSafe(x: number, y: number): boolean { return (x >= TX0 && x <= TX1 && y >= TY0 && y <= TY1) || (MAPX !== null && MAPX.safe !== null && extSafe(MAPX, x, y)); }
+function extSafe(m: MapExt, x: number, y: number): boolean { const fx = x + m.ox, fy = y + m.oy; return fx >= 0 && fy >= 0 && fx < m.w && fy < m.h && m.safe !== null && m.safe[fy * m.w + fx] === 1; }
+function extAt(x: number, y: number): number { const m = MAPX; if (!m) return ROCK; const fx = x + m.ox, fy = y + m.oy; return fx >= 0 && fy >= 0 && fx < m.w && fy < m.h ? (m.tiles[fy * m.w + fx] ?? ROCK) : ROCK; }
+function outCore(x: number, y: number): boolean { return x < 0 || y < 0 || x >= MW || y >= MH; }
+function extRect(x: number, y: number): [number, number, number, number] | null { const m = MAPX; return m && outCore(x, y) ? [-m.ox, -m.oy, m.w, m.h] : null; }
 
 // ===================== Mapa =====================
 // ---------- v26: catálogo de tiles (lo comparten el juego y el editor de mapas) ----------
 // spr = índices en assets/tileset.png (atlas de 8 columnas × 32 px; Dungeon Crawl Stone Soup, CC0 + madera/nieve dibujadas a mano).
-interface TileInfo { id: number; n: string; layer: "floor" | "obj"; spr: number[]; under?: number; }
+type TileCat = "suelos" | "muros" | "puertas" | "muebles" | "deco" | "natu";
+interface TileInfo { id: number; n: string; cat: TileCat; layer: "floor" | "obj"; spr: number[]; under?: number; c?: string; ov?: boolean; stair?: boolean; light?: boolean; anim?: boolean; walk?: boolean; shot?: boolean; }
 const TILE_INFO: TileInfo[] = [
-  { id: GRASS, n: "Hierba", layer: "floor", spr: [0, 1, 2] },
-  { id: PATH, n: "Tierra / camino", layer: "floor", spr: [4, 5] },
-  { id: FLOOR, n: "Empedrado (villa)", layer: "floor", spr: [6, 7] },
-  { id: STONEF, n: "Suelo de piedra", layer: "floor", spr: [20, 21] },
-  { id: WOODF, n: "Suelo de madera", layer: "floor", spr: [22, 23] },
-  { id: TEMPLE, n: "Mármol del templo", layer: "floor", spr: [8, 9] },
-  { id: MARBLE, n: "Mármol de las Casas", layer: "floor", spr: [39, 8] },
-  { id: SAND, n: "Arena", layer: "floor", spr: [10, 11] },
-  { id: CAVE, n: "Suelo de cueva", layer: "floor", spr: [16, 17] },
-  { id: SNOW, n: "Nieve", layer: "floor", spr: [18, 19] },
-  { id: WATER, n: "Agua (no se pisa)", layer: "floor", spr: [12, 13] },
-  { id: LAVA, n: "Lava (no se pisa)", layer: "floor", spr: [14, 15] },
-  { id: WALL, n: "Muro de piedra", layer: "obj", spr: [24, 25], under: STONEF },
-  { id: BRICK, n: "Muro de ladrillo", layer: "obj", spr: [26, 27], under: STONEF },
-  { id: WWALL, n: "Muro de madera", layer: "obj", spr: [32, 33], under: WOODF },
-  { id: HWALL, n: "Muro dorado (Casas)", layer: "obj", spr: [28, 29], under: MARBLE },
-  { id: ROCK, n: "Roca de cueva", layer: "obj", spr: [30, 31], under: CAVE },
-  { id: TREE, n: "Árbol", layer: "obj", spr: [34, 35], under: GRASS },
-  { id: BUSH, n: "Arbusto", layer: "obj", spr: [37, 38], under: GRASS },
-  { id: BOULDER, n: "Piedra grande", layer: "obj", spr: [36], under: SAND },
-  { id: PORTAL, n: "Portal", layer: "obj", spr: [], under: MARBLE },
+  { id: GRASS, n: "Hierba", cat: "suelos", layer: "floor", spr: [0, 1, 2] },
+  { id: PATH, n: "Tierra / camino", cat: "suelos", layer: "floor", spr: [4, 5] },
+  { id: FLOOR, n: "Empedrado (villa)", cat: "suelos", layer: "floor", spr: [6, 7] },
+  { id: STONEF, n: "Suelo de piedra", cat: "suelos", layer: "floor", spr: [20, 21] },
+  { id: WOODF, n: "Suelo de madera", cat: "suelos", layer: "floor", spr: [22, 23] },
+  { id: TEMPLE, n: "Mármol del templo", cat: "suelos", layer: "floor", spr: [8, 9] },
+  { id: MARBLE, n: "Mármol de las Casas", cat: "suelos", layer: "floor", spr: [39, 8] },
+  { id: SAND, n: "Arena", cat: "suelos", layer: "floor", spr: [10, 11] },
+  { id: CAVE, n: "Suelo de cueva", cat: "suelos", layer: "floor", spr: [16, 17] },
+  { id: SNOW, n: "Nieve", cat: "suelos", layer: "floor", spr: [18, 19] },
+  { id: WATER, n: "Agua (no se pisa)", cat: "suelos", layer: "floor", spr: [12, 13] },
+  { id: LAVA, n: "Lava (no se pisa)", cat: "suelos", layer: "floor", spr: [14, 15, 114, 115], anim: true },
+  { id: WALL, n: "Muro de piedra", cat: "muros", layer: "obj", spr: [24, 25], under: STONEF },
+  { id: BRICK, n: "Muro de ladrillo", cat: "muros", layer: "obj", spr: [26, 27], under: STONEF },
+  { id: WWALL, n: "Muro de madera", cat: "muros", layer: "obj", spr: [32, 33], under: WOODF },
+  { id: HWALL, n: "Muro dorado (Casas)", cat: "muros", layer: "obj", spr: [28, 29], under: MARBLE },
+  { id: ROCK, n: "Roca de cueva", cat: "muros", layer: "obj", spr: [30, 31], under: CAVE },
+  { id: TREE, n: "Árbol", cat: "natu", layer: "obj", spr: [34, 35], under: GRASS },
+  { id: BUSH, n: "Arbusto", cat: "natu", layer: "obj", spr: [37, 38], under: GRASS },
+  { id: BOULDER, n: "Piedra grande", cat: "natu", layer: "obj", spr: [36], under: SAND },
+  { id: PORTAL, n: "Portal", cat: "puertas", layer: "obj", spr: [], under: MARBLE },
+  { id: T_DRYG, n: "Hierba seca", cat: "suelos", layer: "floor", spr: [40, 41, 42], c: "#625527", walk: true, shot: false },
+  { id: T_FLOWG, n: "Hierba con flores", cat: "suelos", layer: "floor", spr: [43, 44, 45], c: "#0e490e", walk: true, shot: false },
+  { id: T_MUD, n: "Barro", cat: "suelos", layer: "floor", spr: [46, 47], c: "#2c1f0b", walk: true, shot: false },
+  { id: T_ICE, n: "Hielo", cat: "suelos", layer: "floor", spr: [48, 49], c: "#1d3d50", walk: true, shot: false },
+  { id: T_BMARB, n: "Mármol negro", cat: "suelos", layer: "floor", spr: [50, 51], c: "#29282a", walk: true, shot: false },
+  { id: T_CARPR, n: "Alfombra roja", cat: "suelos", layer: "floor", spr: [52], c: "#962923", walk: true, shot: false },
+  { id: T_CARPB, n: "Alfombra azul", cat: "suelos", layer: "floor", spr: [53], c: "#34437e", walk: true, shot: false },
+  { id: T_BRIDGE, n: "Puente de tablas", cat: "suelos", layer: "floor", spr: [54], c: "#75512d", walk: true, shot: false },
+  { id: T_GRAVEL, n: "Grava", cat: "suelos", layer: "floor", spr: [55, 56], c: "#77776b", walk: true, shot: false },
+  { id: T_MOSS, n: "Musgo", cat: "suelos", layer: "floor", spr: [57, 58], c: "#042b00", walk: true, shot: false },
+  { id: T_CWALL, n: "Muro de castillo", cat: "muros", layer: "obj", spr: [59, 60], under: STONEF, c: "#414141", walk: false, shot: true },
+  { id: T_RUIN, n: "Muro en ruinas", cat: "muros", layer: "obj", spr: [61], under: GRASS, c: "#818182", ov: true, walk: false, shot: true },
+  { id: T_MWALL, n: "Muro de mármol", cat: "muros", layer: "obj", spr: [62, 63], under: TEMPLE, c: "#6d9394", walk: false, shot: true },
+  { id: T_HEDGE, n: "Seto", cat: "muros", layer: "obj", spr: [64], under: GRASS, c: "#275e23", walk: false, shot: true },
+  { id: T_IFENCE, n: "Verja de hierro", cat: "muros", layer: "obj", spr: [65], under: GRASS, c: "#47474f", ov: true, walk: false, shot: false },
+  { id: T_WFENCE, n: "Valla de madera", cat: "muros", layer: "obj", spr: [66], under: GRASS, c: "#724e2b", ov: true, walk: false, shot: false },
+  { id: T_VWALL, n: "Muro con enredadera", cat: "muros", layer: "obj", spr: [67, 68], under: STONEF, c: "#514301", walk: false, shot: true },
+  { id: T_DOORW, n: "Puerta de madera", cat: "puertas", layer: "obj", spr: [69], under: STONEF, c: "#423029", walk: true, shot: false },
+  { id: T_DOORO, n: "Puerta abierta", cat: "puertas", layer: "obj", spr: [70], under: STONEF, c: "#2f2827", ov: true, walk: true, shot: false },
+  { id: T_DOORI, n: "Puerta de hierro", cat: "puertas", layer: "obj", spr: [71], under: STONEF, c: "#3d3f42", walk: true, shot: false },
+  { id: T_GATE, n: "Reja (cerrada)", cat: "puertas", layer: "obj", spr: [72], under: STONEF, c: "#3a3a3a", walk: false, shot: false },
+  { id: T_DOORL, n: "Puerta con llave (cerrada)", cat: "puertas", layer: "obj", spr: [73], under: STONEF, c: "#4b3929", walk: false, shot: true },
+  { id: T_STUP, n: "Escalera de subida", cat: "puertas", layer: "obj", spr: [74], under: STONEF, c: "#5e5e5e", ov: true, stair: true, walk: true, shot: false },
+  { id: T_STDN, n: "Escalera de bajada", cat: "puertas", layer: "obj", spr: [75], under: STONEF, c: "#515151", stair: true, walk: true, shot: false },
+  { id: T_LADDER, n: "Escalera de mano", cat: "puertas", layer: "obj", spr: [76], under: STONEF, c: "#392717", ov: true, stair: true, walk: true, shot: false },
+  { id: T_HOLE, n: "Agujero", cat: "puertas", layer: "obj", spr: [77], under: CAVE, c: "#2d2d2d", ov: true, stair: true, walk: true, shot: false },
+  { id: T_TABLE, n: "Mesa", cat: "muebles", layer: "obj", spr: [78], under: WOODF, c: "#805830", ov: true, walk: false, shot: false },
+  { id: T_CHAIR, n: "Silla", cat: "muebles", layer: "obj", spr: [79], under: WOODF, c: "#6f4927", ov: true, walk: false, shot: false },
+  { id: T_BED, n: "Cama", cat: "muebles", layer: "obj", spr: [80, 81], under: WOODF, c: "#924840", ov: true, walk: false, shot: false },
+  { id: T_SHELF, n: "Estantería de libros", cat: "muebles", layer: "obj", spr: [82, 83], under: WOODF, c: "#624f41", ov: true, walk: false, shot: true },
+  { id: T_BARREL, n: "Barril", cat: "muebles", layer: "obj", spr: [84], under: WOODF, c: "#775230", ov: true, walk: false, shot: false },
+  { id: T_CRATE, n: "Caja", cat: "muebles", layer: "obj", spr: [85], under: WOODF, c: "#793f05", ov: true, walk: false, shot: false },
+  { id: T_CHEST, n: "Cofre", cat: "muebles", layer: "obj", spr: [86], under: WOODF, c: "#8a621d", ov: true, walk: false, shot: false },
+  { id: T_CHEST2, n: "Cofre grande", cat: "muebles", layer: "obj", spr: [87], under: WOODF, c: "#7f4709", ov: true, walk: false, shot: false },
+  { id: T_TORCH, n: "Antorcha (encendida)", cat: "deco", layer: "obj", spr: [88, 89, 90, 91], under: STONEF, c: "#694728", ov: true, light: true, anim: true, walk: false, shot: false },
+  { id: T_FOUNT, n: "Fuente", cat: "deco", layer: "obj", spr: [92, 93], under: STONEF, c: "#417474", ov: true, anim: true, walk: false, shot: false },
+  { id: T_STATA, n: "Estatua de ángel", cat: "deco", layer: "obj", spr: [94], under: STONEF, c: "#525252", ov: true, walk: false, shot: true },
+  { id: T_STATS, n: "Estatua de piedra", cat: "deco", layer: "obj", spr: [95], under: STONEF, c: "#6f6f6f", ov: true, walk: false, shot: true },
+  { id: T_COLUMN, n: "Columna", cat: "deco", layer: "obj", spr: [96], under: TEMPLE, c: "#b6b2ab", ov: true, walk: false, shot: true },
+  { id: T_COLR, n: "Columna rota", cat: "deco", layer: "obj", spr: [97], under: STONEF, c: "#6c6c6c", ov: true, walk: false, shot: false },
+  { id: T_ALTAR, n: "Altar", cat: "deco", layer: "obj", spr: [98], under: TEMPLE, c: "#a5a5a5", ov: true, walk: false, shot: false },
+  { id: T_BANNER, n: "Estandarte", cat: "deco", layer: "obj", spr: [99], under: STONEF, c: "#311d1d", ov: true, walk: false, shot: false },
+  { id: T_BONES, n: "Huesos", cat: "deco", layer: "obj", spr: [100], under: CAVE, c: "#9c9686", ov: true, walk: true, shot: false },
+  { id: T_SKEL, n: "Esqueleto", cat: "deco", layer: "obj", spr: [101], under: CAVE, c: "#434142", ov: true, walk: true, shot: false },
+  { id: T_FLOWERS, n: "Flores", cat: "natu", layer: "obj", spr: [102, 103], under: GRASS, c: "#888a52", ov: true, walk: true, shot: false },
+  { id: T_SHROOM, n: "Setas", cat: "natu", layer: "obj", spr: [104], under: GRASS, c: "#a15148", ov: true, walk: true, shot: false },
+  { id: T_LOG, n: "Tronco caído", cat: "natu", layer: "obj", spr: [105], under: GRASS, c: "#6e4e2d", ov: true, walk: false, shot: false },
+  { id: T_CACTUS, n: "Cactus", cat: "natu", layer: "obj", spr: [106], under: SAND, c: "#357935", ov: true, walk: false, shot: false },
+  { id: T_STONES, n: "Piedritas", cat: "natu", layer: "obj", spr: [107], under: GRASS, c: "#6f6b64", ov: true, walk: true, shot: false },
+  { id: T_TALLG, n: "Hierba alta", cat: "natu", layer: "obj", spr: [108, 109], under: GRASS, c: "#3d872d", ov: true, walk: true, shot: false },
+  { id: T_DEADT, n: "Árbol seco", cat: "natu", layer: "obj", spr: [110, 111], under: GRASS, c: "#414141", ov: true, walk: false, shot: true },
+  { id: T_PALM, n: "Palmera", cat: "natu", layer: "obj", spr: [112], under: SAND, c: "#4e702b", ov: true, walk: false, shot: true },
+  { id: T_BRIAR, n: "Matorral", cat: "natu", layer: "obj", spr: [113], under: GRASS, c: "#1e2901", ov: true, walk: false, shot: false },
 ];
 const TILE_BY_ID: Array<TileInfo | undefined> = []; for (const ti of TILE_INFO) TILE_BY_ID[ti.id] = ti;
-const TILE_N = 21; const OBJ_NONE = 255;
+const TILE_N = 74; const OBJ_NONE = 255; const MAP_MAX = 1024;
 // ---------- v26: mapas exportados por el editor (editor.html) ----------
-// Formato JSON: { format: "edisar-map", v: 1, name, w, h, floor: RLE, obj: RLE (255 = vacío), marks: [...] }. RLE = "id" o "id*veces" separados por comas.
+// Formato JSON: { format: "edisar-map", v: 2, name, w, h, ox, oy, floor: RLE, obj: RLE (255 = vacío), safe?: RLE (1 = zona segura), marks: [...] }. RLE = "id" o "id*veces" separados por comas.
+// v2: w×h puede ser mayor que el mundo (hasta 1024×1024); el mundo original (544×144) empieza en (ox, oy). Las coordenadas de marks van en el archivo. v1 = 544×144 sin ox/oy.
 interface MapMark { k: "spawn" | "npc" | "portal"; x: number; y: number; m?: string; n?: string; tx?: number; ty?: number; }
-interface EdMap { tiles: Uint8Array; under: Uint8Array; marks: MapMark[]; name: string; }
+interface EdMap { tiles: Uint8Array; under: Uint8Array; marks: MapMark[]; name: string; x: MapExt; }
 const MAP_FILE = ""; // build.mjs mete aquí assets/map.json si existe (mapa publicado para todos)
 const MAP_LS = "edisar.map.v1"; // mapa cargado desde el panel GM (solo en este navegador)
 function rleEnc(a: ArrayLike<number>): string { const out: string[] = []; let i = 0; while (i < a.length) { const v = a[i] ?? 0; let n = 1; while (i + n < a.length && a[i + n] === v) n++; out.push(n > 1 ? `${v}*${n}` : String(v)); i += n; } return out.join(","); }
@@ -512,19 +579,25 @@ function rleDec(str: string, len: number): Uint8Array | null {
 }
 function parseMapFile(txt: string): EdMap | string {
   let d: unknown; try { d = JSON.parse(txt); } catch { return "El archivo no es un JSON válido."; }
-  const o = d as { format?: unknown; w?: unknown; h?: unknown; floor?: unknown; obj?: unknown; marks?: unknown; name?: unknown } | null;
+  const o = d as { format?: unknown; v?: unknown; w?: unknown; h?: unknown; ox?: unknown; oy?: unknown; floor?: unknown; obj?: unknown; safe?: unknown; marks?: unknown; name?: unknown } | null;
   if (!o || o.format !== "edisar-map") return "No es un mapa de Edisar (falta format: \"edisar-map\").";
-  if (o.w !== MW || o.h !== MH) return `El mapa debe medir ${MW}×${MH} (este mide ${String(o.w)}×${String(o.h)}).`;
+  const w = o.w, h = o.h, ox = o.v === 1 || o.ox === undefined ? 0 : o.ox, oy = o.v === 1 || o.oy === undefined ? 0 : o.oy;
+  if (typeof w !== "number" || typeof h !== "number" || typeof ox !== "number" || typeof oy !== "number" || !Number.isInteger(w) || !Number.isInteger(h) || !Number.isInteger(ox) || !Number.isInteger(oy)) return "Tamaño del mapa no válido.";
+  if (w > MAP_MAX || h > MAP_MAX) return `El mapa es demasiado grande (máximo ${MAP_MAX}×${MAP_MAX}).`;
+  if (ox < 0 || oy < 0 || ox + MW > w || oy + MH > h) return `El mapa debe contener el mundo original (${MW}×${MH}); este mide ${w}×${h} con origen ${ox}, ${oy}.`;
   if (typeof o.floor !== "string" || typeof o.obj !== "string") return "Faltan las capas floor / obj.";
-  const fl = rleDec(o.floor, MW * MH), ob = rleDec(o.obj, MW * MH); if (!fl || !ob) return "Las capas del mapa están dañadas.";
+  const N = w * h; const fl = rleDec(o.floor, N), ob = rleDec(o.obj, N); if (!fl || !ob) return "Las capas del mapa están dañadas.";
+  const sf = typeof o.safe === "string" ? rleDec(o.safe, N) : null;
+  const ft = new Uint8Array(N), fu = new Uint8Array(N);
+  for (let i = 0; i < N; i++) { const f = fl[i] ?? GRASS, b = ob[i] ?? OBJ_NONE; const fo = f < TILE_N ? f : GRASS; fu[i] = fo; ft[i] = b !== OBJ_NONE && b < TILE_N ? b : fo; }
   const tiles = new Uint8Array(MW * MH), under = new Uint8Array(MW * MH);
-  for (let i = 0; i < tiles.length; i++) { const f = fl[i] ?? GRASS, b = ob[i] ?? OBJ_NONE; const fo = f < TILE_N ? f : GRASS; under[i] = fo; tiles[i] = b !== OBJ_NONE && b < TILE_N ? b : fo; }
+  for (let y = 0; y < MH; y++) { const s0 = (y + oy) * w + ox; tiles.set(ft.subarray(s0, s0 + MW), y * MW); under.set(fu.subarray(s0, s0 + MW), y * MW); }
   const marks: MapMark[] = [];
   if (Array.isArray(o.marks)) for (const raw of o.marks as unknown[]) {
     const m = raw as Record<string, unknown> | null; if (!m || typeof m.x !== "number" || typeof m.y !== "number") continue; const k = m.k; if (k !== "spawn" && k !== "npc" && k !== "portal") continue;
-    marks.push({ k, x: m.x | 0, y: m.y | 0, m: typeof m.m === "string" ? m.m : undefined, n: typeof m.n === "string" ? m.n.slice(0, 40) : undefined, tx: typeof m.tx === "number" ? m.tx | 0 : undefined, ty: typeof m.ty === "number" ? m.ty | 0 : undefined });
+    marks.push({ k, x: (m.x | 0) - ox, y: (m.y | 0) - oy, m: typeof m.m === "string" ? m.m : undefined, n: typeof m.n === "string" ? m.n.slice(0, 40) : undefined, tx: typeof m.tx === "number" ? (m.tx | 0) - ox : undefined, ty: typeof m.ty === "number" ? (m.ty | 0) - oy : undefined });
   }
-  return { tiles, under, marks, name: typeof o.name === "string" && o.name ? o.name.slice(0, 60) : "mapa sin nombre" };
+  return { tiles, under, marks, name: typeof o.name === "string" && o.name ? o.name.slice(0, 60) : "mapa sin nombre", x: { w, h, ox, oy, tiles: ft, under: fu, safe: sf && sf.some((v: number) => v === 1) ? sf : null } };
 }
 let CUSTOM_MAP: EdMap | null | undefined; // undefined = aún no leído
 function customMap(): EdMap | null {
@@ -533,11 +606,14 @@ function customMap(): EdMap | null {
   for (const t of [txt, MAP_FILE]) { if (!t) continue; const r = parseMapFile(t); if (typeof r !== "string") { CUSTOM_MAP = r; break; } }
   return CUSTOM_MAP;
 }
-function exportMapFile(tiles: Uint8Array, under: Uint8Array | null, marks: MapMark[], name: string): string {
-  const fl = new Uint8Array(MW * MH), ob = new Uint8Array(MW * MH).fill(OBJ_NONE);
-  for (let i = 0; i < fl.length; i++) { const t = tiles[i] ?? ROCK; const inf = TILE_BY_ID[t]; const u = under ? under[i] : undefined;
+function exportMapFile(tiles: Uint8Array, under: Uint8Array | null, marks: MapMark[], name: string, ext?: MapExt | null): string {
+  const e = ext ?? null; const w = e ? e.w : MW, h = e ? e.h : MH, ox = e ? e.ox : 0, oy = e ? e.oy : 0; const N = w * h;
+  const fl = new Uint8Array(N), ob = new Uint8Array(N).fill(OBJ_NONE);
+  for (let fy = 0; fy < h; fy++) for (let fx = 0; fx < w; fx++) { const i = fy * w + fx, x = fx - ox, y = fy - oy; const core = !outCore(x, y);
+    const t = core ? (tiles[y * MW + x] ?? ROCK) : (e ? e.tiles[i] ?? GRASS : GRASS); const inf = TILE_BY_ID[t]; const u = core ? (under ? under[y * MW + x] : undefined) : (e ? e.under[i] : undefined);
     if (inf && inf.layer === "obj") { ob[i] = t; fl[i] = u !== undefined && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS); } else fl[i] = t; }
-  return JSON.stringify({ format: "edisar-map", v: 1, name, w: MW, h: MH, floor: rleEnc(fl), obj: rleEnc(ob), marks });
+  const mk = marks.map((m: MapMark) => ({ ...m, x: m.x + ox, y: m.y + oy, tx: m.tx === undefined ? undefined : m.tx + ox, ty: m.ty === undefined ? undefined : m.ty + oy }));
+  return JSON.stringify({ format: "edisar-map", v: 2, name, w, h, ox, oy, floor: rleEnc(fl), obj: rleEnc(ob), safe: e && e.safe ? rleEnc(e.safe) : undefined, marks: mk });
 }
 // Marcador «portal» del editor: al pisar el portal en (x, y) te lleva a (tx, ty).
 function markPortal(g: Game, now: number): boolean {
@@ -630,8 +706,9 @@ function buildOverworld(big: Uint8Array): Uint8Array {
   for (let y = 0; y < MH; y++) { set(0, y, TREE); set(1, y, TREE); set(MW - 1, y, TREE); set(MW - 2, y, TREE); }
   return m;
 }
-function tileAt(g: Game, x: number, y: number): number { if (x < 0 || y < 0 || x >= MW || y >= MH) return ROCK; return g.tiles[y * MW + x] ?? ROCK; }
+function tileAt(g: Game, x: number, y: number): number { if (x < 0 || y < 0 || x >= MW || y >= MH) return MAPX ? extAt(x, y) : ROCK; return g.tiles[y * MW + x] ?? ROCK; }
 function zoneName(g: Game, x: number, y: number): string {
+  if (outCore(x, y)) return "🧭 Tierras nuevas";
   const r = regionOf(x, y);
   if (inDim(x, y)) return "✦ ??? — Otra Dimensión";
   if (r === CROQ_R) return croqZone(x, y);
@@ -642,6 +719,7 @@ function zoneName(g: Game, x: number, y: number): string {
   if (y < OY) return "Santuario: camino de las 12 Casas";
   const oy = y - OY;
   if (isSafe(x, y)) return "Villa Esmeralda (zona segura)";
+  if (inWkZone(g, x, y)) return wkZoneName(x, y);
   if (tileAt(g, x, y) === CAVE) return x >= 89 && oy >= 16 ? "Trono del Rey Minotauro" : "Cueva del Minotauro";
   if (oy >= 56 && x >= 36) return "Desierto de las Avispas";
   if (x < 32 && oy < 34) return "Bosque de los Trolls";
@@ -667,22 +745,26 @@ function los(g: Game, x0: number, y0: number, x1: number, y1: number): boolean {
   return true;
 }
 // BFS acotado, 8 direcciones; en diagonal solo importa la casilla destino. Los portales solo cuentan si son la meta.
-const BFS_PREV = new Int32Array(MW * MH);
-const BFS_Q = new Int32Array(MW * MH);
-const OCC = new Uint8Array(MW * MH);
+let BFS_PREV = new Int32Array(MW * MH);
+let BFS_Q = new Int32Array(MW * MH);
+let OCC = new Uint8Array(MW * MH);
+// v27: la rejilla de búsqueda cubre el archivo de mapa entero (puede ser mayor que el mundo); índice = (y + oy) * BW + (x + ox)
+let BW = MW, BH = MH, BOX = 0, BOY = 0;
+function bfsGrid(): void { const m = MAPX; const w = m ? m.w : MW, h = m ? m.h : MH; if (w * h !== BFS_PREV.length) { BFS_PREV = new Int32Array(w * h); BFS_Q = new Int32Array(w * h); OCC = new Uint8Array(w * h); } BW = w; BH = h; BOX = m ? m.ox : 0; BOY = m ? m.oy : 0; }
+function bix(x: number, y: number): number { return (y + BOY) * BW + x + BOX; }
 function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) => boolean, maxNodes: number): [number, number] | null {
   if (goal(sx, sy)) return null;
-  BFS_PREV.fill(-1); OCC.fill(0);
-  for (const m of regionMons(g, sx, sy)) if (m.alive) OCC[m.y * MW + m.x] = 1;
-  OCC[NPC_Y * MW + NPC_X] = 1; OCC[DARIO_Y * MW + DARIO_X] = 1; OCC[DEPOT_Y * MW + DEPOT_X] = 1; OCC[STABLE_Y * MW + STABLE_X] = 1; for (const qn of QNPCS) OCC[qn.y * MW + qn.x] = 1;
-  const start = sy * MW + sx; BFS_PREV[start] = start;
+  bfsGrid(); BFS_PREV.fill(-1); OCC.fill(0);
+  for (const m of regionMons(g, sx, sy)) if (m.alive) OCC[bix(m.x, m.y)] = 1;
+  OCC[bix(NPC_X, NPC_Y)] = 1; OCC[bix(DARIO_X, DARIO_Y)] = 1; OCC[bix(DEPOT_X, DEPOT_Y)] = 1; OCC[bix(STABLE_X, STABLE_Y)] = 1; for (const qn of QNPCS) OCC[bix(qn.x, qn.y)] = 1;
+  const start = bix(sx, sy); BFS_PREV[start] = start;
   let head = 0, tail = 0, found = -1; BFS_Q[tail++] = start;
   while (head < tail && head < maxNodes && found < 0) {
-    const cur = BFS_Q[head++] ?? start; const cx = cur % MW, cy = (cur - cx) / MW;
+    const cur = BFS_Q[head++] ?? start; const bx0 = cur % BW, by0 = (cur - bx0) / BW; const cx = bx0 - BOX, cy = by0 - BOY;
     for (const [dx, dy] of DIRS8) {
       const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= MW || ny >= MH) continue;
-      const ni = ny * MW + nx; const t = tileAt(g, nx, ny);
+      if (nx + BOX < 0 || ny + BOY < 0 || nx + BOX >= BW || ny + BOY >= BH) continue;
+      const ni = bix(nx, ny); const t = tileAt(g, nx, ny);
       if ((BFS_PREV[ni] ?? 0) !== -1 || (OCC[ni] ?? 0) === 1 || !walkable(t)) continue;
       const isGoal = goal(nx, ny);
       if (t === PORTAL && !isGoal) continue;
@@ -693,8 +775,8 @@ function bfsStep(g: Game, sx: number, sy: number, goal: (x: number, y: number) =
   }
   if (found < 0) return null;
   let c = found, guard = 0;
-  while ((BFS_PREV[c] ?? start) !== start && guard++ < MW * MH) c = BFS_PREV[c] ?? start;
-  const fx = c % MW, fy = (c - fx) / MW;
+  while ((BFS_PREV[c] ?? start) !== start && guard++ < BW * BH) c = BFS_PREV[c] ?? start;
+  const fx = (c % BW) - BOX, fy = Math.floor(c / BW) - BOY;
   return [fx - sx, fy - sy];
 }
 
@@ -841,21 +923,23 @@ function teleport(g: Game, x: number, y: number, now: number): void {
   dropCarry(g, x, y, now);
 }
 function newGame(cls: ClassDef, name: string): Game {
-  const cmap = customMap(); const tiles = cmap ? cmap.tiles.slice() : buildMap(); const used = new Set<number>(); const mons: Mon[] = []; // v26: mapa del editor si hay uno cargado
-  const okSpot = (x: number, y: number): boolean => { if (x < 0 || y < 0 || x >= MW || y >= MH) return false; return walkable(tiles[y * MW + x] ?? ROCK) && tiles[y * MW + x] !== PORTAL && !isSafe(x, y) && !used.has(y * MW + x); };
+  const cmap = customMap(); MAPX = cmap ? cmap.x : null; const base = buildMap(); const tiles = cmap ? cmap.tiles.slice() : base; /* v27: buildMap() siempre: también rellena las salas de las Casas (HRT), que un mapa del editor no trae */ const used = new Set<number>(); const mons: Mon[] = []; // v26: mapa del editor si hay uno cargado
+  const okSpot = (x: number, y: number): boolean => { const tt = outCore(x, y) ? extAt(x, y) : (tiles[y * MW + x] ?? ROCK); return walkable(tt) && tt !== PORTAL && !isSafe(x, y) && !used.has((y + 2048) * 8192 + x + 2048); };
   let id = 0;
   const all: Array<[MonId, number, number]> = [...SPAWNS, ...EXTRA_SPAWNS].map((s: [MonId, number, number]): [MonId, number, number] => [s[0], s[1], s[2] + OY]);
   for (const rt of HRT) if (rt) for (const s of rt.spawns) all.push(s);
   for (const s of CROQ_SPAWNS) all.push(s);
   for (const s of UW_SPAWNS) all.push(s);
   for (const s of TR_SPAWNS) all.push(s);
+  if (wkOnT(tiles)) { for (const s of all) wkRelocate(tiles, s); for (const s of BORIS_SPAWNS) all.push(s); for (const s of WK_SPAWNS) all.push(s); } // v27: la torre es solo del White Knight y Boris (los respawns viejos de alrededor se apartan)
+  if (cmap) { const rp = new Set<string>(); for (const mk of cmap.marks) if (mk.k === "spawn" && mk.m && WK_REPL.includes(mk.m)) rp.add(mk.m); if (rp.size) for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && rp.has(s[0])) all.splice(i, 1); } } // v27: los marcadores de White Knight / Boris del editor sustituyen sus respawns
   if (cmap) for (const mk of cmap.marks) if (mk.k === "spawn" && mk.m) all.push([mk.m as MonId, mk.x, mk.y]); // v26: marcadores de monstruo del editor
   for (let i = all.length - 1; i >= 0; i--) { const s = all[i]; if (s && inCastleBlock(s[1], s[2])) all.splice(i, 1); } // nothing spawns inside the Torre de Croqui
   for (const [mid, x0, y0] of all) {
-    let fx = -1, fy = -1;
-    for (let r = 0; r <= 6 && fx < 0; r++) for (let dy = -r; dy <= r && fx < 0; dy++) for (let dx = -r; dx <= r; dx++) if (okSpot(x0 + dx, y0 + dy) && regionOf(x0 + dx, y0 + dy) === regionOf(x0, y0)) { fx = x0 + dx; fy = y0 + dy; break; }
-    if (fx < 0) continue;
-    const def = (MONS as Record<string, MonDef | undefined>)[mid]; if (!def) continue; used.add(fy * MW + fx);
+    const NO = -99999; let fx = NO, fy = NO;
+    for (let r = 0; r <= 6 && fx === NO; r++) for (let dy = -r; dy <= r && fx === NO; dy++) for (let dx = -r; dx <= r; dx++) if (okSpot(x0 + dx, y0 + dy) && regionOf(x0 + dx, y0 + dy) === regionOf(x0, y0)) { fx = x0 + dx; fy = y0 + dy; break; }
+    if (fx === NO) continue;
+    const def = (MONS as Record<string, MonDef | undefined>)[mid]; if (!def) continue; used.add((fy + 2048) * 8192 + fx + 2048);
     mons.push(makeMon(id++, def, fx, fy));
   }
   const eq: Record<Slot, Inst | null> = { head: null, body: null, legs: null, feet: null, weapon: null, off: null, amulet: null, ring: null };
@@ -1248,6 +1332,7 @@ function pickUp(g: Game, x: number, y: number, now: number, stand?: boolean): vo
 function afterMove(g: Game, now: number): void {
   const p = g.p;
   if (tileAt(g, p.x, p.y) === PORTAL) { usePortal(g, now); return; }
+  if (TILE_BY_ID[tileAt(g, p.x, p.y)]?.stair && markPortal(g, now)) return; // v27: escaleras / agujeros con marcador de portal
   const z = zoneName(g, p.x, p.y);
   if (z !== g.zone) { g.zone = z; setStatus(g, `Entraste a: ${z}`, now); }
   pickUp(g, p.x, p.y, now);
@@ -1463,7 +1548,7 @@ function stepMon(g: Game, m: Mon, now: number): void {
   if (now < m.nextMove || now < m.moveStart + m.moveDur) return;
   const spd = m.def.speed * (now < m.slowUntil ? 1.8 : 1) * (m.enraged ? 0.8 : 1);
   if (aggro) {
-    const st = greedyMove(g, m, p.x, p.y, (x: number, y: number) => canMonEnter(g, x, y));
+    const st = greedyMove(g, m, p.x, p.y, (x: number, y: number) => canMonEnter(g, x, y) && wkMayEnter(g, m, x, y));
     if (st) moveMover(m, st[0], st[1], spd, now);
     m.nextMove = now + spd * (st && st[0] !== 0 && st[1] !== 0 ? DIAG_MUL : 1);
     if (m.nextAtk < now + 400) m.nextAtk = now + 400;
@@ -1471,7 +1556,7 @@ function stepMon(g: Game, m: Mon, now: number): void {
     m.nextMove = now + spd * 2 + Math.random() * spd * 3;
     const [dx, dy] = DIRS8[Math.floor(Math.random() * 8)] ?? [0, 1];
     const x = m.x + dx, y = m.y + dy;
-    if (cheb(x, y, m.sx, m.sy) <= 4 && canMonEnter(g, x, y)) moveMover(m, dx, dy, spd, now);
+    if (cheb(x, y, m.sx, m.sy) <= 4 && canMonEnter(g, x, y) && wkMayEnter(g, m, x, y)) moveMover(m, dx, dy, spd, now);
   }
 }
 // ===================== Guardianes dorados: ataques especiales =====================
@@ -1517,7 +1602,7 @@ function doSpecial(g: Game, m: Mon, s: Special, now: number, d: number): void {
   const pOk = (x: number, y: number): boolean => canPlayerEnter(g, x, y) && tileAt(g, x, y) !== PORTAL && regionOf(x, y) === regionOf(m.x, m.y);
   shout(); m.face = dirFrom(p.x - m.x, p.y - m.y);
   switch (s.kind) {
-    case "nova": warn(circle(m.x, m.y, s.r * s.r + s.r).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), s.tele, 0.6, 1.1); break;
+    case "nova": if (m.def.id === BORIS_ID) { borisExori(g, m, now, s.tele); break; } warn(circle(m.x, m.y, s.r * s.r + s.r).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1]))), s.tele, 0.6, 1.1); break;
     case "line": {
       const dx = sgn(p.x - m.x), dy = sgn(p.y - m.y); const cells: Array<[number, number]> = [];
       for (let k = 1; k <= s.r; k++) { const cx = m.x + dx * k, cy = m.y + dy * k; cells.push([cx, cy], [cx - dy, cy + dx], [cx + dy, cy - dx]); }
@@ -1527,7 +1612,9 @@ function doSpecial(g: Game, m: Mon, s: Special, now: number, d: number): void {
     case "pull": {
       const spot = freeNear(g, m.x + sgn(p.x - m.x), m.y + sgn(p.y - m.y), pOk) ?? freeNear(g, m.x, m.y, pOk);
       if (spot) { p.fx = spot[0]; p.fy = spot[1]; p.x = spot[0]; p.y = spot[1]; p.moveStart = 0; g.walkGoal = null; }
-      g.fx.push({ cells: [[p.x, p.y]], elem, born: now }); specialHit(g, roll(Math.round(A * 0.3), Math.round(A * 0.6)), now); break;
+      g.fx.push({ cells: [[p.x, p.y]], elem, born: now }); specialHit(g, roll(Math.round(A * 0.3), Math.round(A * 0.6)), now);
+      if (m.def.id === BORIS_ID) borisExori(g, m, now, 650); // v27: Boris te atrae y enseguida lanza el exori
+      break;
     }
     case "freeze": p.slowUntil = now + 4000; g.fx.push({ cells: circle(p.x, p.y, 1), elem: "ice", born: now }); pfloat(g, "¡Lento!", "#9be8ff", now, -14); specialHit(g, roll(Math.round(A * 0.3), Math.round(A * 0.6)), now); break;
     case "poison": p.poisonUntil = now + 8000; p.poisonNext = now + 1000; p.poisonDmg = Math.max(1, Math.round(A * 0.12)); g.fx.push({ cells: [[p.x, p.y]], elem: "earth", born: now }); pfloat(g, "¡Veneno!", "#7ad13a", now, -14); break;
@@ -1639,7 +1726,7 @@ const AFK_MIN_LVL: Record<string, number> = { rat: 1, rotworm: 4, troll: 3, wasp
 function afkOk(g: Game, m: Mon): boolean {
   if (m.def.monk && !inTr(g.p.x, g.p.y)) return false;
   const r = regionOf(m.x, m.y); if (r !== regionOf(g.p.x, g.p.y)) return false;
-  if ((m.def.boss || m.def.id === "boss") && !g.afkBoss && r > 0) return false;
+  if ((m.def.boss || m.def.id === "boss") && !g.afkBoss && (r > 0 || m.def.id === BORIS_ID)) return false;
   const rt = HRT[r - 1]; if (r > 0 && rt && inRect(rt.room, m.x, m.y) && !g.afkBoss) return false;
   if (m.def.id !== "boss" && !m.def.boss && cheb(m.x, m.y, g.p.x, g.p.y) <= 1) return true; // v24: siempre se defiende de lo que tiene al lado
   return g.p.level >= (AFK_MIN_LVL[m.def.id] ?? m.def.afk ?? 1) || now0(m);
@@ -2201,7 +2288,7 @@ const DIM_START: [number, number] = [DIM_X0 + 4, DIM_Y0 + 11];
 const DIM_RIFT: [number, number] = [DIM_X0 + 29, DIM_Y0 + 6];
 const DIM_RECT: [number, number, number, number] = [DIM_X0, DIM_Y0, DIM_W, DIM_H];
 function inDim(x: number, y: number): boolean { return x >= DIM_X0 && x < DIM_X0 + DIM_W && y >= DIM_Y0 && y < DIM_Y0 + DIM_H; }
-function viewRect(x: number, y: number): [number, number, number, number] { return inTr(x, y) ? TR_RECT : inDim(x, y) ? DIM_RECT : regionRect(regionOf(x, y)); }
+function viewRect(x: number, y: number): [number, number, number, number] { return extRect(x, y) ?? (inTr(x, y) ? TR_RECT : inDim(x, y) ? DIM_RECT : regionRect(regionOf(x, y))); }
 // Plataformas flotantes sobre el vacío (WATER = vacío intransitable que no tapa los hechizos)
 function buildDim(m: Uint8Array): void {
   const set = (x: number, y: number, t: number): void => { m[(DIM_Y0 + y) * MW + DIM_X0 + x] = t; };
@@ -3836,7 +3923,7 @@ function cqcHallFloor(ctx: CanvasRenderingContext2D, x: number, y: number, wx: n
   if (wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] + 1 || wx === CROQ_DOOR[0] && wy === CROQ_DOOR[1] - 1 || wx === CROQ_DOOR[0] + 1 && wy === CROQ_DOOR[1]) { ctx.fillStyle = "#3a3646"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "#4a4658"; ctx.fillRect(x + 2, y + 2, TS - 4, 2); } // dais
 }
 function drawCroqCastleTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number, wx: number, wy: number, now: number): boolean {
-  if (!inCastleZone(wx, wy) || wx === 48) return false; const h = hash(wx, wy);
+  if (!inCastleZone(wx, wy) || wx === 48 || t === LAVA || t > 20) return false; const h = hash(wx, wy); // v27: lava y tiles nuevos del editor se ven tal cual
   if (t === TREE) cqcDeadTree(ctx, x, y, h, now);
   else if (t === WALL) cqcWall(ctx, x, y, wx, wy, h);
   else if (t === PATH) cqcCobble(ctx, x, y, h);
@@ -3846,7 +3933,7 @@ function drawCroqCastleTile(ctx: CanvasRenderingContext2D, t: number, x: number,
   return true;
 }
 function croqMiniCol(x: number, y: number, t: number): string | undefined {
-  if (!inCastleZone(x, y)) return undefined;
+  if (!inCastleZone(x, y) || t === LAVA || t > 20) return undefined;
   return t === TREE ? "#2a2018" : t === WALL ? "#121218" : t === FLOOR ? "#3a2e44" : t === PATH ? "#4a4448" : t === PORTAL ? "#5fe6dc" : "#3a3634";
 }
 function castleZoneName(x: number, y: number): string { return inCastleHall(x, y) ? "🏰 Torre de Croqui — Recomendado: grupo" : "🌲 Bosque Muerto de la Torre"; }
@@ -4134,7 +4221,7 @@ function validateSave(raw: unknown): DecodeResult {
   if (isObj(bRaw) && !Array.isArray(bRaw["mount"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "mount" && binds[a.id].includes("KeyR"))) binds.mount = [];
   if (isObj(bRaw) && !Array.isArray(bRaw["qlog"]) && ACTIONS.some((a: { id: Action; label: string }) => a.id !== "qlog" && binds[a.id].includes("KeyJ"))) binds.qlog = [];
   for (const [pa, keys] of [["power5", ["F7", "Digit7"]], ["power6", ["F8", "Digit8"]]] as Array<[Action, string[]]>) if (isObj(bRaw) && !Array.isArray(bRaw[pa])) binds[pa] = keys.filter((k: string) => !ACTIONS.some((a: { id: Action; label: string }) => a.id !== pa && binds[a.id].includes(k)));
-  const x = intIn(raw["x"], 0, MW - 1), y0 = intIn(raw["y"], 0, MH - 1); if (x === null || y0 === null) return bad("la posición");
+  const x = intIn(raw["x"], -MAP_MAX, MAP_MAX), y0 = intIn(raw["y"], -MAP_MAX, MAP_MAX); /* v27: puede estar en tierras nuevas (sin ese mapa, se vuelve al templo) */ if (x === null || y0 === null) return bad("la posición");
   const y = ver === 1 ? Math.min(MH - 1, y0 + OY) : y0; // las partidas v1 usaban el mapa sin el Santuario
   const hpPot2 = intIn(raw["hpPot2"], 0, 1e6) ?? 0, manaPot2 = intIn(raw["manaPot2"], 0, 1e6) ?? 0, cleared = intIn(raw["cleared"], 0, NH) ?? 0;
   const qRaw = raw["quests"], bkRaw = raw["bossKills"];
@@ -4293,7 +4380,7 @@ function update(g: Game, now: number): void {
     const keepW: Warn[] = [];
     for (const w of g.warns) {
       if (now < w.at) { keepW.push(w); continue; }
-      g.fx.push({ cells: w.cells, elem: w.elem, born: now });
+      g.fx.push({ cells: w.cells, elem: w.elem, born: now }); if (w.name === BORIS_EXORI) borisSlashAdd(w.cells, now);
       if (w.cells.some((c: [number, number]) => c[0] === p.x && c[1] === p.y)) specialHit(g, roll(w.min, w.max), now);
       const mi = g.minion; if (mi && regionOf(p.x, p.y) >= 9 && w.cells.some((c: [number, number]) => c[0] === mi.x && c[1] === mi.y)) hurtMinion(g, roll(w.min, w.max), now, w.name);
     }
@@ -4317,6 +4404,7 @@ function update(g: Game, now: number): void {
 }
 
 // ===================== Dibujo: mundo =====================
+function underAt(g: Game, x: number, y: number): number { if (!outCore(x, y)) return g.under ? (g.under[y * MW + x] ?? -1) : -1; const m = MAPX; if (!m) return -1; const fx = x + m.ox, fy = y + m.oy; return fx >= 0 && fy >= 0 && fx < m.w && fy < m.h ? (m.under[fy * m.w + fx] ?? -1) : -1; }
 // ---------- v26: tiles de pixel art 32×32 (atlas embebido por build.mjs; en el lienzo queda vacío y se usa el arte procedural) ----------
 const TILESET_SRC = "";
 let TSET_IMG: HTMLImageElement | null = null; let TSET_OK = false;
@@ -4330,9 +4418,11 @@ function tsetFloor(ctx: CanvasRenderingContext2D, t: number, x: number, y: numbe
   const spr = TILE_BY_ID[t]?.spr ?? [0];
   if (t === GRASS) tsetSpr(ctx, h % 19 === 0 ? 3 : spr[h % spr.length] ?? 0, x, y);
   else if (t === WATER || t === LAVA) {
-    tsetSpr(ctx, spr[(h + Math.floor(now / (t === WATER ? 900 : 700))) % spr.length] ?? 12, x, y);
+    tsetSpr(ctx, spr[(t === WATER ? h + Math.floor(now / 900) : Math.floor(now / 230)) % spr.length] ?? 12, x, y);
     if (t === WATER) { const o = Math.sin(now / 600 + wx * 0.7 + wy) * 3; ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.moveTo(x + 4, y + 12 + o); ctx.lineTo(x + 14, y + 10 + o); ctx.moveTo(x + 16, y + 24 - o); ctx.lineTo(x + 28, y + 22 - o); ctx.stroke(); }
-    else { ctx.globalAlpha = 0.12 + 0.1 * Math.sin(now / 300 + h); ctx.fillStyle = "#ffcc40"; ctx.fillRect(x, y, TS, TS); ctx.globalAlpha = 1; }
+    else { ctx.globalAlpha = 0.08 + 0.08 * Math.sin(now / 420 + (wx + wy) * 0.6); ctx.fillStyle = "#ffe070"; ctx.fillRect(x, y, TS, TS); ctx.globalAlpha = 1; // brillo que respira
+      for (let k = 0; k < 2; k++) { const hh = hash(wx * 3 + k, wy * 5 - k); const ph = (now / (1100 + (hh % 700)) + (hh % 97) / 97) % 1; if (ph > 0.8) continue; const bx = x + 5 + (hh % 22), by = y + 5 + ((hh >> 6) % 22), r = 1 + ph * 3.2; // burbujas que crecen y revientan
+        ctx.fillStyle = `rgba(255,236,150,${0.85 - ph * 0.6})`; ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = `rgba(150,30,0,${0.5 - ph * 0.4})`; ctx.beginPath(); ctx.arc(bx + r * 0.3, by + r * 0.35, r * 0.5, 0, Math.PI * 2); ctx.fill(); } }
   } else tsetSpr(ctx, spr[h % spr.length] ?? 0, x, y);
   if (t === MARBLE) { const H = HOUSES[regionOf(wx, wy) - 1]; if (H) { ctx.globalAlpha = 0.22; ctx.fillStyle = H.tint; ctx.fillRect(x, y, TS, TS); ctx.globalAlpha = 1; } }
 }
@@ -4340,10 +4430,11 @@ function drawTset(ctx: CanvasRenderingContext2D, t: number, x: number, y: number
   if (!tsetReady()) return false; const inf = TILE_BY_ID[t]; if (!inf || t === PORTAL) return false;
   const h = hash(wx, wy);
   if (inf.layer === "floor") { tsetFloor(ctx, t, x, y, wx, wy, h, now); return true; }
-  if (t === TREE || t === BUSH || t === BOULDER) { // objeto sobre su suelo (el del mapa del editor, o hierba / arena)
+  if (inf.ov || t === TREE || t === BUSH || t === BOULDER) { // objeto sobre su suelo (el del mapa del editor, o el suyo por defecto)
     const fu = u >= 0 && TILE_BY_ID[u]?.layer === "floor" ? u : (inf.under ?? GRASS); tsetFloor(ctx, fu, x, y, wx, wy, hash(wx + 7, wy), now);
   }
-  tsetSpr(ctx, inf.spr[h % inf.spr.length] ?? 0, x, y);
+  tsetSpr(ctx, inf.spr[(inf.anim ? Math.floor(now / 170) + (h & 3) : h) % inf.spr.length] ?? 0, x, y);
+  if (inf.light) { const f = 0.7 + 0.3 * Math.sin(now / 90 + h) * Math.sin(now / 137 + h * 3); const gr = ctx.createRadialGradient(x + 16, y + 9, 1, x + 16, y + 12, 17); gr.addColorStop(0, `rgba(255,190,80,${0.42 * f})`); gr.addColorStop(1, "rgba(255,140,40,0)"); ctx.fillStyle = gr; ctx.fillRect(x, y, TS, TS); }
   if (t === HWALL) { ctx.fillStyle = "rgba(255,240,180,0.22)"; ctx.fillRect(x, y, TS, 2); }
   return true;
 }
@@ -4353,6 +4444,8 @@ function drawTile(ctx: CanvasRenderingContext2D, t: number, x: number, y: number
   if (wx >= UW_X0 && drawUwTile(ctx, t, x, y, wx, wy, now)) return;
   if (inDim(wx, wy)) { drawDimTile(ctx, t, x, y, wx, wy, now); return; }
   if (drawTset(ctx, t, x, y, wx, wy, now, u)) return;
+  if (t > 20) { const ti = TILE_BY_ID[t]; const fu = ti && ti.layer === "obj" ? (u >= 0 ? u : ti.under ?? GRASS) : t; ctx.fillStyle = TILE_COL[fu] ?? TILE_BY_ID[fu]?.c ?? "#3f8f3a"; ctx.fillRect(x, y, TS, TS);
+    if (ti && ti.layer === "obj") { ctx.fillStyle = ti.c ?? "#888"; if (ti.ov) { ctx.beginPath(); ctx.arc(x + 16, y + 17, 10, 0, Math.PI * 2); ctx.fill(); } else ctx.fillRect(x, y, TS, TS); } return; } // v27: sin atlas (vista previa del lienzo)
   const h = hash(wx, wy);
   ctx.fillStyle = TILE_COL[t] ?? "#000"; ctx.fillRect(x, y, TS, TS);
   if (t === GRASS || t === TREE) {
@@ -4854,7 +4947,7 @@ function drawLook(ctx: CanvasRenderingContext2D, L: MonLook, x: number, y: numbe
   ctx.save();
   if (boss) {
     const gr = ctx.createRadialGradient(x + 16, y + 18, 2, x + 16, y + 18, 34); const pulse = 0.35 + 0.2 * Math.sin(now / 300);
-    gr.addColorStop(0, rage ? `rgba(255,60,40,${pulse + 0.15})` : `rgba(255,215,90,${pulse})`); gr.addColorStop(1, "rgba(255,200,80,0)");
+    gr.addColorStop(0, rage || L.body === "boris" ? `rgba(255,60,40,${pulse + 0.15})` : `rgba(255,215,90,${pulse})`); gr.addColorStop(1, "rgba(255,200,80,0)");
     ctx.fillStyle = gr; ctx.fillRect(x - 20, y - 20, 72, 72);
   }
   ctx.globalAlpha = clamp(L.alpha * (L.body === "ghost" || L.body === "shadow" ? 0.85 + 0.15 * Math.sin(now / 250) : 1), 0.2, 1);
@@ -4922,6 +5015,8 @@ function drawLook(ctx: CanvasRenderingContext2D, L: MonLook, x: number, y: numbe
       ctx.fillStyle = L.c1; ctx.beginPath(); ctx.moveTo(4, 20); ctx.lineTo(7, 12); ctx.lineTo(9, 22); ctx.closePath(); ctx.moveTo(28, 20); ctx.lineTo(25, 12); ctx.lineTo(23, 22); ctx.closePath(); ctx.fill();
       ctx.fillStyle = "#fff"; if (Math.floor(now / 300) % 3 === 0) ctx.fillRect(19, 8, 2, 2); break;
     }
+    case "boris": drawBorisSpr(ctx, ph, now); break;
+    case "wknight": drawWkSpr(ctx, ph, now); break;
     case "warrior": drawHuman(ctx, 0, 0, L.c1, L.c2, "helm", "sword", 2, ph, true, "phys"); ctx.fillStyle = L.c3; ctx.fillRect(9, 14, 14, 2); break;
     case "shadow": drawHuman(ctx, 0, 0, L.c1, L.c2, "hood", "staff", 2, ph, false, "dark"); ctx.fillStyle = L.c3; ctx.fillRect(12, 8, 3, 2); ctx.fillRect(17, 8, 3, 2); break;
     case "saint": {
@@ -4953,7 +5048,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
   BAR_X = Math.max(84, Math.round((Math.min(VW - HUD_RES, viewW(g)) - BAR_W) / 2)); // barra centrada en la parte visible
   ctx.fillStyle = "#000"; ctx.fillRect(0, 0, VW, VH);
   const tx0 = Math.floor(cx / TS), ty0 = Math.floor(cy / TS);
-  for (let ty = ty0; ty <= ty0 + VH_T; ty++) for (let tx = tx0; tx <= tx0 + VW_T; tx++) drawTile(ctx, tileAt(g, tx, ty), tx * TS - cx, ty * TS - cy, tx, ty, now, g.under && tx >= 0 && tx < MW ? (g.under[ty * MW + tx] ?? -1) : -1);
+  for (let ty = ty0; ty <= ty0 + VH_T; ty++) for (let tx = tx0; tx <= tx0 + VW_T; tx++) drawTile(ctx, tileAt(g, tx, ty), tx * TS - cx, ty * TS - cy, tx, ty, now, underAt(g, tx, ty));
   drawCroqCastle(ctx, cx, cy, now, p.x, p.y);
   const vis = (x: number, y: number): boolean => x * TS - cx > -TS * 2 && x * TS - cx < VW + TS && y * TS - cy > -TS * 2 && y * TS - cy < VH + TS;
   for (const f of g.fields) if (vis(f.x, f.y)) { const x = f.x * TS - cx, y = f.y * TS - cy; const fl = Math.sin(now / 90 + f.x * 3 + f.y) * 3; ctx.fillStyle = "rgba(255,120,20,0.45)"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); ctx.fillStyle = "rgba(255,220,80,0.7)"; ctx.beginPath(); ctx.moveTo(x + 8, y + 26); ctx.lineTo(x + 16, y + 6 + fl); ctx.lineTo(x + 24, y + 26); ctx.fill(); }
@@ -4999,6 +5094,7 @@ function render(ctx: CanvasRenderingContext2D, g: Game, now: number, binds: Bind
     outlined(ctx, gmOn(g) ? `[GM] ${p.name}` : p.name, x + 16, y - 11, gmOn(g) ? "#ffd34d" : nameColor(g), "bold 10px sans-serif");
   } });
   ents.sort((a: Ent, b: Ent) => a.y - b.y); for (const e of ents) e.draw();
+  drawBorisSlash(ctx, cx, cy, now);
   for (const f of g.fx) { const a = 1 - (now - f.born) / 450; ctx.globalAlpha = clamp(a, 0, 1) * 0.7; ctx.fillStyle = ELEM_COLOR[f.elem]; for (const [x, y] of f.cells) { const sx = x * TS - cx, sy = y * TS - cy; ctx.fillRect(sx + 3, sy + 3, TS - 6, TS - 6); } ctx.globalAlpha = 1; }
   for (const pr of g.projs) {
     const k = clamp((now - pr.born) / pr.dur, 0, 1); if (now < pr.born) continue;
@@ -5057,14 +5153,17 @@ function drawTemple(ctx: CanvasRenderingContext2D, x: number, y: number, s: numb
 const MINI_COL: Record<number, string> = { 0: "#3f8f3a", 1: "#1f5a22", 2: "#2a5fa8", 3: "#8a8078", 4: "#a88a5e", 5: "#e8e0d0", 6: "#3a322c", 7: "#6a5a48", 8: "#d8c48a", 9: "#c0a070", 10: "#8a7c6a", 11: "#d090ff", 12: "#e8e2d4", 13: "#6a4e1a", 14: "#e0501a", 15: "#f0f4ff", 16: "#9a6a3e", 17: "#8a8a90", 18: "#a0603a", 19: "#5a3a1e", 20: "#2f7a2e" };
 const MINI_PX = 2; const MINI_SIZE = 208;
 let MINI_CACHE: HTMLCanvasElement | null = null;
+let MINI_OX = 0, MINI_OY = 0; // v27: el minimapa cubre el archivo de mapa entero (origen del mundo en MINI_OX, MINI_OY)
 function buildMini(tiles: Uint8Array): HTMLCanvasElement | null {
   if (MINI_CACHE) return MINI_CACHE;
   if (typeof document === "undefined") return null;
-  const c = document.createElement("canvas"); c.width = MW * MINI_PX; c.height = MH * MINI_PX;
+  const m = MAPX; const W2 = m ? m.w : MW, H2 = m ? m.h : MH; MINI_OX = m ? m.ox : 0; MINI_OY = m ? m.oy : 0;
+  const c = document.createElement("canvas"); c.width = W2 * MINI_PX; c.height = H2 * MINI_PX;
   const x2 = c.getContext("2d"); if (!x2) return null;
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-    const t = tiles[y * MW + x] ?? 6; const H = t === MARBLE ? HOUSES[regionOf(x, y) - 1] : undefined;
-    x2.fillStyle = H ? H.tint : (uwMiniCol(x, y, t) ?? croqMiniCol(x, y, t) ?? MINI_COL[t] ?? "#000"); x2.fillRect(x * MINI_PX, y * MINI_PX, MINI_PX, MINI_PX);
+  for (let fy = 0; fy < H2; fy++) for (let fx = 0; fx < W2; fx++) {
+    const x = fx - MINI_OX, y = fy - MINI_OY; const core = !outCore(x, y);
+    const t = core ? (tiles[y * MW + x] ?? 6) : (m ? m.tiles[fy * W2 + fx] ?? 6 : 6); const H = core && t === MARBLE ? HOUSES[regionOf(x, y) - 1] : undefined;
+    x2.fillStyle = H ? H.tint : ((core ? (uwMiniCol(x, y, t) ?? croqMiniCol(x, y, t)) : undefined) ?? MINI_COL[t] ?? TILE_BY_ID[t]?.c ?? "#000"); x2.fillRect(fx * MINI_PX, fy * MINI_PX, MINI_PX, MINI_PX);
   }
   MINI_CACHE = c; return c;
 }
@@ -5075,6 +5174,7 @@ function miniMarkers(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: num
   if (reg === 0) {
     dot(TEMPLE_X + 0.5, TEMPLE_Y + 0.5, "#ffd34d", R); dot(NPC_X + 0.5, NPC_Y + 0.5, "#ff6ad0", R); dot(DARIO_X + 0.5, DARIO_Y + 0.5, "#ffe08a", R); dot(DEPOT_X + 0.5, DEPOT_Y + 0.5, "#c08a4a", R); dot(STABLE_X + 0.5, STABLE_Y + 0.5, "#a8d060", R); for (const qn of QNPCS) dot(qn.x + 0.5, qn.y + 0.5, "#8ac8ff", R);
     const boss = g.mons.find((m: Mon) => m.def.id === "boss"); if (boss && boss.alive) dot(boss.x + 0.5, boss.y + 0.5, "#ff3030", R);
+    wkMiniMark(ctx, g, ox, oy, s, R, labels, dot);
     dot(UW_GATE[0] + 0.5, UW_GATE[1] + 0.5, g.cleared >= NH ? "#b060ff" : "#5a4a6a", R);
     for (const H of HOUSES) {
       const d = DOORS[H.n - 1]; if (!d) continue; dot(d.x + 0.5, d.y + 0.5, doorColor(g, H.n), R);
@@ -5104,7 +5204,7 @@ function drawRegionMap(ctx: CanvasRenderingContext2D, g: Game, bx: number, by: n
   const z = Math.max(1, zoom ?? 1); const s = Math.min(bw / rw, bh / rh) * z;
   const ox = z > 1 ? bx + bw / 2 - (g.p.x + 0.5 - rx) * s : bx + (bw - rw * s) / 2, oy = z > 1 ? by + bh / 2 - (g.p.y + 0.5 - ry) * s : by + (bh - rh * s) / 2;
   if (z > 1) { ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip(); }
-  if (g.mini) { ctx.imageSmoothingEnabled = false; ctx.drawImage(g.mini, rx * MINI_PX, ry * MINI_PX, rw * MINI_PX, rh * MINI_PX, ox, oy, rw * s, rh * s); ctx.imageSmoothingEnabled = true; }
+  if (g.mini) { ctx.imageSmoothingEnabled = false; ctx.drawImage(g.mini, (rx + MINI_OX) * MINI_PX, (ry + MINI_OY) * MINI_PX, rw * MINI_PX, rh * MINI_PX, ox, oy, rw * s, rh * s); ctx.imageSmoothingEnabled = true; }
   ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.strokeRect(ox + (g.camX / TS - rx) * s + 0.5, oy + (g.camY / TS - ry) * s + 0.5, (viewW(g) / TS) * s, (VH / TS) * s);
   miniMarkers(ctx, g, ox - rx * s, oy - ry * s, s, now, labels);
   if (z > 1) ctx.restore();
@@ -5292,11 +5392,11 @@ function miniTile(g: Game, mx: number, my: number, size: number): [number, numbe
   const x = rx + Math.floor((mx - ox) / s), y = ry + Math.floor((my - oy) / s);
   return x >= rx && y >= ry && x < rx + rw && y < ry + rh ? [x, y] : null;
 }
-function mapRect(g: Game): [number, number, number, number] { return inTr(g.p.x, g.p.y) ? TR_RECT : regionRect(regionOf(g.p.x, g.p.y)); }
+function mapRect(g: Game): [number, number, number, number] { return extRect(g.p.x, g.p.y) ?? (inTr(g.p.x, g.p.y) ? TR_RECT : regionRect(regionOf(g.p.x, g.p.y))); }
 // ---------- v26: mapas del editor desde el Modo GM ----------
 function gmApplyMap(g: Game, cm: EdMap | null, now: number): void {
-  CUSTOM_MAP = cm; MINI_CACHE = null;
-  g.tiles = cm ? cm.tiles.slice() : buildMap(); g.under = cm ? cm.under : undefined;
+  CUSTOM_MAP = cm; MINI_CACHE = null; MAPX = cm ? cm.x : null;
+  g.tiles = cm ? cm.tiles.slice() : buildMap(); g.under = cm ? cm.under : undefined; g.mini = buildMini(g.tiles);
   const p = g.p; if (!walkable(tileAt(g, p.x, p.y))) teleport(g, TEMPLE_X, TEMPLE_Y, now);
 }
 function gmLoadMapText(g: Game, txt: string, now: number): boolean {
@@ -5315,7 +5415,7 @@ function gmResetMap(g: Game, now: number): boolean {
 }
 function gmExportMap(g: Game): boolean {
   if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
-  const cm = CUSTOM_MAP ?? null; const txt = exportMapFile(g.tiles, g.under ?? null, cm ? cm.marks : [], cm ? cm.name : "Mapa de Edisar");
+  const cm = CUSTOM_MAP ?? null; const txt = exportMapFile(g.tiles, g.under ?? null, cm ? cm.marks : [], cm ? cm.name : "Mapa de Edisar", MAPX);
   try { const url = URL.createObjectURL(new Blob([txt], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = "edisar-mapa.json"; document.body.appendChild(a); a.click(); a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 4000); }
   catch { return gmMsg(g, "No se pudo descargar el archivo.", true); }
   return gmMsg(g, `💾 Mapa exportado (edisar-mapa.json, ${Math.round(txt.length / 1024)} KB). Ábrelo en editor.html.`);
@@ -5393,11 +5493,11 @@ const GM_PLACES: Array<{ id: string; n: string }> = [
   { id: "town", n: "Villa Esmeralda (plaza)" }, { id: "temple", n: "Templo de Villa Esmeralda" }, { id: "train", n: "🥋 Sala de entrenamiento" }, { id: "gate", n: "Puerta del Inframundo" },
   ...HOUSES.map((H: { n: number; name: string; glyph: string }) => ({ id: `h${H.n}`, n: `${H.glyph} Casa de ${H.name}` })),
   ...UW_ZONES.map((Z: { name: string; glyph: string }, i: number) => ({ id: `uw${i}`, n: `${Z.glyph} Inframundo: ${Z.name}` })),
-  { id: "tower", n: "🔥 Torre de Croqui (sala)" }, { id: "lair", n: "🔥 Guarida de Croqui" },
+  { id: "tower", n: "🔥 Torre de Croqui (sala)" }, { id: "lair", n: "🔥 Guarida de Croqui" }, { id: "wk", n: "🛡 Torre del White Knight (50+)" }, { id: "boris", n: "👑 Cima de la torre (Boris)" },
 ];
 function gmPlaceXY(id: string): [number, number] | null {
   if (id === "town") return [TX0 + 8, TY0 + 6]; if (id === "temple") return [TEMPLE_X, TEMPLE_Y]; if (id === "train") return TR_ENTRY; if (id === "gate") return TP_GATE_ARRIVE;
-  if (id === "tower") return [CROQ_DOOR[0] - 2, CROQ_DOOR[1]]; if (id === "lair") return CROQ_ENTRY;
+  if (id === "tower") return [CROQ_DOOR[0] - 2, CROQ_DOOR[1]]; if (id === "lair") return CROQ_ENTRY; if (id === "wk") return [20, 97]; if (id === "boris") return [BORIS_HOME[0], BORIS_HOME[1] + 2];
   if (/^h\d+$/.test(id)) { const rt = HRT[Number(id.slice(1)) - 1]; return rt ? rt.entry : null; }
   return null;
 }
@@ -5414,7 +5514,7 @@ function gmTeleport(g: Game, place: string, now: number): boolean {
 }
 function gmTeleportXY(g: Game, xs: string | number, ys: string | number, now: number): boolean {
   if (!gmOn(g)) return gmMsg(g, "Activa el Modo GM primero.", true);
-  const x = gmNum(xs, 0, MW - 1), y = gmNum(ys, 0, MH - 1); if (x === null || y === null) return gmMsg(g, `Coordenadas: x de 0 a ${MW - 1}, y de 0 a ${MH - 1}.`, true);
+  const x = gmNum(xs, -MAP_MAX, MAP_MAX), y = gmNum(ys, -MAP_MAX, MAP_MAX); if (x === null || y === null || !walkable(tileAt(g, x, y))) return gmMsg(g, `Coordenadas no válidas o bloqueadas (el mundo original va de 0 a ${MW - 1} × 0 a ${MH - 1}; con un mapa agrandado también hay casillas negativas).`, true);
   return gmGo(g, x, y, `${x}, ${y}`, now);
 }
 function gmGo(g: Game, x: number, y: number, label: string, now: number): boolean {
@@ -5567,6 +5667,163 @@ function drawV22Overlay(ctx: CanvasRenderingContext2D, g: Game, now: number): vo
   }
 }
 
+// ===================== v27: BORIS, el Caballero Blanco (jefe del este; sprite pixel art propio, dibujado en código) =====================
+// Abrigo blanco de cuello alto con ribetes rojos y adornos dorados, capa blanca forrada de rojo, pelo blanco revuelto, ojos rojos
+// y un mandoble blanco con vetas de cristal rojo y guarda dorada. Mecánica: te atrae a su lado («¡Ven aquí!») y lanza un exori (Exori Gran).
+const BORIS_ID = "boris", BORIS_EXORI = "Exori Gran";
+const BORIS_HOME: [number, number] = [8, 62]; // cima de la Torre del White Knight
+(MONS as Record<string, MonDef>)[BORIS_ID] = { id: BORIS_ID, name: "Boris, el Caballero Blanco", hp: 30000, exp: 8000, atk: 250, speed: 560, gold: 1500, respawn: 300000, armored: true, drop: 1, dropN: 3, lootLvl: 60, rar: [0.5, 0.35, 0.2], atkMs: 1400,
+  look: { body: "boris", c1: "#f2f2f6", c2: "#d81c36", c3: "#f4cc4c", s: 1.55, horn: "none", glyph: "", alpha: 1 },
+  boss: { specials: [sp("pull", "Ven aquí", 9000, 7), sp("nova", BORIS_EXORI, 7000, 1, 700)], phase2: "", clone: "" } };
+const BORIS_SPAWNS: Array<[MonId, number, number]> = [[BORIS_ID, BORIS_HOME[0], BORIS_HOME[1]]];
+function borisExori(g: Game, m: Mon, now: number, tele: number): void { // 5×5 (sin esquinas) alrededor de Boris
+  const A = m.def.atk * (m.enraged ? 1.2 : 1);
+  g.warns.push({ cells: circle(m.x, m.y, 5).filter((c: [number, number]) => walkable(tileAt(g, c[0], c[1])) && !(c[0] === m.x && c[1] === m.y)), at: now + tele, born: now, min: Math.round(A * 0.9), max: Math.round(A * 1.5), elem: "holy", name: BORIS_EXORI });
+  if (g.warns.length > 12) g.warns.shift();
+}
+const BORIS_PAL: Record<string, string> = { K:"#1a1420",H:"#f8f8fc",h:"#bfc4d4",S:"#f4d6c4",s:"#d29e88",E:"#ff1430",W:"#f2f2f6",w:"#bcc1ce",g:"#80869a",R:"#d81c36",r:"#760a1c",Y:"#f4cc4c",y:"#9c7414",B:"#4a3020",X:"#fdfdff",x:"#a9b2c6",C:"#ff2444",c:"#9a0c24",G:"#ffffff", };
+const BORIS_ROWS = [
+  ".......................KXK....",
+  "......................KXXxK...",
+  "......................KXCxK...",
+  ".....................KXXCxxK..",
+  ".....................KXcCcxK..",
+  "..........K...K......KXXCxxK..",
+  ".........KHK.KHKK....KXXCxxK..",
+  "........KHHHKHHKHK...KXCXCxK..",
+  ".......KHHHHHHHHHK...KXXCxxK..",
+  ".......KHHHhHHHhHHK..KXXCxxK..",
+  "......KHhHSSSSSShHK..KXCXCxK..",
+  ".......KhSESSSEShK...KXXCxxK..",
+  "........KSSSSSSSK....KXXcxxK..",
+  ".......KKKSssSKKKK...KXXCxxK..",
+  ".....KKRWWWWssWWWRKK.KXXCxxK..",
+  "....KrRWWWWWRRWWWWRrKKXcCcxK..",
+  "...KrRWYWWWWRRWWWWYRrKXXCxxK..",
+  "..KrRWWWWWWWRRWWWWWWRrXXCxxKK.",
+  "..KrRWwWWYWWWWWYWWwWWRyYYYYYyK",
+  ".KrRWWwWWWWWRRWWWWwGGYYyRyYYyK",
+  ".KrRWWwWWYWWWWWYWWwGGGyBBByKK.",
+  ".KrRWGKWWWWWRRWWWWWKGGKBBBK...",
+  ".KrRGGKBBBBBYYBBBBBKRRKBBBK...",
+  ".KrRGGKWWWWWRRWWWWWKRRKYYYK...",
+  ".KrRRKKWWWWWRRWWWWWKRRryCyK...",
+  ".KrRRKKWWWWWwKWWWWWKKRRrKK....",
+  ".KrRRKKWWWWWwKWWWWWKKRRrK.....",
+  ".KrRRrKWWWWwK.KWWWWWKRRrK.....",
+  ".KrRRrKWWWWwK.KwWWWWKKRRrK....",
+  ".KrRRrKWWWWwK.KwWWWWKKRRrrK...",
+  ".KrrRrKWWWWwK.KwWWWWK.KRRrK...",
+  ".KrrrrKgWWWwK.KwWWWgK.KrRrK...",
+  "..KrrK.KKKKK...KKKKK...KrrK...",
+  "...KK.KKKKKK...KKKKKK...KK....",
+];
+let BORIS_IMG: HTMLCanvasElement | null = null;
+function borisImg(): HTMLCanvasElement | null {
+  if (BORIS_IMG || typeof document === "undefined") return BORIS_IMG;
+  const c = document.createElement("canvas"); c.width = 30; c.height = BORIS_ROWS.length; const x2 = c.getContext("2d"); if (!x2) return null;
+  BORIS_ROWS.forEach((r: string, y: number) => { for (let x = 0; x < r.length; x++) { const col = BORIS_PAL[r[x] ?? "."]; if (col) { x2.fillStyle = col; x2.fillRect(x, y, 1, 1); } } });
+  BORIS_IMG = c; return c;
+}
+function drawBorisSpr(ctx: CanvasRenderingContext2D, ph: number, now: number): void {
+  const im = borisImg(); if (!im) return;
+  const bob = ph === 1 ? -1 : 0; ctx.imageSmoothingEnabled = false; ctx.drawImage(im, 1, -4 + bob);
+  const k = 0.5 + 0.5 * Math.sin(now / 260); ctx.fillStyle = `rgba(255,40,70,${0.25 + 0.35 * k})`; ctx.fillRect(24, -2 + bob, 1, 18); // vetas del mandoble que laten
+  ctx.fillStyle = `rgba(255,30,50,${0.5 + 0.5 * k})`; ctx.fillRect(10, 7 + bob, 1, 1); ctx.fillRect(14, 7 + bob, 1, 1); // ojos rojos
+}
+interface BorisSlash { x: number; y: number; born: number; }
+let BORIS_SLASH: BorisSlash[] = [];
+function borisSlashAdd(cells: Array<[number, number]>, now: number): void {
+  if (cells.length === 0) return; let sx = 0, sy = 0; for (const [x, y] of cells) { sx += x; sy += y; }
+  BORIS_SLASH.push({ x: sx / cells.length, y: sy / cells.length, born: now }); if (BORIS_SLASH.length > 6) BORIS_SLASH.shift();
+}
+function drawBorisSlash(ctx: CanvasRenderingContext2D, cx: number, cy: number, now: number): void { // tajos rojo / blanco del exori
+  BORIS_SLASH = BORIS_SLASH.filter((s: BorisSlash) => now - s.born < 560);
+  for (const s of BORIS_SLASH) {
+    const k = (now - s.born) / 560, X = s.x * TS - cx + 16, Y = s.y * TS - cy + 16, R = TS * (1.2 + 1.3 * k), a0 = -Math.PI * 0.9 + k * Math.PI * 1.6;
+    ctx.save(); ctx.lineCap = "round";
+    for (let j = 0; j < 3; j++) { const a = a0 + j * Math.PI * 2 / 3;
+      ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = "#d81c36"; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(X, Y, R, a, a + 1.5); ctx.stroke();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(X, Y, R, a + 0.15, a + 1.4); ctx.stroke(); }
+    ctx.globalAlpha = (1 - k) * 0.8; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; const L = TS * 2.2 * Math.min(1, k * 3);
+    ctx.beginPath(); ctx.moveTo(X - L, Y - L * 0.6); ctx.lineTo(X + L, Y + L * 0.6); ctx.moveTo(X + L, Y - L * 0.6); ctx.lineTo(X - L, Y + L * 0.6); ctx.stroke();
+    ctx.strokeStyle = "#ff2444"; ctx.lineWidth = 1.5; ctx.stroke();
+    const gr = ctx.createRadialGradient(X, Y, 2, X, Y, R + 10); gr.addColorStop(0, `rgba(255,255,255,${0.35 * (1 - k)})`); gr.addColorStop(0.6, `rgba(216,28,54,${0.25 * (1 - k)})`); gr.addColorStop(1, "rgba(216,28,54,0)");
+    ctx.globalAlpha = 1; ctx.fillStyle = gr; ctx.fillRect(X - R - 12, Y - R - 12, 2 * R + 24, 2 * R + 24); ctx.restore();
+  }
+}
+// ===================== v27: WHITE KNIGHT (monstruo normal, nivel 50+) en la Torre del White Knight (la torre de Juan Carlos, suroeste de la villa) =====================
+// Caballera de pelo largo plateado, ojos cian, uniforme militar blanco con charreteras y cordones dorados, capa y falda azul marino
+// con ribete dorado, guantes blancos y espada al cinto. Sprite pixel art propio (30×34), dibujado en código como el de Boris.
+const WK_ID = "wknight";
+const WK_REPL: string[] = [WK_ID, BORIS_ID]; // si un mapa del editor trae marcadores de estos, sustituyen sus respawns de fábrica
+(MONS as Record<string, MonDef>)[WK_ID] = { id: WK_ID, name: "White Knight", hp: 1150, exp: 720, atk: 205, speed: 520, gold: 85, respawn: 8000, armored: true, drop: 0.11, dropN: 1, lootLvl: 56, rar: [0.24, 0.085, 0.014], afk: 50, atkMs: 1500,
+  look: { body: "wknight", c1: "#f4f4f8", c2: "#22346c", c3: "#f2c64a", s: 1.2, horn: "none", glyph: "", alpha: 1 } };
+const WK_SPAWNS: Array<[MonId, number, number]> = [[WK_ID, 15, 93], [WK_ID, 13, 97], [WK_ID, 17, 98], [WK_ID, 6, 97], [WK_ID, 8, 92], [WK_ID, 5, 86], [WK_ID, 8, 81], [WK_ID, 5, 76], [WK_ID, 6, 69], [WK_ID, 4, 62]];
+// La torre está en el mapa oficial (assets/map.json); sin ese mapa (mundo original) no hay torre y estos respawns no salen.
+function wkOnT(tiles: Uint8Array): boolean { return tiles[BORIS_HOME[1] * MW + BORIS_HOME[0]] === STONEF; }
+function wkOn(g: Game): boolean { return wkOnT(g.tiles); }
+function inWkZone(g: Game, x: number, y: number): boolean { if (!wkOn(g) || x < WK_X0 || x > WK_X1 || y < WK_Y0 || y > WK_Y1) return false; const t = tileAt(g, x, y); return t === STONEF || t === WALL; }
+function wkZoneName(x: number, y: number): string { return x >= WK_KEEP[0] && x <= WK_KEEP[2] && y >= WK_KEEP[1] && y <= WK_KEEP[3] ? "👑 Cima de la torre: Boris" : "🛡 Torre del White Knight (nivel 50+)"; }
+function wkMiniMark(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: number, s: number, R: number, labels: boolean, dot: (x: number, y: number, c: string, r: number) => void): void {
+  if (!wkOn(g)) return;
+  const b = g.mons.find((m: Mon) => m.def.id === BORIS_ID); if (b && b.alive && regionOf(b.x, b.y) === 0) dot(b.x + 0.5, b.y + 0.5, "#ff3030", R);
+  if (labels) { ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.lineWidth = 3; ctx.strokeStyle = "#000"; const tx = ox + (WK_X0 + 9) * s, ty = oy + WK_Y0 * s - 3; ctx.strokeText("🛡 White Knight 50+", tx, ty); ctx.fillStyle = "#e8f4ff"; ctx.fillText("🛡 White Knight 50+", tx, ty); ctx.lineWidth = 1; }
+}
+const WK_PAL: Record<string, string> = { K:"#16141e",H:"#eef0fa",h:"#b4bad4",S:"#f6dccc",s:"#d8a894",E:"#28e4f4",W:"#f4f4f8",w:"#bcc2d0",Y:"#f2c64a",y:"#9a7216",N:"#22346c",n:"#121c40",G:"#ffffff",B:"#262838",M:"#4a2434",C:"#58d8ff", };
+const WK_ROWS = [
+  ".........KHHHHHHHHK...........",
+  "........KHHHHHHHHHHK..........",
+  ".......KHHHHHHHHHHHHK.........",
+  ".......KHHhHHHHHHhHHK.........",
+  "......KHHhHSSSSSShHHHK........",
+  "......KHHHSESSSSESHHHK........",
+  "......KHHhSSSSSSSShHHK........",
+  "......KHHHKSSssSSKHHHK........",
+  ".....KHHHhKKWSSWKKhHHHK.......",
+  "....KNYYYYWWWCCWWWYYYYNK......",
+  "...KNNYyYyWYWWWWYWyYyYNNK.....",
+  "...KNHHNWWWYWWWWYWWWNHHNK.....",
+  "..KNNHHWWWWWYYYYWWWWWHHNNK....",
+  "..KNHHhWwWWYWWWWYWWwWhHHNK....",
+  "..KNHHhWwWWWYYYYWWWwWhHHNK....",
+  ".KNNHHhWwWWWWWWWWWWwWhHHNNK...",
+  ".KNHHhGGwWWWWWWWWWWwGGhHHNK...",
+  ".KNHHhGGWWYYYYYYYYWWGGhHHNK...",
+  ".KNHhhKNNNNNNNNNNNNNNKhhHNK...",
+  ".KNHhKNNNNNNNNNNNNNNNYKhHNK...",
+  ".KNHhKNNNNNNNNNNNNNNYyMKhNK...",
+  ".KNHhKNNNNNNNNNNNNNNNYMMKNK...",
+  ".KNNhKNNNNNNNNNNNNNNNNNMMK....",
+  ".KNNKKYYYYYYYYYYYYYYYYYKMMK...",
+  ".KNNK.KSSSSKKKKSSSSKKKK.KMMK..",
+  ".KNNK.KSSSsK..KsSSSK.....KMK..",
+  ".KNNK.KBBBBK..KBBBBK......K...",
+  ".KNNK.KBBBBK..KBBBBK..........",
+  "..KNK.KBBBBK..KBBBBK..........",
+  "..KNK.KBBBYK..KYBBBK..........",
+  "..KNK.KBBBBK..KBBBBK..........",
+  "..KNK.KBBBBK..KBBBBK..........",
+  "...K.KBBBBBK..KBBBBBK.........",
+  ".....KBBBBBK..KBBBBBK.........",
+];
+let WK_IMG: HTMLCanvasElement | null = null;
+function drawWkSpr(ctx: CanvasRenderingContext2D, ph: number, now: number): void {
+  if (!WK_IMG && typeof document !== "undefined") { const c = document.createElement("canvas"); c.width = 30; c.height = WK_ROWS.length; const x2 = c.getContext("2d");
+    if (x2) { WK_ROWS.forEach((r: string, y: number) => { for (let x = 0; x < r.length; x++) { const col = WK_PAL[r[x] ?? "."]; if (col) { x2.fillStyle = col; x2.fillRect(x, y, 1, 1); } } }); WK_IMG = c; } }
+  if (!WK_IMG) return; const bob = ph === 1 ? -1 : 0; ctx.imageSmoothingEnabled = false; ctx.drawImage(WK_IMG, 1, -4 + bob);
+  const k = 0.5 + 0.5 * Math.sin(now / 300); ctx.fillStyle = `rgba(80,240,255,${0.4 + 0.5 * k})`; ctx.fillRect(12, 1 + bob, 1, 1); ctx.fillRect(17, 1 + bob, 1, 1); // ojos cian
+}
+// Solo el White Knight y Boris pisan la torre: los demás monstruos no entran (ni persiguiendo) y los respawns viejos que caían
+// dentro o a menos de 5 casillas se apartan a la hierba libre más cercana (con el mapa oficial: trolls (10, 56) → (9, 54) y (10, 62) → (17, 56)).
+function wkTowerAt(tiles: Uint8Array, x: number, y: number): boolean { if (x < WK_X0 || x > WK_X1 || y < WK_Y0 || y > WK_Y1) return false; const t = tiles[y * MW + x]; return t === STONEF || t === WALL; }
+function wkNearTower(tiles: Uint8Array, x: number, y: number, r: number): boolean { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (wkTowerAt(tiles, x + dx, y + dy)) return true; return false; }
+function wkMayEnter(g: Game, m: Mon, x: number, y: number): boolean { return m.def.id === WK_ID || m.def.id === BORIS_ID || !wkOn(g) || !wkTowerAt(g.tiles, x, y); }
+function wkRelocate(tiles: Uint8Array, s: [MonId, number, number]): void {
+  if (s[0] === WK_ID || s[0] === BORIS_ID || !wkNearTower(tiles, s[1], s[2], 5)) return;
+  for (let r = 1; r <= 16; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = s[1] + dx, y = s[2] + dy;
+    if (x < 2 || y < OY || x >= OW_W - 2 || y >= OW_H - 2 || tiles[y * MW + x] !== GRASS || isSafe(x, y) || wkNearTower(tiles, x, y, 5)) continue; s[1] = x; s[2] = y; return; }
+}
 // ===================== Interfaz =====================
 type Theme = ReturnType<typeof useGrokTheme>;
 function btn(th: Theme, active?: boolean, small?: boolean): CSSProperties {
@@ -5636,7 +5893,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v26 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v27 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
