@@ -1,4 +1,4 @@
-/* Story Mode (v0.4 part 1): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
+/* Story Mode (v0.4 part 1; current build v0.4.5 adds radio chatter): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
    Built on top of Survival via its hook methods: onKill, onUpdate, hitExtra, onBlast, onScreenClear,
    drawWorld, drawTop, hudCenter, scoreEntry. */
 (() => {
@@ -23,6 +23,54 @@ const NEBULA = {
   ],
 };
 SL.NEBULA = NEBULA;
+
+/* ---------- v0.4.5 radio chatter (normal Story levels only) ----------
+   Exact lines by tier (levels 1-9 / 11-19 / 21-29). Shuffle-bag per speaker+tier, kept for the whole page
+   session, so a line never repeats twice in a row. Speakers alternate across levels and within a level. */
+const CHATTER = {
+  edisar: [
+    ['Good work, Oakens. Every rock you break keeps our world safe.', 'The Fleet is proud of you, pilot.', "Stay sharp. The belt doesn't forgive mistakes.", "Nebula is a traitor. Don't listen to a word he says."],
+    ["Faster, Oakens. We're behind schedule.", "Ignore the radiation readings. They're within limits.", 'Destroy them all. No exceptions.', 'Avrill, stop asking questions and fly.'],
+    ["I don't pay you to think, pilot.", 'Whatever Nebula told you... forget it.', 'The belt must fall. All of it.', "Don't make me remind you who's in charge."],
+  ],
+  avrill: [
+    ['Nice shot, Oakens! Try to keep up.', "I've got your wing. Always.", 'Race you to the next sector!', "Don't get cocky, flyboy."],
+    ['These readings are weird... the belt looks thinner.', "Did Nebula's words bother you too?", 'Something feels off about this mission.', "Stay close, Oakens. I don't like this."],
+    ["I keep reading those files... I can't sleep.", 'If anything happens to me, keep flying.', "Edisar's orders don't make sense anymore.", "Whatever happens... I'm glad it was you on my wing."],
+  ],
+};
+SL.Chatter = {
+  lines: CHATTER, bags: {}, last: {}, nextWho: 'edisar',
+  tier(L) { return L >= 1 && L <= 9 ? 0 : L >= 11 && L <= 19 ? 1 : L >= 21 && L <= 29 ? 2 : -1; },
+  draw(who, tier) {
+    const k = who + tier; let bag = this.bags[k];
+    if (!bag || !bag.length) {
+      bag = this.bags[k] = CHATTER[who][tier].slice();
+      for (let i = bag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      if (bag.length > 1 && bag[bag.length - 1] === this.last[k]) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];   // no repeat across refills
+    }
+    return (this.last[k] = bag.pop());
+  },
+  plan(L, dur) {        // [] for boss levels, the final level, or levels without a tier
+    const tier = this.tier(L);
+    if (tier < 0 || L % SL.CONFIG.story.boss.every === 0 || L >= SL.FINAL_LEVEL) return [];
+    const a = this.nextWho, b = a === 'edisar' ? 'avrill' : 'edisar'; this.nextWho = b;
+    return [{ at: dur * (0.2 + Math.random() * 0.15), who: a, tier }, { at: dur * (0.6 + Math.random() * 0.15), who: b, tier }];
+  },
+};
+const SPK = {
+  edisar: { name: 'CMDR. EDISAR', rgb: '90,160,255', side: 'right' },
+  avrill: { name: 'AVRILL', rgb: '255,80,220', side: 'left' },
+};
+let edisarPor = null; const edisarImg = new Image(); edisarImg.src = 'assets/edisar.jpg';
+function edisarPortrait() {
+  if (edisarPor) return edisarPor; if (!edisarImg.complete || !edisarImg.naturalWidth) return null;
+  const N = 128, c = SL.mkCanvas(N, N), x = c.getContext('2d');
+  x.save(); SL.roundRect(x, 2, 2, N - 4, N - 4, 10); x.clip(); x.drawImage(edisarImg, 0, 0, N, N);
+  x.fillStyle = 'rgba(0,0,0,0.16)'; for (let i = 0; i < N; i += 4) x.fillRect(0, i, N, 1.5); x.restore();
+  x.strokeStyle = 'rgba(90,160,255,1)'; x.lineWidth = 4; x.shadowColor = 'rgba(90,160,255,1)'; x.shadowBlur = 10; SL.roundRect(x, 3, 3, N - 6, N - 6, 10); x.stroke();
+  return (edisarPor = c);
+}
 const pick = l => l[(Math.random() * l.length) | 0];
 const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
 const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -98,10 +146,12 @@ SL.Story = class extends SL.Survival {
     this.ebullets = []; this.dialogs = []; this.dialog = null; this.boss = null; this.clearData = null;
     if (SL.Story._off) SL.Story._off();
     SL.Story._off = SL.Events.on('assist', g => {
-      if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
+      if (g !== this) return;
+      if (this.dialog && this.dialog.who !== 'nebula') this.dialog = null;     // radio chatter yields to the assist popup
+      if (!this.boss || this.boss.phase !== 'fight') return;
       this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
     });
-    // v0.4.4: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
+    // v0.4.2: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
     if (startLevel === 1 && opts.intro !== false && SL.Cutscene.has('intro')) {
       this.level = 1; this.lv = { boss: false, goal: 0, dur: 0, kills: 0, t: 0 };
       SL.Audio.playTrack('main');
@@ -127,6 +177,7 @@ SL.Story = class extends SL.Survival {
     sh.invuln = Math.max(sh.invuln, 1.5);
     this.lives = this.C.ship.startLives;                     // every mission starts with full lives
     this.warpK = 0; this.warpT = 0; this._pops = {};
+    this.chat = boss ? [] : SL.Chatter.plan(L, this.lv.dur);   // v0.4.5 radio chatter schedule
     this.theme = SL.Features.story.worldTheme(L);            // hook: palette change every 10 levels (not used yet)
     SL.Features.story.onLevelStart(this, L);
     this.boss = null;
@@ -247,18 +298,24 @@ SL.Story = class extends SL.Survival {
   }
 
   /* ---------- dialog (Dr. Nebula popup) ---------- */
-  say(text, mood = 'normal', delay = 0) { this.dialogs.push({ text, mood, delay }); }
+  say(text, mood = 'normal', delay = 0, who = 'nebula') { this.dialogs.push({ text, mood, delay, who }); }
   updateDialog(dt) {
     const avrillBusy = this.assist.phase === 'active' && this.assist.t < SL.Features.POP_DUR;
     if (!this.dialog && this.dialogs.length) {
       const d = this.dialogs[0]; d.delay -= dt;
-      if (d.delay <= 0 && !avrillBusy) { this.dialogs.shift(); this.dialog = { ...d, t: 0, lines: wrap(d.text, 30), dur: 2.0 + d.text.length / 24 }; SL.Events.emit('nebulaLine', d.text); }
+      if (d.delay <= 0 && !avrillBusy) { this.dialogs.shift(); this.dialog = { ...d, t: 0, lines: wrap(d.text, 28), dur: 2.0 + d.text.length / 24 }; SL.Events.emit(d.who === 'nebula' ? 'nebulaLine' : 'radioLine', { who: d.who, text: d.text }); }
     }
     if (this.dialog) { this.dialog.t += dt; if (this.dialog.t > this.dialog.dur) this.dialog = null; }
   }
   drawDialog(g) {
     // v0.4.1: compact, semi-transparent, top-right corner just below the boss health bar; fades out on its own
     const d = this.dialog; if (!d) return;
+    if (d.who && d.who !== 'nebula') {
+      const S = SPK[d.who];
+      SL.dialogPopup(g, this, d.who, { side: S.side, t: d.t, dur: d.dur, name: S.name, lines: d.lines, typed: Math.floor((d.t - 0.2) * 40),
+        rgb: S.rgb, por: d.who === 'edisar' ? edisarPortrait() : SL.Features.portrait() });
+      return;
+    }
     SL.dialogPopup(g, this, 'nebula', { side: 'right', t: d.t, dur: d.dur, name: NEBULA.name, lines: d.lines, typed: Math.floor((d.t - 0.2) * 40),
       rgb: d.mood === 'angry' ? '255,60,40' : '255,70,70', por: portrait(d.mood) });
   }
@@ -287,7 +344,7 @@ SL.Story = class extends SL.Survival {
     this.asteroids = this.asteroids.filter(a => !a.dead);
     if (t > W - 0.35) { this.flash = Math.max(this.flash || 0, (t - (W - 0.35)) / 0.35 * 0.8); this.flashRgb = '255,230,255'; }
     if (t >= W) {
-      // v0.4.4: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
+      // v0.4.2: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
       if (this.lv.boss && SL.Cutscene.has(this.level)) { this.warpK = 0; this.flash = 0; SL.Audio.playTrack('clear'); this.playCut(this.level, () => { this.state = 'warp'; this.startClear(); }); }
       else this.startClear();
     }
@@ -374,6 +431,9 @@ SL.Story = class extends SL.Survival {
     this.checkGoal();
     if (lv.done) { lv.doneT -= dt; if (lv.doneT <= 0) { this.startWarp(); return; } }
     if (this.boss) this.updateBoss(dt);
+    if (this.chat && this.chat.length && !lv.done && !lv.boss && this.chat[0].at <= lv.t && !this.dialog && !this.dialogs.length) {
+      const c = this.chat.shift(); this.say(SL.Chatter.draw(c.who, c.tier), 'normal', 0, c.who);
+    }
     for (const b of this.ebullets) {
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (b.x < -20 || b.x > SL.W + 20 || b.y < -40 || b.y > SL.H + 20) b.dead = true;

@@ -141,15 +141,15 @@ SL.Particles = class {
   }
 };
 
-/* ---------- compact dialogue popup (Dr. Nebula / Avrill), v0.4.1 ----------
+/* ---------- compact dialogue popup (Dr. Nebula / Avrill / Cmdr. Edisar radio), v0.4.1, text bumped in v0.4.5 ----------
    Small, semi-transparent, parked in a top corner just below the boss health bar. It swaps to the other
    corner if the ship flies under it, and fades to ~35% while asteroids / bullets pass behind it.
    Touch buttons all sit below y=330, so a popup at y=118..176 can never cover them. */
-SL.POP = { w: 262, h: 58, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 42 };
+SL.POP = { w: 300, h: 60, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 44, font: 13, lineH: 15 };   // v0.4.5: text 11->13px, name 10->11px
 SL.dialogPopup = (ctx, game, key, o) => {
   // o: { side:'left'|'right', t, dur, name, lines[], typed (chars), rgb, por (canvas), textRgb }
   const P = SL.POP, st = (game._pops ||= {})[key] ||= { side: o.side, x: null, a: P.alpha };
-  const H = Math.max(P.h, 30 + Math.min(3, o.lines.length) * 13);
+  const H = Math.max(P.h, 32 + Math.min(3, o.lines.length) * P.lineH);
   const rectAt = side => ({ x: side === 'left' ? P.margin : SL.W - P.margin - P.w, y: P.y, w: P.w, h: H });
   const near = (r, px, py, m) => px > r.x - m && px < r.x + r.w + m && py > r.y - m && py < r.y + r.h + m;
   const s = game.ship, other = st.side === 'left' ? 'right' : 'left';
@@ -175,9 +175,9 @@ SL.dialogPopup = (ctx, game, key, o) => {
   ctx.restore();
   ctx.save(); ctx.globalAlpha = vis; ctx.translate(slide, 0);
   const tx = r.x + 8 + P.por + 10;
-  SL.neonText(ctx, o.name, tx, r.y + 13, 10, o.rgb, { align: 'left', blur: 3 });
+  SL.neonText(ctx, o.name, tx, r.y + 14, 11, o.rgb, { align: 'left', blur: 3 });
   let n = o.typed ?? 999;
-  o.lines.slice(0, 3).forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(ctx, part, tx, r.y + 29 + i * 13, 11, o.textRgb || '255,240,245', { align: 'left', blur: 3 }); });
+  o.lines.slice(0, 3).forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(ctx, part, tx, r.y + 32 + i * P.lineH, P.font, o.textRgb || '255,240,245', { align: 'left', blur: 3 }); });
   ctx.restore();
   return r;
 };
