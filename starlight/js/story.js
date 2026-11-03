@@ -101,7 +101,7 @@ SL.Story = class extends SL.Survival {
       if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
       this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
     });
-    // v0.4.2: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
+    // v0.4.3: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
     if (startLevel === 1 && opts.intro !== false && SL.Cutscene.has('intro')) {
       this.level = 1; this.lv = { boss: false, goal: 0, dur: 0, kills: 0, t: 0 };
       SL.Audio.playTrack('main');
@@ -204,15 +204,15 @@ SL.Story = class extends SL.Survival {
   fireE(x, y, ang, sp) { this.ebullets.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp }); }
   bossAttack() {
     const B = this.boss, H = SC().boss, e = B.e, sp = H.bulletBase + H.bulletPerEncounter * (e - 1);
-    const live = B.pts.filter(p => p.hp > 0), s = this.ship;
+    const live = B.pts.filter(p => p.hp > 0), s = this.ship, f = 0.35 + 0.65 * live.length / B.pts.length;
     const pats = e >= 3 ? ['aimed', 'fan', 'spiral', 'rain'] : e === 2 ? ['aimed', 'fan', 'spiral'] : ['aimed', 'fan'];
     const pat = pats[B.pi++ % pats.length];
     if (pat === 'aimed') {
-      const p = pick(live), x = B.x + p.ox, y = B.y + p.oy, a = Math.atan2(s.y - y, s.x - x), n = 2 + e;
+      const p = pick(live), x = B.x + p.ox, y = B.y + p.oy, a = Math.atan2(s.y - y, s.x - x), n = Math.max(1, Math.round((2 + e) * f));
       for (let i = 0; i < n; i++) this.fireE(x, y, a + (i - (n - 1) / 2) * 0.13, sp * 1.1);
     } else if (pat === 'fan') {
-      const n = 7 + 2 * e; for (let i = 0; i < n; i++) this.fireE(B.x, B.y + 40, Math.PI / 2 + (i / (n - 1) - 0.5) * 1.5, sp);
-    } else if (pat === 'spiral') { B.spiral = 1.2 + 0.3 * e; }
+      const n = Math.max(3, Math.round((7 + 2 * e) * f)); for (let i = 0; i < n; i++) this.fireE(B.x, B.y + 40, Math.PI / 2 + (i / (n - 1) - 0.5) * 1.5, sp);
+    } else if (pat === 'spiral') { B.spiral = (1.2 + 0.3 * e) * f; }
     else if (pat === 'rain') { for (const p of live) for (const k of [-0.15, 0, 0.15]) this.fireE(B.x + p.ox, B.y + p.oy, Math.PI / 2 + k, sp * 0.95); }
     SL.Audio.sfx.ebullet();
   }
@@ -226,7 +226,7 @@ SL.Story = class extends SL.Survival {
       B.x = 512 + Math.sin(B.t * (0.35 + 0.06 * (B.e - 1))) * 210; B.y = H.y + Math.sin(B.t * 1.1) * 10;
       const dead = B.pts.filter(p => p.hp <= 0).length;
       B.atkT -= dt;
-      if (B.atkT <= 0) { this.bossAttack(); B.atkT = Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (B.e - 1)) * (1 - H.angerPerPoint * dead); }
+      if (B.atkT <= 0) { this.bossAttack(); B.atkT = Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (B.e - 1)) * (1 + H.angerPerPoint * dead); }
       if (B.spiral > 0) { B.spiral -= dt; B.fx -= dt; if (B.fx <= 0) { B.fx = 0.07; B.spinA += 0.42; const sp = (H.bulletBase + H.bulletPerEncounter * (B.e - 1)) * 0.85; this.fireE(B.x, B.y + 20, B.spinA, sp); this.fireE(B.x, B.y + 20, B.spinA + Math.PI, sp); } }
       B.tauntT -= dt; if (B.tauntT <= 0) { this.say(pick(NEBULA.taunts), 'normal'); B.tauntT = H.tauntEvery[0] + Math.random() * (H.tauntEvery[1] - H.tauntEvery[0]); }
       if (this.afterAssistT > 0) { this.afterAssistT -= dt; if (this.afterAssistT <= 0) this.say(NEBULA.afterAssist, 'normal'); }
@@ -287,7 +287,7 @@ SL.Story = class extends SL.Survival {
     this.asteroids = this.asteroids.filter(a => !a.dead);
     if (t > W - 0.35) { this.flash = Math.max(this.flash || 0, (t - (W - 0.35)) / 0.35 * 0.8); this.flashRgb = '255,230,255'; }
     if (t >= W) {
-      // v0.4.2: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
+      // v0.4.3: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
       if (this.lv.boss && SL.Cutscene.has(this.level)) { this.warpK = 0; this.flash = 0; SL.Audio.playTrack('clear'); this.playCut(this.level, () => { this.state = 'warp'; this.startClear(); }); }
       else this.startClear();
     }
