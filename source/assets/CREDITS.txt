@@ -44,6 +44,7 @@ Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts
   - v29.4: los mapas del editor muestran en el juego la Tierra de ceniza y las puertas abiertas (ids 74–76).
   - v29.5: mapa nuevo de Juan Carlos publicado (734×164, origen 150, 10): tierras nuevas al oeste con sala de alfombra roja y portal.
   - v29.5.1: la escalera de mano (-103, 24) lleva al cuarto de al lado (anillo de hielo junto a su portal de salida).
+  - v29.5.2: mapa de Juan Carlos con puente sobre el foso del salón oeste; la escalera de mano (-103, 24) lleva dentro del salón (-114, 24).
   - Mapa oficial v27.3 (assets/map.json): juan-map-nov2b de Juan Carlos, 584×164 con margen ox/oy 10 (templo de mármol,
     estatuas, torre del White Knight con alfombras y puerta de hierro), copiado byte a byte.
   No se usa ningún sprite de Tibia.
