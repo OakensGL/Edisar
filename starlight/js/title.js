@@ -4,11 +4,13 @@ SL.Title = (() => {
   const img = new Image(); img.src = 'assets/title.jpg';
   let phase = 'press', T = 0, flashAt = -1, sel = 0, denyAt = -1;
   const stars = new SL.Starfield();
-  const backBtn = { label: 'BACK', x: 512, y: 520, w: 200, h: 40, rgb: '70,160,255' };
+  const backBtn = { label: 'BACK', x: 512, y: 512, w: 200, h: 36, rgb: '70,160,255' };
+  const tabs = [{ id: 'story', label: 'STORY', x: 422, y: 94, w: 160, h: 32, rgb: '255,80,220', size: 18 }, { id: 'survival', label: 'SURVIVAL', x: 602, y: 94, w: 160, h: 32, rgb: '70,160,255', size: 18 }];
+  let tab = 'story';
   const menu = [
-    { id: 'survival', label: 'SURVIVAL', x: 512, y: 442, w: 300, h: 34, rgb: '255,80,220' },
-    { id: 'scores', label: 'HIGH SCORES', x: 512, y: 482, w: 300, h: 34, rgb: '170,90,255', size: 20 },
-    { id: 'story', label: 'STORY MODE', sub: 'COMING SOON', x: 512, y: 525, w: 300, h: 40, rgb: '70,160,255', disabled: true, size: 20 },
+    { id: 'story', label: 'STORY MODE', x: 512, y: 442, w: 300, h: 34, rgb: '255,80,220' },
+    { id: 'survival', label: 'SURVIVAL', x: 512, y: 484, w: 300, h: 34, rgb: '70,160,255', size: 20 },
+    { id: 'scores', label: 'HIGH SCORES', x: 512, y: 526, w: 300, h: 34, rgb: '170,90,255', size: 20 },
   ];
 
   // mask: where moving stars may appear (soft holes over title art)
@@ -83,7 +85,7 @@ SL.Title = (() => {
     if (b.disabled) { denyAt = T; SL.Audio.sfx.deny(); return; }
     SL.Audio.sfx.blip(880);
     if (b.id === 'scores') { phase = 'scores'; return; }
-    SL.start('play');
+    SL.start(b.id === 'story' ? 'story' : 'play');
   }
   return {
     enter(p = 'press') { phase = p; flashAt = -1; },
@@ -96,6 +98,10 @@ SL.Title = (() => {
         return;
       }
       if (phase === 'scores') {
+        if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD') || downs.some(d => SL.inBtn(tabs[0], d) || SL.inBtn(tabs[1], d))) {
+          const d = downs.find(d => SL.inBtn(tabs[0], d) || SL.inBtn(tabs[1], d));
+          tab = d ? (SL.inBtn(tabs[0], d) ? 'story' : 'survival') : (tab === 'story' ? 'survival' : 'story'); SL.Audio.sfx.blip(600);
+        }
         if (I.hitAny('Escape', 'Enter', 'Space', 'Backspace') || downs.some(d => SL.inBtn(backBtn, d))) { phase = 'menu'; SL.Audio.sfx.blip(520); }
         return;
       }
@@ -117,10 +123,12 @@ SL.Title = (() => {
       if (phase === 'press') drawPress(g, T); else drawMenu(g, T);
       if (phase === 'scores') {
         g.fillStyle = 'rgba(3,1,12,0.9)'; g.fillRect(0, 0, W, H);
-        SL.neonText(g, 'HIGH SCORES', 512, 60, 40, '255,80,220', { blur: 22 });
-        SL.neonText(g, 'SURVIVAL · TOP 10 · THIS DEVICE', 512, 100, 13, '160,200,255', { blur: 5, alpha: 0.8 });
-        SL.drawScoreTable(g, SL.Scores.list(), 140, -1, T);
-        SL.drawButton(g, backBtn, true, T);
+        SL.neonText(g, 'HIGH SCORES', 512, 46, 36, '255,80,220', { blur: 22 });
+        tabs.forEach(b => SL.drawButton(g, b, b.id === tab, T));
+        SL.neonText(g, (tab === 'story' ? 'RANKED BY LEVEL, THEN POINTS' : 'RANKED BY POINTS') + ' · TOP 10 · THIS DEVICE', 512, 128, 11, '160,200,255', { blur: 4, alpha: 0.8 });
+        SL.drawScoreTable(g, SL.Scores.list(tab), 158, -1, T, tab);
+        SL.drawButton(g, backBtn, false, T);
+        SL.neonText(g, '◀ ▶ SWITCH  ·  ESC BACK', 512, 548, 10, '160,200,255', { blur: 3, alpha: 0.6 });
       }
       SL.neonText(g, 'v' + SL.VERSION.replace(/\.0$/, ''), 1012, 566, 10, '160,200,255', { align: 'right', blur: 3, alpha: 0.6 });
       drawFlash(g);

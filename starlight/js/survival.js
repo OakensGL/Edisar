@@ -3,7 +3,8 @@ SL.Survival = class {
   constructor() {
     const C = SL.CONFIG;
     this.C = C; this.Fx = SL.Features; this.ev = SL.Events;
-    this.state = 'play';           // play | paused | dying | over
+    this.state = 'play';           // play | paused | dying | over  (+ 'clear' in Story)
+    this.mode = 'survival'; this.timeScore = true; this.debug = false;
     this.t = 0; this.score = 0; this.lives = C.ship.startLives;
     this.streak = 0; this.mult = 1; this.best = SL.getBest(); this.newBest = false;
     this.stats = { kills: 0, splits: 0, hits: 0, shots: 0, spawned: 0 };
@@ -71,6 +72,7 @@ SL.Survival = class {
     if (byPlayer && this.state === 'play') {
       this.streak++; this.mult = Math.min(this.C.score.comboMax, 1 + Math.floor(this.streak / this.C.score.comboStep));
       pts = S.points * this.mult * (a.special === 'gold' ? this.C.special.goldMul : 1); this.score += pts; this.stats.kills++;
+      this.onKill && this.onKill(a);
       if (!opt.quiet) this.popup(`+${pts}`, a.x, a.y, a.special === 'gold' ? '255,210,70' : this.mult > 1 ? '255,230,120' : rgb);
     }
     const k = a.r / 44;
@@ -92,11 +94,11 @@ SL.Survival = class {
   }
   playerHit(a) {
     const s = this.ship;
-    if (SL.Features.absorbHit(this)) { this.destroy(a, false); return; }
+    if (SL.Features.absorbHit(this)) { if (a) this.destroy(a, false); return; }
     this.lives--; this.stats.hits++; this.streak = 0;
     if (this.mult > 1) this.popup('COMBO LOST', s.x, s.y - 40, '255,90,120');
     this.mult = 1;
-    this.destroy(a, false);
+    if (a) this.destroy(a, false);
     this.fx.burst(s.x, s.y, '80,170,255', 40, 260, 0.9, 2.5); this.fx.ring(s.x, s.y, '255,255,255', 70, 0.45);
     this.shake(12); SL.Audio.sfx.hit();
     this.ev.emit('playerHit', { lives: this.lives });
@@ -109,7 +111,7 @@ SL.Survival = class {
     this.state = 'over'; this.sel = 0; this.score = Math.floor(this.score); this.hiRank = -1;
     if (this.score > this.best) { this.best = this.score; this.newBest = true; }
     SL.Audio.sfx.gameOver();
-    if (SL.Scores.qualifies(this.score)) {
+    if (!this.debug && SL.Scores.qualifies(this.scoreEntry(), this.mode)) {
       this.overPhase = 'entry';
       SL.NameEntry.open(SL.Scores.lastName, name => this.saveScore(name));
     } else this.overPhase = 'table';
@@ -117,9 +119,10 @@ SL.Survival = class {
   }
   saveScore(name) {
     SL.Scores.lastName = name;
-    this.hiRank = SL.Scores.add({ name, score: this.score, time: this.t, kills: this.stats.kills, date: new Date().toISOString() });
+    this.hiRank = SL.Scores.add({ name, ...this.scoreEntry(), date: new Date().toISOString() }, this.mode);
     this.overPhase = 'table'; this.overT = Math.min(this.overT, -0.5);
   }
+  scoreEntry() { return { score: Math.floor(this.score), time: this.t, kills: this.stats.kills }; }
   popup(txt, x, y, rgb) { this.popups.push({ txt, x, y, rgb, life: 0.9 }); }
   shake(n) { this.shakeAmt = Math.max(this.shakeAmt, n); }
   pause(on = true) { if (on && this.state === 'play') { this.state = 'paused'; this.sel = 0; } else if (!on && this.state === 'paused') this.state = 'play'; }
@@ -169,7 +172,7 @@ SL.Survival = class {
   menuAction(id) {
     SL.Audio.sfx.blip(780);
     if (id === 'resume') this.pause(false);
-    else if (id === 'again') SL.start('play');
+    else if (id === 'again') SL.start(this.mode === 'story' ? 'story' : 'play');
     else if (id === 'menu') SL.start('menu');
   }
 
@@ -181,7 +184,7 @@ SL.Survival = class {
     const C = this.C, s = this.ship, W = SL.W, H = SL.H;
     const live = this.state === 'play';
     if (live) {
-      this.t += dt; this.score += C.score.perSecond * dt;
+      this.t += dt; if (this.timeScore) this.score += C.score.perSecond * dt;
       this.ev.emit('tick', dt);
     }
     SL.Features.update(this, dt);
@@ -209,11 +212,13 @@ SL.Survival = class {
     // collisions: bullets vs asteroids
     for (const b of this.bullets) {
       if (b.dead) continue;
+      if (this.hitExtra && this.hitExtra(b)) continue;     // e.g. Story boss weak points / hull
       for (const a of this.asteroids) {
         if (a.dead || (b.pierce && a.immune === b)) continue;
         const dx = a.x - b.x, dy = a.y - b.y, rr = a.r * 0.92 + (b.pierce ? 6 : 3);
         if (dx * dx + dy * dy < rr * rr) {
           this.fx.burst(b.x, b.y, b.pierce ? '160,255,255' : '255,200,255', 4, 90, 0.25, 1.5);
+          this.countHit(b);
           if (b.pierce) { this.destroy(a, true, { immune: b }); continue; }
           b.dead = true; this.destroy(a, true); break;
         }
@@ -227,6 +232,7 @@ SL.Survival = class {
         if (dx * dx + dy * dy < rr * rr) { this.playerHit(a); break; }
       }
     }
+    this.onUpdate && this.onUpdate(dt);
     this.asteroids = this.asteroids.filter(a => !a.dead);
     this.bullets = this.bullets.filter(b => !b.dead);
     // fx
@@ -238,6 +244,7 @@ SL.Survival = class {
     if (this.state === 'dying') { this.overT -= dt; if (this.overT <= 0) this.gameOver(); }
     else if (this.state === 'over') this.overT -= dt;
   }
+  countHit(b) { if (b.kind !== 'avrill' && !b.counted) { b.counted = true; this.stats.bulletHits = (this.stats.bulletHits || 0) + 1; } }
   fire() {
     const s = this.ship, C = this.C;
     s.gun = 1 - s.gun;
@@ -260,6 +267,7 @@ SL.Survival = class {
       if (a.special) SL.glow(g, a.x, a.y, a.r * 1.6, a.r * 1.6, a.rgb, a.special === 'red' ? 0.18 + 0.14 * Math.sin(this.T * 9) : 0.22);
       const sz = a.sprite.size; g.save(); g.translate(a.x, a.y); g.rotate(a.rot); g.drawImage(a.sprite.c, -sz / 2, -sz / 2, sz, sz); g.restore();
     }
+    this.drawWorld && this.drawWorld(g);
     // bullets
     g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
     const KINDS = { std: ['255,60,200', '255,110,230', 16], triple: ['255,120,40', '255,170,80', 16], laser: ['60,230,255', '150,255,255', 38], avrill: ['255,60,200', '255,140,240', 14] };
@@ -293,7 +301,8 @@ SL.Survival = class {
     SL.Features.drawOverlay(this, g);
     this.drawHUD(g);
     if (!SL.Input.touchMode && this.t < 6 && this.state === 'play') SL.neonText(g, SL.CONTROLS_HINT, 512, 556, 12, '160,200,255', { blur: 4, alpha: Math.min(0.85, (6 - this.t) / 1.5) });
-    if (SL.Input.touchMode && this.state !== 'over') this.drawTouch(g);
+    if (SL.Input.touchMode && this.state !== 'over' && this.state !== 'clear') this.drawTouch(g);
+    this.drawTop && this.drawTop(g);
     if (this.state === 'paused') this.drawPause(g);
     if (this.state === 'over') this.drawOver(g);
     SL.drawScanlines(g);
@@ -306,7 +315,8 @@ SL.Survival = class {
       g.drawImage(this.shipSprite.c, 18 + i * 28, 36, sz, sz); g.restore();
     }
     const m = Math.floor(this.t / 60), sec = Math.floor(this.t % 60);
-    SL.neonText(g, `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, 512, 20, 16, '160,200,255', { blur: 8 });
+    if (this.hudCenter) this.hudCenter(g);
+    else SL.neonText(g, `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, 512, 20, 16, '160,200,255', { blur: 8 });
     // combo meter
     if (this.mult > 1 || this.streak > 0) {
       const step = this.C.score.comboStep, prog = this.mult >= this.C.score.comboMax ? 1 : (this.streak % step) / step;
@@ -376,10 +386,11 @@ SL.Survival = class {
       return;
     }
     SL.neonText(g, 'GAME OVER', 512, 44, 40, '255,70,210', { blur: 22, alpha: k });
-    SL.neonText(g, 'SCORE ' + SL.pad(this.score) + `   TIME ${m}:${String(sec).padStart(2, '0')}   KILLS ${this.stats.kills}`, 512, 86, 17, '255,235,255', { blur: 8, alpha: k });
-    if (this.newBest) SL.neonText(g, '★ NEW #1 ★', 512, 112, 15, '255,220,90', { blur: 12, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
-    SL.neonText(g, 'SURVIVAL TOP 10', 512, 140, 16, '170,90,255', { blur: 10, alpha: k });
-    SL.drawScoreTable(g, SL.Scores.list(), 168, this.hiRank, this.T);
+    SL.neonText(g, (this.mode === 'story' ? `LEVEL ${this.level}   ` : '') + 'SCORE ' + SL.pad(this.score) + `   TIME ${m}:${String(sec).padStart(2, '0')}   KILLS ${this.stats.kills}`, 512, 86, 17, '255,235,255', { blur: 8, alpha: k });
+    if (this.debug) SL.neonText(g, 'DEBUG RUN (?level) — NOT RANKED', 512, 112, 13, '255,150,80', { blur: 6, alpha: k });
+    else if (this.newBest) SL.neonText(g, '★ NEW #1 ★', 512, 112, 15, '255,220,90', { blur: 12, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
+    SL.neonText(g, (this.mode === 'story' ? 'STORY' : 'SURVIVAL') + ' TOP 10', 512, 140, 16, '170,90,255', { blur: 10, alpha: k });
+    SL.drawScoreTable(g, SL.Scores.list(this.mode), 168, this.hiRank, this.T, this.mode);
     this.overBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
 

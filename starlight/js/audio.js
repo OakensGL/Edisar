@@ -1,10 +1,19 @@
 /* Music (HTMLAudio, looping) + synthesized SFX (WebAudio). Unlocked on first user gesture. */
 SL.Audio = (() => {
-  const music = new Audio('assets/angel-eyes-vision-ii.mp3');
-  music.loop = true; music.preload = 'auto'; music.volume = 0.65;
-  let ac = null, master = null, noiseBuf = null, started = false;
+  // Music tracks (all files used unmodified; credits in CREDITS.txt)
+  const TRACKS = { main: 'assets/angel-eyes-vision-ii.mp3', boss: 'assets/helldrake-extended.ogg', clear: 'assets/the-last-encounter-mix.ogg' };
+  let ac = null, master = null, noiseBuf = null, started = false, current = 'main';
   let muted = SL.store.get(SL.CONFIG.storage.muted, '0') === '1';
-  music.muted = muted;
+  const els = {};
+  const el = k => els[k] || (els[k] = Object.assign(new Audio(TRACKS[k]), { loop: true, preload: k === 'main' ? 'auto' : 'none', volume: 0.65, muted }));
+  el('main');
+  function playTrack(k) {
+    if (!TRACKS[k]) return;
+    if (k === current && started && !el(k).paused) return;
+    for (const o in els) if (o !== k) els[o].pause();
+    const a = el(k); if (k !== current && k !== 'main') { try { a.currentTime = 0; } catch (e) {} }
+    current = k; if (started) a.play().catch(() => {});
+  }
 
   function unlock() {
     if (!ac) {
@@ -16,10 +25,10 @@ SL.Audio = (() => {
       } catch (e) { ac = null; }
     }
     if (ac && ac.state === 'suspended') ac.resume();
-    if (!started) { started = true; music.play().catch(() => { started = false; }); }
+    if (!started) { started = true; el(current).play().catch(() => { started = false; }); }
   }
   function setMuted(m) {
-    muted = m; music.muted = m; SL.store.set(SL.CONFIG.storage.muted, m ? '1' : '0');
+    muted = m; for (const k in els) els[k].muted = m; SL.store.set(SL.CONFIG.storage.muted, m ? '1' : '0');
     if (master) master.gain.value = m ? 0 : 0.45;
   }
   const ok = () => ac && !muted;
@@ -47,8 +56,14 @@ SL.Audio = (() => {
     boom() { if (!ok()) return; noise(1.4, 3000, 40, 0.8, 0.5); tone('sine', 90, 25, 1.0, 0.5); },
     assist() { if (!ok()) return; tone('sawtooth', 220, 1760, 0.6, 0.08); [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => ok() && tone('square', f, f, 0.12, 0.06), 150 + i * 90)); },
     ready() { if (!ok()) return; tone('triangle', 880, 1760, 0.25, 0.1); },
+    tick() { if (!ok()) return; tone('square', 1800, 1700, 0.025, 0.04); },
+    alarm() { if (!ok()) return; [0, 1, 2].forEach(i => setTimeout(() => ok() && tone('sawtooth', 440, 330, 0.25, 0.09), i * 320)); },
+    bossHit() { if (!ok()) return; tone('square', 300, 180, 0.05, 0.05); },
+    ebullet() { if (!ok()) return; tone('triangle', 520, 260, 0.08, 0.03); },
     deny() { if (!ok()) return; tone('square', 220, 160, 0.15, 0.08); },
     gameOver() { if (!ok()) return; [523, 392, 262].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 0.98, 0.35, 0.15), i * 220)); },
   };
-  return { unlock, setMuted, get muted() { return muted; }, toggleMute() { setMuted(!muted); }, sfx, music };
+  return { unlock, setMuted, get muted() { return muted; }, toggleMute() { setMuted(!muted); }, sfx, playTrack,
+    preload(list) { list.forEach(k => { const a = el(k); if (a.preload !== 'auto') { a.preload = 'auto'; a.load(); } }); },
+    get track() { return current; }, get music() { return el(current); } };
 })();

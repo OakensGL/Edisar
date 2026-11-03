@@ -80,16 +80,16 @@ const F = SL.Features = {
     let n = 0, pts = 0;
     for (const a of g.asteroids) if (!a.dead) { n++; pts += g.destroy(a, true, { noSplit: true, quiet: true }) || 0; }
     g.blasts.push({ x: g.assist.x, y: g.assist.y, r: 0, max: 900, t: 0, dur: 0.8, rgb: '255,80,220', visualOnly: true });
-    g.flash = 0.75; g.flashRgb = '255,120,230'; g.shake(24); g.spawnHold = C().assist.clearHold;
+    g.flash = 0.75; g.flashRgb = '255,120,230'; g.shake(24); g.onScreenClear && g.onScreenClear(); g.spawnHold = C().assist.clearHold;
     g.fx.burst(g.assist.x, g.assist.y, '255,80,220', 120, 600, 1.4, 3.5);
     g.popup(n ? `SCREEN CLEAR! ×${n}  +${pts}` : 'SCREEN CLEAR!', 512, 250, '255,120,230'); SL.Audio.sfx.boom();
   },
 
   /* ---------- special asteroids ---------- */
   pickSpecial(g) {
-    const S = C().special, r = Math.random();
-    if (r < S.goldChance) return 'gold';
-    if (g.t > S.redAfter && r < S.goldChance + S.redChance) return 'red';
+    const S = C().special, r = Math.random(), gc = S.goldChance + (g.goldBonus || 0), rc = S.redChance + (g.redBonus || 0);
+    if (r < gc) return 'gold';
+    if (g.t > (g.redAfter ?? S.redAfter) && r < gc + rc) return 'red';
     return null;
   },
   onDestroyed(g, a, byPlayer) {
@@ -131,6 +131,7 @@ const F = SL.Features = {
     for (const bl of g.blasts) {
       bl.t += dt; const k = Math.min(1, bl.t / bl.dur); bl.r = bl.max * (1 - (1 - k) * (1 - k));
       if (!bl.visualOnly) for (const a of g.asteroids) if (!a.dead && Math.hypot(a.x - bl.x, a.y - bl.y) < bl.r + a.r * 0.5) { bl.pts = (bl.pts || 0) + (g.destroy(a, true, { quiet: true }) || 0); bl.kills = (bl.kills || 0) + 1; }
+      if (!bl.visualOnly && g.onBlast) g.onBlast(bl);
       if (!bl.visualOnly && !bl.told && bl.t >= bl.dur) { bl.told = true; if (bl.kills) g.popup(`BOMB ×${bl.kills}  +${bl.pts}`, bl.x, bl.y, '255,140,220'); }
     }
     g.blasts = g.blasts.filter(bl => bl.t < bl.dur + 0.25);
@@ -263,6 +264,15 @@ const F = SL.Features = {
 };
 
 /* ---------- remaining stubs for later versions ---------- */
-F.story = { enabled: false, levels: [], bosses: [] };
+/* Story mode hooks (v0.4 builds levels + Nebula boss; these are the extension points for later). */
+F.story = {
+  bossEvery: 5,
+  finalLevel: { enabled: false, level: 50, boss: 'Commander Edisar Starlight' },   // TODO: final level
+  energySystem: { enabled: false },                                              // TODO: ship energy instead of lives
+  onLevelStart(game, level) {},                       // per-level setup hook (special waves, events)
+  cutsceneBetween(fromLevel, toLevel) { return null; },  // TODO: story clue cutscenes; return {frames...} to play
+  worldTheme(level) { return { index: Math.floor((level - 1) / 10), changed: level > 1 && (level - 1) % 10 === 0 }; }, // TODO: palette swap every 10 levels
+  isFinalLevel(level) { return this.finalLevel.enabled && level >= this.finalLevel.level; },
+};
 F.store = { enabled: false, current: 'default', skins: { default: { name: 'Oakens Blue', color: '80,170,255' } }, shipColor() { return this.skins[this.current].color; } };
 })();

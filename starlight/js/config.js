@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.3.0';
+SL.VERSION = '0.4.0';
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
 SL.CONFIG = {
@@ -59,6 +59,24 @@ SL.CONFIG = {
   special: {
     goldChance: 0.035, goldMul: 10, goldRgb: '255,210,70',     // gold: M size, no split, 10x points, guaranteed drop
     redChance: 0.06, redAfter: 15, redRadius: 150, redRgb: '255,55,55',  // red: explodes, destroying neighbours
+  },
+  /* ---------- v0.4 Story mode ---------- */
+  story: {
+    goalBase: 12, goalPerLevel: 6,                 // asteroids to destroy: 12, 18, 24, ...
+    spawnBase: 1.35, spawnPerLevel: 0.09, spawnMin: 0.32, spawnInLevel: 0.006,
+    speedBase: 70, speedPerLevel: 11, speedMax: 250, speedInLevel: 0.8,
+    goldPerLevel: 0.004, redPerLevel: 0.012, redFromLevel: 2,
+    introTime: 2.4,
+    bonus: { perKill: 25, accuracy: 2000, timePerSec: 20, comboStep: 500, bossPerEncounter: 3000, weakPointPerEncounter: 300 },
+    boss: {
+      every: 5, y: 168, halfW: 190, halfH: 55,
+      weakBase: 2, weakMax: 6,                       // weak points = min(max, base + encounter)
+      hpBase: 20, hpPerEncounter: 10,                // hits per weak point
+      attackBase: 1.7, attackPerEncounter: 0.25, attackMin: 0.55, angerPerPoint: 0.08,
+      bulletBase: 170, bulletPerEncounter: 35,
+      bombDamage: 8, assistDamage: 0.3,             // assist screen-clear takes 30% of each weak point's max HP
+      tauntEvery: [13, 19], asteroidInterval: 2.6,
+    },
   },
   storage: { best: 'starlight.survival.best', muted: 'starlight.muted' },
   font: '"Courier New", Courier, monospace',

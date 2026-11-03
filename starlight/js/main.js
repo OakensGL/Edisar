@@ -17,7 +17,12 @@
   SL.state = 'title'; SL.game = null;
   SL.start = (s) => {
     if (s === 'play') { SL.state = 'play'; SL.game = new SL.Survival(); }
-    else { SL.state = 'title'; SL.game = null; SL.Title.enter(s === 'menu' ? 'menu' : 'press'); }
+    else if (s === 'story') {
+      // debug jump: ?level=N (1..99). Harmless: debug runs are marked and never ranked.
+      const m = /[?&]level=(\d{1,2})\b/.exec(location.search), lv = m ? Math.max(1, Math.min(99, +m[1])) : 1;
+      SL.state = 'play'; SL.game = new SL.Story(lv, !!m);
+    }
+    else { SL.state = 'title'; SL.game = null; SL.Title.enter(s === 'menu' ? 'menu' : 'press'); SL.Audio.playTrack('main'); }
     SL.NameEntry.close();
     credit.style.display = SL.state === 'title' ? '' : 'none';
     SL.Input.takeDowns();

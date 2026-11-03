@@ -1,0 +1,398 @@
+/* Story Mode (v0.4 part 1): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
+   Built on top of Survival via its hook methods: onKill, onUpdate, hitExtra, onBlast, onScreenClear,
+   drawWorld, drawTop, hudCenter, scoreEntry. */
+(() => {
+const NEBULA = {
+  name: 'Dr. Nebula',
+  taunts: [
+    "Keep shooting, fool. You have no idea what you're breaking.",
+    'Oh, Oakens. Still following orders like a good little dog?',
+    'Destroy them all, puppet. See where that gets you.',
+    'Run along, little boy. Edisar must be so proud.',
+    "I'd explain it to you, Oakens, but clowns don't listen.",
+    "Avrill, you're smarter than him. Why are you still flying with this imbecile?",
+    'Two little dogs on one leash. Edisar trained you well.',
+    'Ask Avrill what she really thinks about your orders, puppet.',
+  ],
+  onAssistCall: 'Calling your girlfriend again, Oakens? How cute.',
+  afterAssist: 'Need Avrill to save you again? Pathetic.',
+  escape: [
+    "This isn't over, Oakens. Not even close.",
+    "Enjoy your little victory, puppet. I'll be back with something bigger.",
+    'You broke my toy. Next time, I break you.',
+  ],
+};
+SL.NEBULA = NEBULA;
+const pick = l => l[(Math.random() * l.length) | 0];
+const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
+const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+const SC = () => SL.CONFIG.story;
+
+/* ---------- portraits (lazy, framed) ---------- */
+const imgs = {};
+['normal', 'angry'].forEach(k => { const i = new Image(); i.src = k === 'normal' ? 'assets/nebula.jpg' : 'assets/nebula-angry.jpg'; imgs[k] = i; });
+const framed = {};
+function portrait(mood) {
+  if (framed[mood]) return framed[mood];
+  const im = imgs[mood]; if (!im.complete || !im.naturalWidth) return null;
+  const N = 192, c = SL.mkCanvas(N, N), x = c.getContext('2d');
+  x.save(); SL.roundRect(x, 2, 2, N - 4, N - 4, 12); x.clip(); x.drawImage(im, 0, 0, N, N);
+  x.fillStyle = 'rgba(0,0,0,0.16)'; for (let i = 0; i < N; i += 4) x.fillRect(0, i, N, 1.5); x.restore();
+  x.strokeStyle = mood === 'angry' ? 'rgba(255,60,40,1)' : 'rgba(255,70,70,1)'; x.lineWidth = 4; x.shadowColor = 'rgba(255,40,40,1)'; x.shadowBlur = 14;
+  SL.roundRect(x, 3, 3, N - 6, N - 6, 12); x.stroke();
+  return (framed[mood] = c);
+}
+const wrap = (text, max = 30) => { const out = []; let line = ''; for (const w of text.split(' ')) { if ((line + ' ' + w).trim().length > max) { out.push(line.trim()); line = w; } else line += ' ' + w; } if (line.trim()) out.push(line.trim()); return out; };
+
+/* ---------- mothership sprite (red & white prototype), cached ---------- */
+let hullSprite = null;
+function hull() {
+  if (hullSprite) return hullSprite;
+  const S = 2, W = 440, H = 170, c = SL.mkCanvas(W * S, H * S), g = c.getContext('2d');
+  g.scale(S, S); g.translate(W / 2, H / 2 - 8); g.lineJoin = 'round';
+  const glowStroke = (rgb, w, blur) => { g.strokeStyle = `rgba(${rgb},1)`; g.lineWidth = w; g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = blur * S; g.stroke(); g.shadowBlur = 0; };
+  // wings
+  for (const sx of [-1, 1]) {
+    g.beginPath(); g.moveTo(sx * 120, -6); g.lineTo(sx * 212, 18); g.lineTo(sx * 200, 34); g.lineTo(sx * 110, 26); g.closePath();
+    g.fillStyle = '#7a0f18'; g.fill(); glowStroke('255,60,60', 2, 10);
+    g.beginPath(); g.moveTo(sx * 150, 8); g.lineTo(sx * 196, 22); g.strokeStyle = 'rgba(255,230,230,0.7)'; g.lineWidth = 1.5; g.stroke();
+  }
+  // main saucer (white)
+  const gr = g.createLinearGradient(0, -40, 0, 50); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.55, '#c9cbd8'); gr.addColorStop(1, '#6b6f86');
+  g.beginPath(); g.ellipse(0, 8, 160, 42, 0, 0, Math.PI * 2); g.fillStyle = gr; g.fill(); glowStroke('255,80,80', 2.5, 14);
+  // red stripe band
+  g.save(); g.beginPath(); g.ellipse(0, 8, 160, 42, 0, 0, Math.PI * 2); g.clip();
+  g.fillStyle = '#d4142a'; g.fillRect(-170, 2, 340, 13); g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(-170, 17, 340, 3);
+  g.fillStyle = '#a00c1e'; g.fillRect(-170, 32, 340, 30); g.restore();
+  // panel lines
+  g.strokeStyle = 'rgba(60,10,20,0.45)'; g.lineWidth = 1;
+  for (let i = -4; i <= 4; i++) { g.beginPath(); g.moveTo(i * 34, -18); g.lineTo(i * 40, 2); g.stroke(); }
+  // dome
+  const dg = g.createRadialGradient(-12, -40, 4, 0, -26, 64); dg.addColorStop(0, 'rgba(255,200,200,0.95)'); dg.addColorStop(0.5, 'rgba(230,40,60,0.85)'); dg.addColorStop(1, 'rgba(90,0,20,0.9)');
+  g.beginPath(); g.ellipse(0, -20, 62, 36, 0, Math.PI, 0); g.closePath(); g.fillStyle = dg; g.fill(); glowStroke('255,90,90', 2, 12);
+  // "N" emblem
+  g.font = `bold 26px ${SL.CONFIG.font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,60,60,1)'; g.shadowBlur = 10 * S; g.fillText('N', 0, -30); g.shadowBlur = 0;
+  // bottom lights
+  for (let i = -3; i <= 3; i++) { g.fillStyle = 'rgba(255,240,240,0.9)'; g.fillRect(i * 30 - 2, 44, 4, 3); }
+  hullSprite = { c, W, H };
+  return hullSprite;
+}
+
+SL.Story = class extends SL.Survival {
+  constructor(startLevel = 1, debug = false) {
+    super();
+    this.mode = 'story'; this.timeScore = false; this.debug = debug;
+    this.best = (SL.Scores.list('story')[0] || { score: 0 }).score;
+    this.ebullets = []; this.dialogs = []; this.dialog = null; this.boss = null; this.clearData = null;
+    SL.Audio.preload(['boss', 'clear']);
+    if (SL.Story._off) SL.Story._off();
+    SL.Story._off = SL.Events.on('assist', g => {
+      if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
+      this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
+    });
+    this.startLevel(startLevel);
+  }
+
+  /* ---------- levels ---------- */
+  startLevel(L) {
+    const S = SC(), boss = L % S.boss.every === 0;
+    this.level = L; this.state = 'play';
+    this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
+      score0: this.score, maxMult: this.mult, done: false, doneT: 0 };
+    this.asteroids.length = 0; this.bullets.length = 0; this.ebullets = []; this.pickups.length = 0; this.bombShots.length = 0; this.blasts.length = 0;
+    this.weapon = null; this.dialogs = []; this.dialog = null; this.clearData = null;
+    this.introT = S.introTime; this.spawnHold = S.introTime; this.spawnT = 0.3;
+    this.goldBonus = S.goldPerLevel * L; this.redBonus = S.redPerLevel * (L - 1); this.redAfter = L >= S.redFromLevel ? -1 : 1e9;
+    this.ship.invuln = Math.max(this.ship.invuln, 1.5);
+    this.theme = SL.Features.story.worldTheme(L);            // hook: palette change every 10 levels (not used yet)
+    SL.Features.story.onLevelStart(this, L);
+    this.boss = null;
+    if (boss) { this.spawnBoss(L / S.boss.every); SL.Audio.playTrack('boss'); SL.Audio.sfx.alarm(); }
+    else SL.Audio.playTrack('main');
+    SL.Events.emit('levelStart', { level: L, boss });
+  }
+  get spawnInterval() {
+    const S = SC(); if (this.lv && this.lv.boss) return S.boss.asteroidInterval;
+    return Math.max(S.spawnMin, S.spawnBase - S.spawnPerLevel * (this.level - 1) - S.spawnInLevel * (this.lv ? this.lv.t : 0));
+  }
+  get fallSpeed() { const S = SC(); return Math.min(S.speedMax, S.speedBase + S.speedPerLevel * (this.level - 1) + S.speedInLevel * (this.lv ? this.lv.t : 0)); }
+  scoreEntry() { return { score: Math.floor(this.score), level: this.level, time: this.t, kills: this.stats.kills }; }
+
+  onKill() {
+    const lv = this.lv; lv.kills++;
+    if (!lv.boss && !lv.done && lv.kills >= lv.goal) {
+      lv.done = true; lv.doneT = 1.3; this.spawnHold = 99;
+      this.popup('LEVEL CLEAR!', 512, 260, '255,220,90'); SL.Audio.sfx.ready();
+    }
+  }
+
+  /* ---------- boss ---------- */
+  spawnBoss(e) {
+    const B = SC().boss, n = Math.min(B.weakMax, B.weakBase + e), hp = B.hpBase + B.hpPerEncounter * (e - 1);
+    const pts = [];
+    for (let i = 0; i < n; i++) { const k = n === 1 ? 0 : i / (n - 1) * 2 - 1; pts.push({ ox: k * 132, oy: 34 - Math.abs(k) * 10, hp, max: hp, flash: 0, r: 15 }); }
+    this.boss = { e, x: 512, y: -170, t: 0, phase: 'enter', pts, maxHp: n * hp, atkT: 2.6, pi: 0, spiral: 0, spinA: 0, tauntT: 15, escT: 0, vy: 0, fx: 0 };
+    this.say(pick(NEBULA.taunts), 'normal', 1.2);
+  }
+  bossHp() { return this.boss ? this.boss.pts.reduce((s, p) => s + Math.max(0, p.hp), 0) : 0; }
+  damagePoint(p, dmg) {
+    const B = this.boss; if (!B || p.hp <= 0 || B.phase === 'escape') return;
+    p.hp -= dmg; p.flash = 0.12;
+    const x = B.x + p.ox, y = B.y + p.oy;
+    if (p.hp <= 0) {
+      p.hp = 0; const pts = SC().bonus.weakPointPerEncounter * B.e * this.mult; this.score += pts;
+      this.popup(`WEAK POINT +${pts}`, x, y + 24, '255,220,90');
+      this.fx.burst(x, y, '255,90,60', 50, 300, 0.9, 2.6); this.fx.ring(x, y, '255,255,255', 60, 0.4); this.shake(10); SL.Audio.sfx.explode(1.2);
+      if (this.bossHp() <= 0) this.bossDefeated();
+    } else { this.fx.burst(x, y, '255,200,120', 4, 100, 0.25, 1.6); SL.Audio.sfx.bossHit(); }
+  }
+  bossDefeated() {
+    const B = this.boss; B.phase = 'escape'; B.escT = 0; this.ebullets = []; this.spawnHold = 99;
+    this.dialogs = []; this.dialog = null; this.say(pick(NEBULA.escape), 'angry', 0.4);
+    this.flash = Math.max(this.flash || 0, 0.5); this.flashRgb = '255,120,90'; this.shake(16);
+    SL.Events.emit('bossEscaped', { encounter: B.e, level: this.level });
+  }
+  hitExtra(b) {
+    const B = this.boss; if (!B || B.phase === 'escape' || B.y < -60) return false;
+    for (const p of B.pts) {
+      if (p.hp <= 0) continue;
+      const dx = b.x - (B.x + p.ox), dy = b.y - (B.y + p.oy);
+      if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) { b.dead = true; this.countHit(b); this.damagePoint(p, 1); return true; }
+    }
+    const H = SC().boss, ex = (b.x - B.x) / H.halfW, ey = (b.y - B.y - 6) / H.halfH;
+    if (ex * ex + ey * ey < 1) { b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true; }
+    return false;
+  }
+  onBlast(bl) {
+    const B = this.boss; if (!B || B.phase !== 'fight') return;
+    bl.bossHit = bl.bossHit || new Set();
+    B.pts.forEach((p, i) => { if (p.hp > 0 && !bl.bossHit.has(i) && Math.hypot(B.x + p.ox - bl.x, B.y + p.oy - bl.y) < bl.r + p.r) { bl.bossHit.add(i); this.damagePoint(p, SC().boss.bombDamage); } });
+  }
+  onScreenClear() {
+    const B = this.boss; if (!B || B.phase !== 'fight') return;
+    this.ebullets = [];
+    for (const p of B.pts) if (p.hp > 0) this.damagePoint(p, Math.ceil(p.max * SC().boss.assistDamage));
+  }
+  fireE(x, y, ang, sp) { this.ebullets.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp }); }
+  bossAttack() {
+    const B = this.boss, H = SC().boss, e = B.e, sp = H.bulletBase + H.bulletPerEncounter * (e - 1);
+    const live = B.pts.filter(p => p.hp > 0), s = this.ship;
+    const pats = e >= 3 ? ['aimed', 'fan', 'spiral', 'rain'] : e === 2 ? ['aimed', 'fan', 'spiral'] : ['aimed', 'fan'];
+    const pat = pats[B.pi++ % pats.length];
+    if (pat === 'aimed') {
+      const p = pick(live), x = B.x + p.ox, y = B.y + p.oy, a = Math.atan2(s.y - y, s.x - x), n = 2 + e;
+      for (let i = 0; i < n; i++) this.fireE(x, y, a + (i - (n - 1) / 2) * 0.13, sp * 1.1);
+    } else if (pat === 'fan') {
+      const n = 7 + 2 * e; for (let i = 0; i < n; i++) this.fireE(B.x, B.y + 40, Math.PI / 2 + (i / (n - 1) - 0.5) * 1.5, sp);
+    } else if (pat === 'spiral') { B.spiral = 1.2 + 0.3 * e; }
+    else if (pat === 'rain') { for (const p of live) for (const k of [-0.15, 0, 0.15]) this.fireE(B.x + p.ox, B.y + p.oy, Math.PI / 2 + k, sp * 0.95); }
+    SL.Audio.sfx.ebullet();
+  }
+  updateBoss(dt) {
+    const B = this.boss, H = SC().boss, s = this.ship; B.t += dt;
+    for (const p of B.pts) p.flash = Math.max(0, p.flash - dt);
+    if (B.phase === 'enter') {
+      B.y += (H.y - B.y) * Math.min(1, dt * 1.5);
+      if (B.t > 2.6) B.phase = 'fight';
+    } else if (B.phase === 'fight') {
+      B.x = 512 + Math.sin(B.t * (0.35 + 0.06 * (B.e - 1))) * 210; B.y = H.y + Math.sin(B.t * 1.1) * 10;
+      const dead = B.pts.filter(p => p.hp <= 0).length;
+      B.atkT -= dt;
+      if (B.atkT <= 0) { this.bossAttack(); B.atkT = Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (B.e - 1)) * (1 - H.angerPerPoint * dead); }
+      if (B.spiral > 0) { B.spiral -= dt; B.fx -= dt; if (B.fx <= 0) { B.fx = 0.07; B.spinA += 0.42; const sp = (H.bulletBase + H.bulletPerEncounter * (B.e - 1)) * 0.85; this.fireE(B.x, B.y + 20, B.spinA, sp); this.fireE(B.x, B.y + 20, B.spinA + Math.PI, sp); } }
+      B.tauntT -= dt; if (B.tauntT <= 0) { this.say(pick(NEBULA.taunts), 'normal'); B.tauntT = H.tauntEvery[0] + Math.random() * (H.tauntEvery[1] - H.tauntEvery[0]); }
+      if (this.afterAssistT > 0) { this.afterAssistT -= dt; if (this.afterAssistT <= 0) this.say(NEBULA.afterAssist, 'normal'); }
+      // ramming the hull hurts
+      const ex = (s.x - B.x) / H.halfW, ey = (s.y - B.y - 6) / H.halfH;
+      if (s.alive && s.invuln <= 0 && ex * ex + ey * ey < 1) this.playerHit(null);
+    } else if (B.phase === 'escape') {
+      B.escT += dt;
+      if (B.escT < 1.8) {
+        B.x += Math.sin(B.escT * 60) * 1.5;
+        B.fx -= dt; if (B.fx <= 0) { B.fx = 0.12; const x = B.x + (Math.random() - 0.5) * 300, y = B.y + (Math.random() - 0.3) * 60; this.fx.burst(x, y, Math.random() < 0.5 ? '255,90,60' : '255,255,255', 24, 200, 0.7, 2.2); SL.Audio.sfx.explode(0.6); this.shake(6); }
+      } else {
+        B.vy += 520 * dt; B.y -= B.vy * dt;
+        this.fx.burst(B.x + (Math.random() - 0.5) * 120, B.y + 50, '160,160,170', 3, 60, 0.8, 3);
+        if (B.y < -240 && !B.gone && (!this.dialog || B.escT > 5.5)) { B.gone = true; this.startClear(); }
+      }
+    }
+  }
+
+  /* ---------- dialog (Dr. Nebula popup) ---------- */
+  say(text, mood = 'normal', delay = 0) { this.dialogs.push({ text, mood, delay }); }
+  updateDialog(dt) {
+    const avrillBusy = this.assist.phase === 'active' && this.assist.t < 3.9;
+    if (!this.dialog && this.dialogs.length) {
+      const d = this.dialogs[0]; d.delay -= dt;
+      if (d.delay <= 0 && !avrillBusy) { this.dialogs.shift(); this.dialog = { ...d, t: 0, lines: wrap(d.text, 30), dur: 1.0 + d.text.length / 28 + 2.0 }; SL.Events.emit('nebulaLine', d.text); }
+    }
+    if (this.dialog) { this.dialog.t += dt; if (this.dialog.t > this.dialog.dur) this.dialog = null; }
+  }
+  drawDialog(g) {
+    const d = this.dialog; if (!d) return;
+    const ease = k => 1 - Math.pow(1 - k, 3), inK = Math.min(1, d.t / 0.35), outK = d.t > d.dur - 0.4 ? Math.min(1, (d.t - (d.dur - 0.4)) / 0.4) : 0;
+    const w = 400, h = 30 + Math.max(2, d.lines.length) * 22 + 22, x = SL.W - 20 - w + (w + 40) * (1 - ease(inK)) + (w + 40) * ease(outK), y = 248;
+    const rgb = d.mood === 'angry' ? '255,60,40' : '255,70,70';
+    g.save(); SL.roundRect(g, x, y, w, h, 10); g.fillStyle = 'rgba(24,3,8,0.92)'; g.fill();
+    g.strokeStyle = `rgba(${rgb},0.95)`; g.lineWidth = 2; g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = 16 * SL.view.scale; g.stroke(); g.restore();
+    const por = portrait(d.mood); if (por) g.drawImage(por, x + 10, y + 10, 92, 92);
+    SL.neonText(g, NEBULA.name, x + 116, y + 20, 13, '255,120,110', { align: 'left', blur: 6 });
+    let n = Math.max(0, Math.floor((d.t - 0.3) * 34));
+    d.lines.forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(g, part, x + 116, y + 46 + i * 22, 15, '255,240,240', { align: 'left', blur: 6 }); });
+  }
+
+  /* ---------- level clear recount ---------- */
+  startClear() {
+    if (this.state !== 'play') return;
+    const lv = this.lv, Bn = SC().bonus, shots = this.stats.shots - lv.shots0, hits = (this.stats.bulletHits || 0) - lv.hits0;
+    const acc = shots > 0 ? Math.min(1, hits / shots) : 0;
+    const e = lv.boss ? this.level / SC().boss.every : 0, par = lv.boss ? 50 + 15 * e : 12 + lv.goal * 1.6;
+    const rows = [
+      { label: 'ASTEROIDS DESTROYED', disp: String(lv.kills), bonus: lv.kills * Bn.perKill },
+      { label: 'ACCURACY', disp: Math.round(acc * 100) + '%', bonus: Math.round(acc * acc * Bn.accuracy) },
+      { label: 'TIME BONUS', disp: fmt(lv.t), bonus: Math.max(0, Math.round((par - lv.t) * Bn.timePerSec)) },
+      { label: 'MAX COMBO', disp: 'x' + lv.maxMult, bonus: (lv.maxMult - 1) * Bn.comboStep },
+    ];
+    if (lv.boss) rows.push({ label: "DR. NEBULA REPELLED", disp: 'MK-' + roman(e), bonus: Bn.bossPerEncounter * e });
+    rows.forEach(r => r.shown = 0);
+    this.state = 'clear'; this.ebullets = []; this.bullets.length = 0; this.dialog = null; this.dialogs = [];
+    for (const a of this.asteroids) a.dead = true;
+    this.clearData = { rows, i: 0, t: 0, levelPts: Math.floor(this.score - lv.score0), total0: Math.floor(this.score), done: false, tick: 0, boss: lv.boss, sel: 0 };
+    SL.Audio.playTrack('clear');
+    SL.Events.emit('levelClear', { level: this.level });
+  }
+  updateClear(dt) {
+    const c = this.clearData, I = SL.Input, downs = I.takeDowns();
+    for (const d of downs) { if (SL.inBtn(this.btnMute, d)) { SL.Audio.toggleMute(); d.used = true; } }
+    if (I.hit('KeyM')) SL.Audio.toggleMute();
+    const go = I.confirm() || downs.some(d => !d.used);
+    c.t += dt;
+    if (!c.done) {
+      const r = c.rows[c.i], dur = 0.6;
+      r.shown = Math.round(r.bonus * Math.min(1, c.t / dur));
+      c.tick -= dt; if (c.tick <= 0 && r.shown < r.bonus) { c.tick = 0.045; SL.Audio.sfx.tick(); }
+      if (c.t >= dur + 0.2 || go) {
+        r.shown = r.bonus; c.i++; c.t = 0; SL.Audio.sfx.blip(700);
+        if (c.i >= c.rows.length) { c.done = true; this.score = c.total0 + c.rows.reduce((s, r) => s + r.bonus, 0); SL.Audio.sfx.pickup(); }
+      }
+    } else if (go && c.t > 0.2) this.nextLevel();
+    this.stars.update(dt, 0.6); this.fx.update(dt);
+  }
+  nextLevel() {
+    const from = this.level, to = from + 1;
+    const cut = SL.Features.story.cutsceneBetween(from, to);   // hook: story clue cutscene (null for now)
+    if (cut) { /* TODO: play cutscene, then continue */ }
+    if (SL.Features.story.isFinalLevel(to)) { /* TODO: final level vs Commander Edisar Starlight */ }
+    SL.Audio.sfx.blip(880);
+    this.startLevel(to);
+  }
+
+  /* ---------- per-frame ---------- */
+  update(dt) {
+    if (this.state === 'clear') { this.T += dt; this.updateClear(dt); return; }
+    super.update(dt);
+  }
+  onUpdate(dt) {
+    if (this.state !== 'play') return;
+    const lv = this.lv, s = this.ship;
+    lv.t += dt; this.introT -= dt; lv.maxMult = Math.max(lv.maxMult, this.mult);
+    if (lv.done) { lv.doneT -= dt; if (lv.doneT <= 0) { for (const a of this.asteroids) if (!a.dead) this.destroy(a, false, { noSplit: true, quiet: true }); this.startClear(); return; } }
+    if (this.boss) this.updateBoss(dt);
+    for (const b of this.ebullets) {
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < -20 || b.x > SL.W + 20 || b.y < -40 || b.y > SL.H + 20) b.dead = true;
+      else if (s.alive && s.invuln <= 0 && Math.hypot(b.x - s.x, b.y - s.y) < 5 + this.C.ship.radius - 2) { b.dead = true; this.playerHit(null); }
+    }
+    this.ebullets = this.ebullets.filter(b => !b.dead);
+    this.updateDialog(dt);
+  }
+
+  /* ---------- drawing ---------- */
+  drawWorld(g) {
+    const B = this.boss;
+    if (B && !B.gone) {
+      const h = hull();
+      SL.glow(g, B.x, B.y, 260, 90, '255,40,60', 0.12);
+      if (B.phase === 'escape' && B.escT > 1.8) { SL.glow(g, B.x, B.y + 60, 50, 80, '255,160,80', 0.5); }
+      g.drawImage(h.c, B.x - h.W / 2, B.y - h.H / 2 + 8, h.W, h.H);
+      for (const p of B.pts) {
+        const x = B.x + p.ox, y = B.y + p.oy;
+        if (p.hp > 0) {
+          const pulse = 0.6 + 0.4 * Math.sin(this.T * 6 + p.ox), hot = p.flash > 0;
+          SL.glow(g, x, y, 30, 30, hot ? '255,255,255' : '255,200,60', 0.35 + 0.25 * pulse);
+          g.save(); g.beginPath(); g.arc(x, y, p.r, 0, Math.PI * 2); g.fillStyle = hot ? '#fff' : `rgba(255,${150 + 60 * pulse},40,0.95)`; g.fill();
+          g.strokeStyle = '#fff'; g.lineWidth = 2; g.shadowColor = 'rgba(255,220,80,1)'; g.shadowBlur = 14 * SL.view.scale; g.stroke(); g.restore();
+          g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(x - 4, y - 4, 4, 0, Math.PI * 2); g.fill();
+          const k = p.hp / p.max; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(x - 14, y + p.r + 4, 28, 3); g.fillStyle = 'rgba(255,220,90,0.95)'; g.fillRect(x - 14, y + p.r + 4, 28 * k, 3);
+        } else {
+          g.beginPath(); g.arc(x, y, p.r * 0.8, 0, Math.PI * 2); g.fillStyle = 'rgba(30,20,25,0.95)'; g.fill();
+          if (Math.random() < 0.08) this.fx.burst(x, y, '120,120,130', 1, 30, 0.8, 3);
+        }
+      }
+    }
+    if (this.ebullets.length) {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      for (const b of this.ebullets) { g.fillStyle = 'rgba(255,40,60,0.35)'; g.beginPath(); g.arc(b.x, b.y, 9, 0, Math.PI * 2); g.fill(); }
+      g.restore();
+      g.fillStyle = '#fff'; for (const b of this.ebullets) { g.beginPath(); g.arc(b.x, b.y, 4, 0, Math.PI * 2); g.fill(); }
+    }
+  }
+  hudCenter(g) {
+    const lv = this.lv;
+    if (lv.boss) SL.neonText(g, `LEVEL ${this.level} · BOSS`, 512, 20, 16, '255,110,110', { blur: 8 });
+    else SL.neonText(g, `LEVEL ${this.level} · ${Math.min(lv.kills, lv.goal)}/${lv.goal}`, 512, 20, 16, '160,200,255', { blur: 8 });
+  }
+  drawTop(g) {
+    const B = this.boss, W = SL.W;
+    if (B && !B.gone && this.state !== 'clear') {
+      const k = this.bossHp() / B.maxHp, x = 312, y = 96, w = 400;
+      SL.neonText(g, `DR. NEBULA'S PROTOTYPE MK-${roman(B.e)}`, 512, y - 10, 12, '255,120,120', { blur: 6 });
+      g.fillStyle = 'rgba(40,0,8,0.8)'; g.fillRect(x - 2, y - 2, w + 4, 12);
+      g.save(); g.fillStyle = 'rgba(255,50,70,0.95)'; g.shadowColor = 'rgba(255,40,60,1)'; g.shadowBlur = 12 * SL.view.scale; g.fillRect(x, y, w * k, 8); g.restore();
+      g.strokeStyle = 'rgba(255,220,220,0.8)'; g.lineWidth = 1; g.strokeRect(x - 2, y - 2, w + 4, 12);
+      B.pts.forEach((p, i) => { const tx = x + (i + 1) * w / (B.pts.length + 1); g.fillStyle = p.hp > 0 ? 'rgba(255,220,90,0.95)' : 'rgba(80,60,60,0.9)'; g.fillRect(tx - 1, y + 12, 2, 4); });
+    }
+    if (this.state === 'play') {
+      // level intro card
+      if (this.introT > 0) {
+        const t = SC().introTime - this.introT, a = Math.min(1, t / 0.3, this.introT / 0.4);
+        g.fillStyle = `rgba(3,1,12,${0.45 * a})`; g.fillRect(0, 200, W, 150);
+        if (this.lv.boss) {
+          SL.neonText(g, 'WARNING', 512, 238, 44, '255,50,60', { blur: 22, alpha: a * (Math.floor(t * 4) % 2 ? 0.5 : 1) });
+          SL.neonText(g, `LEVEL ${this.level} · DR. NEBULA APPROACHES`, 512, 292, 20, '255,200,200', { blur: 10, alpha: a });
+          SL.neonText(g, 'DESTROY THE GLOWING WEAK POINTS', 512, 324, 14, '255,220,90', { blur: 6, alpha: a });
+        } else {
+          SL.neonText(g, `LEVEL ${this.level}`, 512, 246, 54, '255,80,220', { blur: 24, alpha: a });
+          SL.neonText(g, `DESTROY ${this.lv.goal} ASTEROIDS`, 512, 308, 20, '160,200,255', { blur: 10, alpha: a });
+        }
+      }
+      this.drawDialog(g);
+      if (this.lv.boss && B && B.t < 7) SL.neonText(g, 'Music: "HellDrake" by Centurion_of_war — CC-BY 4.0', 512, 571, 9, '220,200,230', { blur: 2, alpha: 0.7 });
+    }
+    if (this.state === 'clear') this.drawClear(g);
+  }
+  drawClear(g) {
+    const c = this.clearData, W = SL.W;
+    g.fillStyle = 'rgba(3,1,12,0.82)'; g.fillRect(0, 0, W, SL.H);
+    SL.neonText(g, c.boss ? 'DR. NEBULA ESCAPED!' : `LEVEL ${this.level} CLEAR!`, 512, 84, 42, c.boss ? '255,90,90' : '255,80,220', { blur: 22 });
+    if (c.boss) SL.neonText(g, 'He always comes back stronger...', 512, 122, 14, '255,200,200', { blur: 6, alpha: 0.85 });
+    let y = 170;
+    c.rows.forEach((r, i) => {
+      if (i > c.i) return;
+      SL.neonText(g, r.label, 300, y, 17, '200,190,255', { align: 'left', blur: 6 });
+      SL.neonText(g, r.disp, 590, y, 17, '255,235,255', { align: 'right', blur: 6 });
+      SL.neonText(g, '+' + r.shown, 724, y, 18, '255,220,90', { align: 'right', blur: 8 });
+      y += 34;
+    });
+    const sum = c.rows.reduce((s, r) => s + r.shown, 0);
+    y = Math.max(y, 170 + 34 * 4) + 8;
+    g.fillStyle = 'rgba(170,90,255,0.5)'; g.fillRect(300, y - 18, 424, 1);
+    SL.neonText(g, 'LEVEL TOTAL', 300, y + 4, 19, '255,80,220', { align: 'left', blur: 10 });
+    SL.neonText(g, SL.pad(c.levelPts + sum), 724, y + 4, 20, '255,235,255', { align: 'right', blur: 10 });
+    SL.neonText(g, 'RUNNING TOTAL', 300, y + 40, 19, '70,160,255', { align: 'left', blur: 10 });
+    SL.neonText(g, SL.pad(c.total0 + sum), 724, y + 40, 22, '255,255,255', { align: 'right', blur: 12 });
+    if (c.done) SL.neonText(g, SL.Input.touchMode ? 'TAP TO CONTINUE ▶' : 'PRESS ENTER TO CONTINUE ▶', 512, 520, 18, '255,220,90', { blur: 12, alpha: 0.6 + 0.4 * Math.sin(this.T * 6) });
+    SL.neonText(g, 'Music: "The Last Encounter" mix by Matthew Pablo, Zefz & neocrey — CC-BY-SA 3.0', 512, 562, 10, '220,200,230', { blur: 2, alpha: 0.7 });
+  }
+};
+})();

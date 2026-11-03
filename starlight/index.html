@@ -7,7 +7,7 @@
 <link rel="icon" href="data:,">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Project Starlight v0.3</title>
+<title>Project Starlight v0.4</title>
 <style>
   html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   #stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;box-shadow:0 0 60px rgba(120,60,255,.15)}
@@ -15,6 +15,7 @@
   #credit{position:absolute;left:0;right:0;bottom:0.6%;text-align:center;font:500 clamp(9px,1.7vmin,14px)/1.2 system-ui,sans-serif;color:rgba(220,210,255,.75);text-shadow:0 0 4px #000,0 0 2px #000;pointer-events:none}
   #credit a{color:#ff8fe0;pointer-events:auto;text-decoration:none}
   #credit a:hover{text-decoration:underline}
+  #credit .more{font-size:.8em;opacity:.85}
   #rotate{display:none;position:absolute;left:5%;right:5%;bottom:8%;text-align:center;font:600 min(4.2vw,18px)/1.4 "Courier New",monospace;color:#7fc4ff;text-shadow:0 0 8px #3a8cff;pointer-events:none}
   @media (orientation:portrait) and (pointer:coarse){ #rotate{display:block} }
   #nameEntry{display:none;position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);gap:calc(var(--u,1px)*14);align-items:center}
@@ -28,7 +29,7 @@
 <body>
 <div id="stage">
   <canvas id="c" tabindex="0"></canvas>
-  <div id="credit">Music: <a href="https://opengameart.org/content/angel-eyes-vision-ii" target="_blank" rel="noopener">"Angel Eyes (Vision II)"</a> by Kim Lightyear (KLY) — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC-BY-SA</a></div>
+  <div id="credit">Music: <a href="https://opengameart.org/content/angel-eyes-vision-ii" target="_blank" rel="noopener">"Angel Eyes (Vision II)"</a> by Kim Lightyear (KLY) — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC-BY-SA</a><br><span class="more">Story: <a href="https://opengameart.org/content/the-last-encounter-matthew-pablo-zefz-neocrey" target="_blank" rel="noopener">"The Last Encounter"</a> mix by Matthew Pablo, Zefz &amp; neocrey (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC-BY-SA 3.0</a>) · <a href="https://opengameart.org/users/centurionofwar" target="_blank" rel="noopener">"HellDrake"</a> by Centurion_of_war (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>)</span></div>
 </div>
 <div id="rotate">&#8635; Rotate your phone for the best experience</div>
 <noscript>Project Starlight needs JavaScript.</noscript>
@@ -41,6 +42,7 @@
 <script src="js/fx.js"></script>
 <script src="js/title.js"></script>
 <script src="js/survival.js"></script>
+<script src="js/story.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
