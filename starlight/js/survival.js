@@ -366,7 +366,7 @@ SL.Survival = class {
     round(this.bombBtn, '255,90,150', this.bombs > 0, 'BOMB', '×' + this.bombs);
     const A = this.assist, rdy = A.ready && A.phase === 'idle';
     if (rdy) SL.glow(g, this.avrillBtn.x, this.avrillBtn.y, 52, 52, '255,80,220', 0.25 + 0.15 * Math.sin(this.T * 8));
-    round(this.avrillBtn, '255,80,220', rdy, 'AVRILL', rdy ? 'READY' : Math.floor(A.energy) + '%');
+    round(this.avrillBtn, '255,80,220', rdy, SL.Features.assistName(this), rdy ? 'READY' : Math.floor(A.energy) + '%');
   }
   drawPause(g) {
     g.fillStyle = 'rgba(3,1,12,0.65)'; g.fillRect(0, 0, SL.W, SL.H);

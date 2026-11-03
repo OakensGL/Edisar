@@ -1,7 +1,10 @@
 /* Music (HTMLAudio, looping) + synthesized SFX (WebAudio). Unlocked on first user gesture. */
 SL.Audio = (() => {
   // Music tracks (all files used unmodified; credits in CREDITS.txt)
-  const TRACKS = { main: 'assets/angel-eyes-vision-ii.mp3', boss: 'assets/helldrake-extended.ogg', clear: 'assets/the-last-encounter-mix.ogg' };
+  const TRACKS = { main: 'assets/angel-eyes-vision-ii.mp3', boss: 'assets/helldrake-extended.ogg', clear: 'assets/the-last-encounter-mix.ogg',
+    // v0.5.0 final level + end credits
+    finalIntro: 'assets/last-one-standing-6_initial_0.ogg', finalBoss: 'assets/last-one-standing-6low_0.ogg', credits: 'assets/full-moon-mix.ogg' };
+  const BASE_VOL = 0.65;
   /* v0.4.1 music fix: ONE <audio> element for every track. Mobile browsers only let an element play once it has
      been started inside a user gesture; v0.4 used three elements, so the boss/clear elements (first played from the
      game loop) and the main element after a hand-back could be blocked silently. Now the single element is unlocked
@@ -9,7 +12,7 @@ SL.Audio = (() => {
      and tracks the browser can't decode (.ogg on older Safari) fall back to the main track. */
   let ac = null, master = null, noiseBuf = null, started = false, want = 'main', loaded = null;
   let muted = SL.store.get(SL.CONFIG.storage.muted, '0') === '1';
-  const player = new Audio(); player.loop = true; player.preload = 'auto'; player.volume = 0.65; player.muted = muted;
+  const player = new Audio(); player.loop = true; player.preload = 'auto'; player.volume = BASE_VOL; player.muted = muted;
   const oggOK = !!player.canPlayType('audio/ogg; codecs="vorbis"');
   const bad = new Set();                          // tracks that failed to decode on this browser
   const resolve = k => (!TRACKS[k] || bad.has(k) || (!oggOK && /\.ogg$/.test(TRACKS[k]))) ? 'main' : k;
@@ -83,11 +86,16 @@ SL.Audio = (() => {
     alarm() { if (!ok()) return; [0, 1, 2].forEach(i => setTimeout(() => ok() && tone('sawtooth', 440, 330, 0.25, 0.09), i * 320)); },
     bossHit() { if (!ok()) return; tone('square', 300, 180, 0.05, 0.05); },
     ebullet() { if (!ok()) return; tone('triangle', 520, 260, 0.08, 0.03); },
+    zap() { if (!ok()) return; noise(0.35, 9000, 900, 0.6, 2); tone('sawtooth', 1800, 90, 0.3, 0.12); },
+    thunder() { if (!ok()) return; noise(1.0, 6000, 200, 0.7, 1.2); setTimeout(() => ok() && noise(1.0, 900, 50, 0.6, 0.6), 160); tone('sine', 70, 28, 1.4, 0.45); },
+    warn() { if (!ok()) return; tone('square', 1200, 1150, 0.08, 0.04); },
     whoosh() { if (!ok()) return; noise(1.3, 400, 5000, 0.45, 1.6); tone('sawtooth', 110, 1500, 1.0, 0.07); tone('sine', 60, 220, 0.9, 0.18); },
     deny() { if (!ok()) return; tone('square', 220, 160, 0.15, 0.08); },
     gameOver() { if (!ok()) return; [523, 392, 262].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 0.98, 0.35, 0.15), i * 220)); },
   };
   return { unlock, setMuted, get muted() { return muted; }, toggleMute() { setMuted(!muted); }, sfx, playTrack,
     preload() {}, tick,
+    /* music volume multiplier 0..1 (fades / dramatic silence). Never pauses the element, so the watchdog stays happy. */
+    setMusicVolume(k) { player.volume = Math.max(0, Math.min(1, k)) * BASE_VOL; }, get musicVolume() { return player.volume / BASE_VOL; },
     get track() { return resolve(want); }, get wanted() { return want; }, get music() { return player; } };
 })();

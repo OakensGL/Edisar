@@ -137,8 +137,9 @@ const F = SL.Features = {
     g.blasts = g.blasts.filter(bl => bl.t < bl.dur + 0.25);
     // Avrill
     if (A.phase === 'idle') {
-      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + AC.perSecond * dt); if (A.energy >= AC.max) { A.ready = true; g.popup('AVRILL READY!', 512, 300, AC.color); SL.Audio.sfx.ready(); } }
+      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + AC.perSecond * dt); if (A.energy >= AC.max) { A.ready = true; g.popup(F.assistName(g) + ' READY!', 512, 300, AC.color); SL.Audio.sfx.ready(); } }
     } else {
+      if (g.assistKind === 'nebula') return F.updateNebulaAssist(g, dt);   // v0.5.0 final level
       A.t += dt; const t = A.t, T1 = 1.0, T2 = T1 + AC.sweepTime;
       if (t < T1) { A.x = -80 + (t / T1) * 200; A.y = 640 - (t / T1) * 240; }
       else if (t < T2) {
@@ -181,7 +182,8 @@ const F = SL.Features = {
     ctx.restore();
     // Avrill's ship
     const A = g.assist;
-    if (A.phase === 'active' && A.t > 0) {
+    if (A.phase === 'active' && A.t > 0 && g.assistKind === 'nebula') F.drawNebulaAssist(g, ctx);
+    else if (A.phase === 'active' && A.t > 0) {
       if (!F._avShip) F._avShip = SL.Sprites.ship(C().assist.color);
       const sz = F._avShip.size;
       SL.glow(ctx, A.x, A.y + 22, 16, 24, '255,60,210', 0.35);
@@ -209,12 +211,37 @@ const F = SL.Features = {
     if (g.flash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(${g.flashRgb},${Math.min(0.55, g.flash * 0.55)})`; ctx.fillRect(0, 0, SL.W, SL.H); ctx.restore(); }
     const A = g.assist;
     if (A.phase !== 'active' || A.t > F.POP_DUR) return;
+    if (g.assistKind === 'nebula') { SL.dialogPopup(ctx, g, 'nebulaAssist', { side: 'left', t: A.t, dur: F.POP_DUR + 0.6, name: 'Dr. Nebula', rgb: '255,70,70',
+      lines: ["Don't make me regret this,", 'fool.'], typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') }); return; }
     // v0.4.1: compact semi-transparent popup, top-left corner (see SL.dialogPopup)
     const line = C().assist.line, cut = line.indexOf(',') + 1;
     SL.dialogPopup(ctx, g, 'avrill', { side: 'left', t: A.t, dur: F.POP_DUR, name: C().assist.pilot, rgb: '255,80,220',
       lines: [line.slice(0, cut), line.slice(cut).trim()], typed: Math.floor((A.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
   },
   POP_DUR: 2.6,
+  assistName(g) { return g.assistKind === 'nebula' ? 'NEBULA' : 'AVRILL'; },
+  /* v0.5.0: in the final level the assist is Dr. Nebula's mothership: flies in from the left, charges,
+     fires a screen-wide laser upward (same effect as Avrill's screen clear: bullets gone, boss damage), leaves right. */
+  updateNebulaAssist(g, dt) {
+    const A = g.assist, t = (A.t += dt);
+    if (t < 1.2) { const k = t / 1.2, e = 1 - Math.pow(1 - k, 3); A.x = -260 + (512 + 260) * e; A.y = 500; }
+    else if (t < 1.9) { A.x = 512; if (!A.charged) { A.charged = true; SL.Audio.sfx.launch(); } }
+    else if (t < 3.0) { if (!A.cleared) { A.cleared = true; F.assistClear(g); SL.Audio.sfx.zap(); } g.ebullets && (g.ebullets.length = 0); }
+    else if (t < 4.2) { A.x += 900 * dt; }
+    else { A.phase = 'idle'; A.cleared = false; A.charged = false; }
+  },
+  drawNebulaAssist(g, ctx) {
+    const A = g.assist, t = A.t, h = SL.nebulaHull && SL.nebulaHull(); if (!h) return;
+    if (t >= 1.2 && t < 1.9) SL.glow(ctx, A.x, A.y - 30, 60 + 80 * (t - 1.2), 60 + 80 * (t - 1.2), '255,80,90', 0.5);
+    if (t >= 1.9 && t < 3.0) {
+      const k = Math.min(1, (t - 1.9) / 0.25), fade = t > 2.7 ? (3.0 - t) / 0.3 : 1, w = 30 + (SL.W + 60) * k;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createLinearGradient(A.x - w / 2, 0, A.x + w / 2, 0);
+      gr.addColorStop(0, 'rgba(255,40,60,0)'); gr.addColorStop(0.25, `rgba(255,60,80,${0.35 * fade})`); gr.addColorStop(0.5, `rgba(255,240,240,${0.8 * fade})`); gr.addColorStop(0.75, `rgba(255,60,80,${0.35 * fade})`); gr.addColorStop(1, 'rgba(255,40,60,0)');
+      ctx.fillStyle = gr; ctx.fillRect(A.x - w / 2, 0, w, A.y - 20); ctx.restore();
+    }
+    ctx.save(); ctx.translate(A.x, A.y); ctx.scale(0.55, 0.55); ctx.drawImage(h.c, -h.W / 2, -h.H / 2, h.W, h.H); ctx.restore();
+  },
   portrait() {
     if (F._por) return F._por;
     if (!F._img) { F._img = new Image(); F._img.src = 'assets/title.jpg'; }
@@ -246,7 +273,7 @@ const F = SL.Features = {
     // Avrill energy bar
     const bx = 786, by = 72, bw = 120, k = A.phase === 'active' ? 0 : A.energy / AC.max;
     const pulse = A.ready ? 0.6 + 0.4 * Math.sin(g.T * 8) : 1;
-    SL.neonText(ctx, A.ready ? 'AVRILL READY' + (SL.Input.touchMode ? '' : ' [R]') : A.phase === 'active' ? 'AVRILL ASSIST' : 'AVRILL', bx + bw, by - 1, 11, AC.color, { align: 'right', blur: A.ready ? 12 : 6, alpha: pulse });
+    SL.neonText(ctx, A.ready ? F.assistName(g) + ' READY' + (SL.Input.touchMode ? '' : ' [R]') : A.phase === 'active' ? F.assistName(g) + ' ASSIST' : F.assistName(g), bx + bw, by - 1, 11, AC.color, { align: 'right', blur: A.ready ? 12 : 6, alpha: pulse });
     ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by + 9, bw, 5);
     ctx.save(); ctx.fillStyle = `rgba(${AC.color},${0.95 * pulse})`; if (A.ready) { ctx.shadowColor = `rgba(${AC.color},1)`; ctx.shadowBlur = 12 * SL.view.scale; }
     ctx.fillRect(bx, by + 9, bw * k, 5); ctx.restore();
@@ -257,11 +284,12 @@ const F = SL.Features = {
 /* Story mode hooks (v0.4 builds levels + Nebula boss; these are the extension points for later). */
 F.story = {
   bossEvery: 5,
-  finalLevel: { enabled: false, level: 30, boss: 'Commander Edisar Starlight' },   // TODO: final level
+  finalLevel: { enabled: true, level: 30, boss: 'Commander Edisar Starlight' },   // v0.5.0: built (final.js)
   energySystem: { enabled: false },                                              // TODO: ship energy instead of lives
   onLevelStart(game, level) {},                       // per-level setup hook (special waves, events)
   cutsceneBetween(fromLevel, toLevel) { return null; },  // TODO: story clue cutscenes; return {frames...} to play
   worldTheme(level) { return { index: Math.floor((level - 1) / 10), changed: level > 1 && (level - 1) % 10 === 0 }; }, // TODO: palette swap every 10 levels
+  postCredits(opt) { return null; },                   // hook: post-credits scene (radio message, needs a voice recording); return { play(done) }
   isFinalLevel(level) { return this.finalLevel.enabled && level >= this.finalLevel.level; },
 };
 F.store = { enabled: false, current: 'default', skins: { default: { name: 'Oakens Blue', color: '80,170,255' } }, shipColor() { return this.skins[this.current].color; } };

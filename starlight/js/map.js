@@ -3,6 +3,8 @@
    Cleared levels = every level below it. Only unlocked levels can be launched. */
 SL.Progress = {
   get unlocked() { return Math.max(1, Math.min(SL.FINAL_LEVEL, parseInt(SL.store.get(SL.CONFIG.storage.unlocked, '1'), 10) || 1)); },
+  get completed() { return SL.store.get('starlight.story.completed', '0') === '1'; },
+  complete() { SL.store.set('starlight.story.completed', '1'); },
   unlock(n) { if (n > this.unlocked) SL.store.set(SL.CONFIG.storage.unlocked, Math.min(SL.FINAL_LEVEL, n)); },
 };
 SL.Map = (() => {
@@ -13,7 +15,7 @@ SL.Map = (() => {
   const nodeX = L => X0 + (L - 1) * STEP, nodeY = L => Y0 + Math.sin((L - 1) * 0.9) * 92 + (isBoss(L) ? -6 : 0);
   const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
-  let T = 0, sel = 1, camX = 0, camT = 0, drag = null, msg = null, phase = 'map', session = null, hiRank = -1;
+  let pendingSubmit = false, T = 0, sel = 1, camX = 0, camT = 0, drag = null, msg = null, phase = 'map', session = null, hiRank = -1;
   const stars = new SL.Starfield(0.8);
   const backBtn = { id: 'back', label: 'BACK', x: 72, y: 30, w: 116, h: 34, rgb: '70,160,255', size: 16 };
   const playBtn = { id: 'play', label: 'LAUNCH', x: 868, y: 512, w: 200, h: 46, rgb: '255,80,220' };
@@ -56,7 +58,6 @@ SL.Map = (() => {
   }
   function launch() {
     if (sel > SL.Progress.unlocked) { SL.Audio.sfx.deny(); return; }
-    if (isFinal(sel)) { msg = { text: 'FINAL MISSION — COMING IN A FUTURE UPDATE', t: 0 }; SL.Audio.sfx.deny(); return; }
     SL.Audio.sfx.launch(); SL.startMission(sel, false, session);
   }
   function leave() {
@@ -80,7 +81,8 @@ SL.Map = (() => {
     g.restore();
     SL.neonText(g, '★', x, y + 1, 26, rgb, { blur: 12, alpha: teaser ? 0.35 : 1 });
     SL.neonText(g, 'FINAL', x, y + r + 18, 13, rgb, { blur: 8, alpha: teaser ? 0.35 : 0.95 });
-    if (locked && !teaser) { const bx = x + r * 0.85, by = y - r * 0.85; g.save(); g.fillStyle = 'rgba(230,210,160,0.95)'; g.fillRect(bx - 5, by - 1, 10, 8); g.strokeStyle = 'rgba(230,210,160,0.95)'; g.lineWidth = 1.8; g.beginPath(); g.arc(bx, by - 2, 3.5, Math.PI, 0); g.stroke(); g.restore(); }
+    if (SL.Progress.completed) { const bx = x + r * 0.85, by = y - r * 0.85; g.save(); g.beginPath(); g.arc(bx, by, 9, 0, Math.PI * 2); g.fillStyle = 'rgba(30,200,120,0.95)'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2.2; g.lineCap = 'round'; g.beginPath(); g.moveTo(bx - 4, by); g.lineTo(bx - 1, by + 3); g.lineTo(bx + 4, by - 3); g.stroke(); g.restore(); }
+    else if (locked && !teaser) { const bx = x + r * 0.85, by = y - r * 0.85; g.save(); g.fillStyle = 'rgba(230,210,160,0.95)'; g.fillRect(bx - 5, by - 1, 10, 8); g.strokeStyle = 'rgba(230,210,160,0.95)'; g.lineWidth = 1.8; g.beginPath(); g.arc(bx, by - 2, 3.5, Math.PI, 0); g.stroke(); g.restore(); }
   }
   function nodeAt(p) {
     for (let L = 1; L <= count(); L++) { const r = isBoss(L) || isFinal(L) ? 42 : 32; if (Math.hypot(p.x - (nodeX(L) - camX), p.y - nodeY(L)) < r) return L; }
@@ -103,11 +105,13 @@ SL.Map = (() => {
       focus(sel); camX = camT;
       if (!belt || beltN < count()) buildBelt(count() + 6);
       SL.Audio.playTrack('main');
+      pendingSubmit = !!o.submit;          // v0.5.0: after the end credits, rank the finished run right away
     },
     update(dt) {
       T += dt; stars.update(dt, 0.12);
       const I = SL.Input, downs = I.takeDowns();
       if (I.hit('KeyM')) SL.Audio.toggleMute();
+      if (pendingSubmit) { pendingSubmit = false; leave(); return; }
       if (phase === 'entry') return;
       if (phase === 'table') {
         if (T > 0.4 && (I.confirm() || I.hitAny('Escape', 'Backspace') || downs.length)) { SL.Audio.sfx.blip(520); SL.start('menu'); }
@@ -196,7 +200,7 @@ SL.Map = (() => {
       // header
       g.fillStyle = 'rgba(3,1,12,0.6)'; g.fillRect(0, 0, W, 60);
       SL.neonText(g, 'MISSION MAP', 512, 24, 30, '255,80,220', { blur: 18 });
-      SL.neonText(g, `STORY MODE · ${u - 1} CLEARED`, 512, 48, 11, '160,200,255', { blur: 4, alpha: 0.85 });
+      SL.neonText(g, `STORY MODE · ${SL.Progress.completed ? `ALL ${SL.FINAL_LEVEL} CLEARED` : `${u - 1} CLEARED`}`, 512, 48, 11, '160,200,255', { blur: 4, alpha: 0.85 });
       SL.drawButton(g, backBtn, false, T);
       SL.neonText(g, 'SESSION', 1004, 20, 11, '160,200,255', { align: 'right', blur: 4 });
       SL.neonText(g, SL.pad(session ? session.score : 0), 1004, 40, 18, '255,235,255', { align: 'right', blur: 8 });
@@ -205,7 +209,8 @@ SL.Map = (() => {
       const boss = isBoss(sel);
       SL.neonText(g, `LEVEL ${sel}` + (boss ? ' · DR. NEBULA' : ''), 34, 494, 22, isFinal(sel) ? '255,225,140' : boss ? '255,90,90' : '255,80,220', { align: 'left', blur: 12 });
       SL.neonText(g, info(sel), 34, 522, 14, '200,210,255', { align: 'left', blur: 5 });
-      SL.neonText(g, sel < u ? '✓ CLEARED · REPLAY ANYTIME' : 'NEXT MISSION', 34, 546, 12, sel < u ? '90,230,150' : '255,220,90', { align: 'left', blur: 5 });
+      const clr = sel < u || (isFinal(sel) && SL.Progress.completed);
+      SL.neonText(g, clr ? '✓ CLEARED · REPLAY ANYTIME' : 'NEXT MISSION', 34, 546, 12, clr ? '90,230,150' : '255,220,90', { align: 'left', blur: 5 });
       SL.drawButton(g, playBtn, true, T);
       SL.neonText(g, SL.Input.touchMode ? 'TAP A MISSION · DRAG TO SCROLL' : '◀ ▶ SELECT · ENTER LAUNCH · ESC BACK', 620, 546, 10, '160,200,255', { blur: 3, alpha: 0.6 });
       if (msg) SL.neonText(g, msg.text, 512, 438, 16, '255,150,90', { blur: 10, alpha: Math.min(1, 2 - msg.t) });

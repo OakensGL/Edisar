@@ -1,4 +1,4 @@
-/* Story Mode (v0.4 part 1; current build v0.4.5 adds radio chatter): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
+/* Story Mode (v0.4 part 1; radio chatter v0.4.5; current build v0.5.0, final level in final.js): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
    Built on top of Survival via its hook methods: onKill, onUpdate, hitExtra, onBlast, onScreenClear,
    drawWorld, drawTop, hudCenter, scoreEntry. */
 (() => {
@@ -125,6 +125,7 @@ function hull() {
   hullSprite = { c, W, H };
   return hullSprite;
 }
+SL.nebulaHull = () => hull(); SL.nebulaPortrait = m => portrait(m || 'normal');   // v0.5.0: Nebula assist in the final level
 
 SL.Story = class extends SL.Survival {
   constructor(startLevel = 1, debug = false, session = null, opts = {}) {
@@ -148,7 +149,7 @@ SL.Story = class extends SL.Survival {
     SL.Story._off = SL.Events.on('assist', g => {
       if (g !== this) return;
       if (this.dialog && this.dialog.who !== 'nebula') this.dialog = null;     // radio chatter yields to the assist popup
-      if (!this.boss || this.boss.phase !== 'fight') return;
+      if (!this.boss || this.boss.phase !== 'fight' || this.final) return;   // final level: Nebula IS the assist
       this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
     });
     // v0.4.2: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
@@ -181,7 +182,8 @@ SL.Story = class extends SL.Survival {
     this.theme = SL.Features.story.worldTheme(L);            // hook: palette change every 10 levels (not used yet)
     SL.Features.story.onLevelStart(this, L);
     this.boss = null;
-    if (boss) { this.spawnBoss(L / S.boss.every); SL.Audio.playTrack('boss'); SL.Audio.sfx.alarm(); }
+    if (boss && L === SL.FINAL_LEVEL && this.startFinal) this.startFinal();   // v0.5.0 final level (final.js)
+    else if (boss) { this.spawnBoss(L / S.boss.every); SL.Audio.playTrack('boss'); SL.Audio.sfx.alarm(); }
     else SL.Audio.playTrack('main');
     SL.Events.emit('levelStart', { level: L, boss });
   }
@@ -387,7 +389,7 @@ SL.Story = class extends SL.Survival {
         if (c.i >= c.rows.length) { c.done = true; this.score = c.total0 + c.rows.reduce((s, r) => s + r.bonus, 0); SL.Audio.sfx.pickup(); }
       }
     } else if (c.t > 0.25) {
-      if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyS')) { c.sel = 1 - c.sel; SL.Audio.sfx.blip(520); }
+      if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyS')) { c.sel = (c.sel + 1) % this.clearBtns.length; SL.Audio.sfx.blip(520); }
       let pick = I.confirm() ? this.clearBtns[c.sel].id : null;
       for (const d of downs) { if (d.used) continue; const b = this.clearBtns.find(b => SL.inBtn(b, d)); if (b) pick = b.id; }
       if (I.hitAny('Escape', 'Backspace')) pick = 'map';
@@ -403,7 +405,7 @@ SL.Story = class extends SL.Survival {
     if (cut) { /* TODO: play cutscene, then continue */ }
     if (SL.Features.story.isFinalLevel(to)) { /* TODO: final level vs Commander Edisar Starlight */ }
     SL.Audio.sfx.blip(880);
-    if (to >= SL.FINAL_LEVEL) { SL.start('map', { session: this.sessionNow(), sel: to }); return; }   // final mission not built yet
+    if (this.final || to > SL.FINAL_LEVEL) { this.toCredits(); return; }    // v0.5.0: after the final level -> end credits
     this.startLevel(to);
   }
 
@@ -517,8 +519,8 @@ SL.Story = class extends SL.Survival {
   drawClear(g) {
     const c = this.clearData, W = SL.W;
     g.fillStyle = 'rgba(3,1,12,0.82)'; g.fillRect(0, 0, W, SL.H);
-    SL.neonText(g, c.boss ? 'DR. NEBULA ESCAPED!' : `LEVEL ${this.level} CLEAR!`, 512, 84, 42, c.boss ? '255,90,90' : '255,80,220', { blur: 22 });
-    if (c.boss) SL.neonText(g, 'He always comes back stronger...', 512, 122, 14, '255,200,200', { blur: 6, alpha: 0.85 });
+    SL.neonText(g, c.title || (c.boss ? 'DR. NEBULA ESCAPED!' : `LEVEL ${this.level} CLEAR!`), 512, 84, 42, c.final ? '120,220,255' : c.boss ? '255,90,90' : '255,80,220', { blur: 22 });
+    if (c.boss && !c.final) SL.neonText(g, 'He always comes back stronger...', 512, 122, 14, '255,200,200', { blur: 6, alpha: 0.85 });
     let y = 170;
     c.rows.forEach((r, i) => {
       if (i > c.i) return;

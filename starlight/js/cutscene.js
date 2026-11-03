@@ -1,4 +1,4 @@
-/* v0.4.2 Story cutscenes (current build v0.4.5): portrait dialogue boxes with typewriter text.
+/* v0.4.2 Story cutscenes (current build v0.5.0): portrait dialogue boxes with typewriter text.
    Tap / click / Space / Enter advances (first press completes a line still typing); SKIP ends the scene.
    Music is never paused here: callers only pick a track via SL.Audio.playTrack (single-player system). */
 (() => {
@@ -8,6 +8,7 @@ const SPEAKERS = {
   avrill:  { name: 'AVRILL', img: 'assets/avrill.jpg', rgb: '255,80,220' },
   private: { name: 'AVRILL · PRIVATE CHANNEL', img: 'assets/avrill.jpg', rgb: '190,120,255', private: true },
   nebula:  { name: 'Dr. Nebula', img: 'assets/nebula.jpg', rgb: '255,70,70' },
+  furious: { name: 'COMMANDER EDISAR', img: 'assets/edisar-furious.jpg', rgb: '90,170,255' },
 };
 // Exact script approved by Juan Carlos. Keys: 'intro' (before level 1) or the boss level number.
 const SCENES = {
@@ -25,6 +26,13 @@ const SCENES = {
   20: { lines: [
     ['private', 'Private channel, Oakens. Just you and me.'],
     ['private', "Those reports... the dates, the signatures. Something doesn't add up."] ] },
+  // v0.5.0 final level opening (between the in-engine shots in final.js)
+  finalNebula: { lines: [['nebula', 'Kid... I told you!']] },
+  finalEdisar: { lines: [
+    ['furious', 'Did you really think a pilot and a madman could stop me?'],
+    ['furious', "Avrill was smart. Too smart. She opened files that weren't hers."],
+    ['furious', "I built this fleet. I'll decide what this world needs."],
+    ['furious', 'Come, Oakens. Show me what I trained you for.'] ] },
 };
 const imgs = {};
 const img = src => { if (!imgs[src]) { const i = new Image(); i.src = src; imgs[src] = i; } return imgs[src]; };
@@ -49,13 +57,13 @@ SL.Cutscene = class {
     SL.Audio.sfx.blip(700);
     if (++this.i >= this.scene.lines.length) this.finish(); else { this.t = 0; this.lastN = 0; }
   }
-  finish() { if (this.done) return; this.done = true; this.onDone && this.onDone(); }
+  finish(skipped = false) { if (this.done) return; this.done = true; this.skipped = skipped; this.onDone && this.onDone(); }
   update(dt) {
     this.T += dt; this.t += dt; this.stars.update(dt, 0.25);
     const I = SL.Input, downs = I.takeDowns();
     if (I.hit('KeyM')) SL.Audio.toggleMute();
-    if (I.hitAny('Escape', 'Backspace')) { SL.Audio.sfx.blip(520); return this.finish(); }
-    for (const d of downs) { if (SL.inBtn(this.skipBtn, d)) { SL.Audio.sfx.blip(520); return this.finish(); } }
+    if (I.hitAny('Escape', 'Backspace')) { SL.Audio.sfx.blip(520); return this.finish(true); }
+    for (const d of downs) { if (SL.inBtn(this.skipBtn, d)) { SL.Audio.sfx.blip(520); return this.finish(true); } }
     if (this.T > 0.35 && (I.hitAny('Space', 'Enter', 'NumpadEnter') || downs.length)) { this.advance(); if (this.done) return; }
     const n = Math.min(this.line[1].length, Math.floor(this.t * CPS));
     if (n > this.lastN) { if (n % 3 === 0 && this.line[1][n - 1] !== ' ') SL.Audio.sfx.tick(); this.lastN = n; }

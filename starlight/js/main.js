@@ -16,14 +16,16 @@
 
   SL.state = 'title'; SL.game = null;
   SL.start = (s, opt = {}) => {
+    SL.Audio.setMusicVolume(1);
     if (s === 'play') { SL.state = 'play'; SL.game = new SL.Survival(); }
     else if (s === 'story') {
       // debug jump: ?level=N (1..99) skips the map. Harmless: debug runs are marked, never ranked, never unlock levels.
       const m = /[?&]level=(\d{1,2})\b/.exec(location.search);
-      if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(SL.FINAL_LEVEL - 1, +m[1])), true); }
+      if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(SL.FINAL_LEVEL, +m[1])), true); }
       else return SL.start('map', { session: null });
     }
     else if (s === 'map') { SL.state = 'map'; SL.game = null; SL.Map.enter(opt); }
+    else if (s === 'credits') { SL.state = 'credits'; SL.game = null; SL.Credits.enter(opt); }
     else { SL.state = 'title'; SL.game = null; SL.Title.enter(s === 'menu' ? 'menu' : 'press'); SL.Audio.playTrack('main'); }
     SL.NameEntry.close();
     credit.style.display = SL.state === 'title' ? '' : 'none';
@@ -37,9 +39,9 @@
 
   let last = 0;
   SL.step = (dt) => {
-    const scr = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.game;
+    const scr = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.state === 'credits' ? SL.Credits : SL.game;
     scr.update(dt);
-    const now = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.game;   // update may switch screens
+    const now = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.state === 'credits' ? SL.Credits : SL.game;   // update may switch screens
     g.setTransform(SL.view.scale, 0, 0, SL.view.scale, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     now.draw(g);
     SL.Input.endFrame();
