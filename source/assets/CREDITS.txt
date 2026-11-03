@@ -42,6 +42,7 @@ Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts
   - Kanon de Géminis (v29.2): sprite nuevo dibujado en código con la armadura de Géminis (pelo más oscuro y salvaje, mirada siniestra, aura oscura); también su Ilusión gemela y su Eco. Pixel art propio, solo "inspirado en".
   - v29.3: se quitan las avispas del sur (camino a la puerta de Croqui); la zona queda vacía.
   - v29.4: los mapas del editor muestran en el juego la Tierra de ceniza y las puertas abiertas (ids 74–76).
+  - v29.5: mapa nuevo de Juan Carlos publicado (734×164, origen 150, 10): tierras nuevas al oeste con sala de alfombra roja y portal.
   - Mapa oficial v27.3 (assets/map.json): juan-map-nov2b de Juan Carlos, 584×164 con margen ox/oy 10 (templo de mármol,
     estatuas, torre del White Knight con alfombras y puerta de hierro), copiado byte a byte.
   No se usa ningún sprite de Tibia.
