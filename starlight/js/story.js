@@ -101,7 +101,7 @@ SL.Story = class extends SL.Survival {
       if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
       this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
     });
-    // v0.4.3: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
+    // v0.4.4: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
     if (startLevel === 1 && opts.intro !== false && SL.Cutscene.has('intro')) {
       this.level = 1; this.lv = { boss: false, goal: 0, dur: 0, kills: 0, t: 0 };
       SL.Audio.playTrack('main');
@@ -187,7 +187,7 @@ SL.Story = class extends SL.Survival {
       const dx = b.x - (B.x + p.ox), dy = b.y - (B.y + p.oy);
       if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) { b.dead = true; this.countHit(b); this.damagePoint(p, 1); return true; }
     }
-    const H = SC().boss, ex = (b.x - B.x) / H.halfW, ey = (b.y - B.y - 6) / H.halfH;
+    const H = SC().boss, ex = (b.x - B.x) / H.halfW, ey = (b.y - B.y - 6) / (H.shotHalfH || H.halfH);
     if (ex * ex + ey * ey < 1) { b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true; }
     return false;
   }
@@ -287,7 +287,7 @@ SL.Story = class extends SL.Survival {
     this.asteroids = this.asteroids.filter(a => !a.dead);
     if (t > W - 0.35) { this.flash = Math.max(this.flash || 0, (t - (W - 0.35)) / 0.35 * 0.8); this.flashRgb = '255,230,255'; }
     if (t >= W) {
-      // v0.4.3: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
+      // v0.4.4: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
       if (this.lv.boss && SL.Cutscene.has(this.level)) { this.warpK = 0; this.flash = 0; SL.Audio.playTrack('clear'); this.playCut(this.level, () => { this.state = 'warp'; this.startClear(); }); }
       else this.startClear();
     }

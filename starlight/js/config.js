@@ -74,7 +74,7 @@ SL.CONFIG = {
     introTime: 2.4,
     bonus: { perKill: 25, accuracy: 2000, timePerSec: 20, comboStep: 500, bossPerEncounter: 3000, weakPointPerEncounter: 300 },
     boss: {
-      every: 5, y: 168, halfW: 190, halfH: 55,
+      every: 5, y: 168, halfW: 190, halfH: 55, shotHalfH: 30,   // shotHalfH: hull area that blocks shots, kept above the weak points
       weakBase: 2, weakMax: 6,                       // weak points = min(max, base + encounter)
       hpBase: 20, hpPerEncounter: 10,                // hits per weak point
       attackBase: 1.7, attackPerEncounter: 0.25, attackMin: 0.55, angerPerPoint: 0.08,

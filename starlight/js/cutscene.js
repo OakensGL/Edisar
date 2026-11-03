@@ -1,4 +1,4 @@
-/* v0.4.3 Story cutscenes: portrait dialogue boxes with typewriter text.
+/* v0.4.4 Story cutscenes: portrait dialogue boxes with typewriter text.
    Tap / click / Space / Enter advances (first press completes a line still typing); SKIP ends the scene.
    Music is never paused here: callers only pick a track via SL.Audio.playTrack (single-player system). */
 (() => {
