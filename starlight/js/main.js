@@ -20,7 +20,7 @@
     else if (s === 'story') {
       // debug jump: ?level=N (1..99) skips the map. Harmless: debug runs are marked, never ranked, never unlock levels.
       const m = /[?&]level=(\d{1,2})\b/.exec(location.search);
-      if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(99, +m[1])), true); }
+      if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(SL.FINAL_LEVEL - 1, +m[1])), true); }
       else return SL.start('map', { session: null });
     }
     else if (s === 'map') { SL.state = 'map'; SL.game = null; SL.Map.enter(opt); }
@@ -29,8 +29,8 @@
     credit.style.display = SL.state === 'title' ? '' : 'none';
     SL.Input.takeDowns();
   };
-  SL.startMission = (L, debug = false, session = null) => {
-    SL.state = 'play'; SL.game = new SL.Story(L, debug, session);
+  SL.startMission = (L, debug = false, session = null, opts = {}) => {
+    SL.state = 'play'; SL.game = new SL.Story(L, debug, session, opts);
     SL.NameEntry.close(); credit.style.display = 'none'; SL.Input.takeDowns();
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden && SL.game) SL.game.pause(true); });

@@ -2,13 +2,14 @@
    Progress = highest unlocked level, saved in localStorage ('starlight.story.unlocked').
    Cleared levels = every level below it. Only unlocked levels can be launched. */
 SL.Progress = {
-  get unlocked() { return Math.max(1, Math.min(99, parseInt(SL.store.get(SL.CONFIG.storage.unlocked, '1'), 10) || 1)); },
-  unlock(n) { if (n > this.unlocked) SL.store.set(SL.CONFIG.storage.unlocked, Math.min(99, n)); },
+  get unlocked() { return Math.max(1, Math.min(SL.FINAL_LEVEL, parseInt(SL.store.get(SL.CONFIG.storage.unlocked, '1'), 10) || 1)); },
+  unlock(n) { if (n > this.unlocked) SL.store.set(SL.CONFIG.storage.unlocked, Math.min(SL.FINAL_LEVEL, n)); },
 };
 SL.Map = (() => {
   const { W, H } = SL, SC = () => SL.CONFIG.story;
   const STEP = 150, X0 = 130, Y0 = 292;
-  const isBoss = L => L % SC().boss.every === 0;
+  const FIN = () => SL.FINAL_LEVEL, isFinal = L => L === FIN();
+  const isBoss = L => L % SC().boss.every === 0 && !isFinal(L);
   const nodeX = L => X0 + (L - 1) * STEP, nodeY = L => Y0 + Math.sin((L - 1) * 0.9) * 92 + (isBoss(L) ? -6 : 0);
   const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
@@ -38,11 +39,12 @@ SL.Map = (() => {
       if (rnd() < 0.55) belt.push({ x: x + rnd() * 9, y: cy + off, sp: sprites[(rnd() * sprites.length) | 0], rot: rnd() * 6.28, spin: (rnd() - 0.5) * 0.6, a: 0.35 + rnd() * 0.4 });
     }
   }
-  const count = () => { const u = SL.Progress.unlocked, nb = Math.ceil((u + 1) / 5) * 5; return Math.min(99, Math.max(u + 4, nb, 10)); };
+  const count = () => { const u = SL.Progress.unlocked, nb = Math.ceil((u + 1) / 5) * 5; return Math.min(FIN(), Math.max(u + 4, nb, 10)); };
   const maxCam = () => Math.max(0, nodeX(count()) + 140 - W);
   const clampCam = x => Math.max(0, Math.min(maxCam(), x));
   const focus = L => { camT = clampCam(nodeX(L) - W * 0.42); };
   const info = L => {
+    if (isFinal(L)) return 'FINAL MISSION';
     if (isBoss(L)) return `BOSS · DR. NEBULA'S PROTOTYPE MK-${roman(L / SC().boss.every)}`;
     return `DESTROY ${SC().goalBase + SC().goalPerLevel * (L - 1)} ASTEROIDS · HOLD THE SECTOR ${fmt(SL.Story.levelDuration(L))}`;
   };
@@ -54,6 +56,7 @@ SL.Map = (() => {
   }
   function launch() {
     if (sel > SL.Progress.unlocked) { SL.Audio.sfx.deny(); return; }
+    if (isFinal(sel)) { msg = { text: 'FINAL MISSION — COMING IN A FUTURE UPDATE', t: 0 }; SL.Audio.sfx.deny(); return; }
     SL.Audio.sfx.launch(); SL.startMission(sel, false, session);
   }
   function leave() {
@@ -67,8 +70,20 @@ SL.Map = (() => {
     }
     session = null; SL.Audio.sfx.blip(520); SL.start('menu');
   }
+  // final node: big gold/white star node, label FINAL, no spoiler details
+  function drawFinal(g, L, u, teaser) {
+    const x = nodeX(L), y = nodeY(L), locked = L > u, r = 30, pulse = 0.5 + 0.5 * Math.sin(T * 3), rgb = '255,225,140';
+    g.save(); g.globalAlpha = teaser ? 0.35 : locked ? 0.7 : 1;
+    SL.glow(g, x, y, r * 3.2, r * 3.2, rgb, 0.16 + 0.1 * pulse);
+    g.beginPath(); for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, rr = i % 2 ? r * 0.82 : r * 1.18; g[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath();
+    g.fillStyle = 'rgba(40,28,6,0.95)'; g.fill(); g.strokeStyle = `rgba(${rgb},1)`; g.lineWidth = 3; g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = 16 * SL.view.scale; g.stroke();
+    g.restore();
+    SL.neonText(g, '★', x, y + 1, 26, rgb, { blur: 12, alpha: teaser ? 0.35 : 1 });
+    SL.neonText(g, 'FINAL', x, y + r + 18, 13, rgb, { blur: 8, alpha: teaser ? 0.35 : 0.95 });
+    if (locked && !teaser) { const bx = x + r * 0.85, by = y - r * 0.85; g.save(); g.fillStyle = 'rgba(230,210,160,0.95)'; g.fillRect(bx - 5, by - 1, 10, 8); g.strokeStyle = 'rgba(230,210,160,0.95)'; g.lineWidth = 1.8; g.beginPath(); g.arc(bx, by - 2, 3.5, Math.PI, 0); g.stroke(); g.restore(); }
+  }
   function nodeAt(p) {
-    for (let L = 1; L <= count(); L++) { const r = isBoss(L) ? 40 : 32; if (Math.hypot(p.x - (nodeX(L) - camX), p.y - nodeY(L)) < r) return L; }
+    for (let L = 1; L <= count(); L++) { const r = isBoss(L) || isFinal(L) ? 42 : 32; if (Math.hypot(p.x - (nodeX(L) - camX), p.y - nodeY(L)) < r) return L; }
     return 0;
   }
   function tap(p) {
@@ -130,7 +145,8 @@ SL.Map = (() => {
       }
       // route line
       const seg = (a, b) => { g.beginPath(); g.moveTo(nodeX(a), nodeY(a)); const mx = (nodeX(a) + nodeX(b)) / 2; g.bezierCurveTo(mx, nodeY(a), mx, nodeY(b), nodeX(b), nodeY(b)); };
-      for (let L = 1; L < N + 2; L++) {
+      const last = Math.min(N + 1, FIN());            // route ends at the final level
+      for (let L = 1; L < last; L++) {
         const lit = L + 1 <= u, fade = L >= N ? 0.35 : 1;
         g.save(); g.globalAlpha = fade; g.lineCap = 'round';
         if (lit) {
@@ -142,7 +158,8 @@ SL.Map = (() => {
       }
       // nodes
       const icon = nebulaIcon();
-      for (let L = 1; L <= N + 1; L++) {
+      for (let L = 1; L <= last; L++) {
+        if (isFinal(L)) { drawFinal(g, L, u, L > N); continue; }
         const x = nodeX(L), y = nodeY(L), boss = isBoss(L), cleared = L < u, next = L === u, locked = L > u, teaser = L > N;
         if (x < camX - 60 || x > camX + W + 60) continue;
         const pulse = 0.5 + 0.5 * Math.sin(T * 5), r = boss ? 26 : 15;
@@ -168,10 +185,10 @@ SL.Map = (() => {
         } else if (next) SL.neonText(g, 'NEW', x, y - r - 16, 10, '255,220,90', { blur: 8, alpha: 0.6 + 0.4 * pulse });
       }
       // Oakens' ship hovering over the selected node
-      const sx = nodeX(sel), sy = nodeY(sel) - (isBoss(sel) ? 52 : 40) + Math.sin(T * 3) * 4;
+      const big = isBoss(sel) || isFinal(sel), sx = nodeX(sel), sy = nodeY(sel) - (big ? 56 : 40) + Math.sin(T * 3) * 4;
       if (!SL.Map._ship) SL.Map._ship = SL.Sprites.ship(SL.Features.store.shipColor());
       const sp = SL.Map._ship; SL.glow(g, sx, sy + 14, 10, 16, '255,60,210', 0.35); g.drawImage(sp.c, sx - 15, sy - 15, 30, 30);
-      g.save(); g.strokeStyle = `rgba(255,255,255,${0.5 + 0.4 * Math.sin(T * 6)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(nodeX(sel), nodeY(sel), (isBoss(sel) ? 26 : 15) + 9, 0, Math.PI * 2); g.stroke(); g.restore();
+      g.save(); g.strokeStyle = `rgba(255,255,255,${0.5 + 0.4 * Math.sin(T * 6)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(nodeX(sel), nodeY(sel), (isFinal(sel) ? 36 : isBoss(sel) ? 26 : 15) + 9, 0, Math.PI * 2); g.stroke(); g.restore();
       g.restore();
       // scroll hints
       if (camX > 4) SL.neonText(g, '◀', 18, Y0, 22, '255,120,235', { blur: 10, alpha: 0.5 + 0.3 * Math.sin(T * 4) });
@@ -186,7 +203,7 @@ SL.Map = (() => {
       // info panel
       g.save(); SL.roundRect(g, 14, 470, 996, 92, 12); g.fillStyle = 'rgba(4,2,14,0.85)'; g.fill(); g.strokeStyle = 'rgba(170,90,255,0.4)'; g.lineWidth = 1; g.stroke(); g.restore();
       const boss = isBoss(sel);
-      SL.neonText(g, `LEVEL ${sel}` + (boss ? ' · DR. NEBULA' : ''), 34, 494, 22, boss ? '255,90,90' : '255,80,220', { align: 'left', blur: 12 });
+      SL.neonText(g, `LEVEL ${sel}` + (boss ? ' · DR. NEBULA' : ''), 34, 494, 22, isFinal(sel) ? '255,225,140' : boss ? '255,90,90' : '255,80,220', { align: 'left', blur: 12 });
       SL.neonText(g, info(sel), 34, 522, 14, '200,210,255', { align: 'left', blur: 5 });
       SL.neonText(g, sel < u ? '✓ CLEARED · REPLAY ANYTIME' : 'NEXT MISSION', 34, 546, 12, sel < u ? '90,230,150' : '255,220,90', { align: 'left', blur: 5 });
       SL.drawButton(g, playBtn, true, T);

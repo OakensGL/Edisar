@@ -257,7 +257,7 @@ const F = SL.Features = {
 /* Story mode hooks (v0.4 builds levels + Nebula boss; these are the extension points for later). */
 F.story = {
   bossEvery: 5,
-  finalLevel: { enabled: false, level: 50, boss: 'Commander Edisar Starlight' },   // TODO: final level
+  finalLevel: { enabled: false, level: 30, boss: 'Commander Edisar Starlight' },   // TODO: final level
   energySystem: { enabled: false },                                              // TODO: ship energy instead of lives
   onLevelStart(game, level) {},                       // per-level setup hook (special waves, events)
   cutsceneBetween(fromLevel, toLevel) { return null; },  // TODO: story clue cutscenes; return {frames...} to play

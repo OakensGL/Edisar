@@ -79,7 +79,7 @@ function hull() {
 }
 
 SL.Story = class extends SL.Survival {
-  constructor(startLevel = 1, debug = false, session = null) {
+  constructor(startLevel = 1, debug = false, session = null, opts = {}) {
     super();
     this.mode = 'story'; this.timeScore = false; this.debug = debug;
     // v0.4.1 session: points / kills / time carry across missions launched from the map until game over
@@ -101,7 +101,16 @@ SL.Story = class extends SL.Survival {
       if (g !== this || !this.boss || this.boss.phase !== 'fight') return;
       this.say(NEBULA.onAssistCall, 'normal', 3.6); this.afterAssistT = 8.2;
     });
-    this.startLevel(startLevel);
+    // v0.4.2: scene 1 plays every time level 1 is started (map or ?level=1); retry skips it. SKIP always available.
+    if (startLevel === 1 && opts.intro !== false && SL.Cutscene.has('intro')) {
+      this.level = 1; this.lv = { boss: false, goal: 0, dur: 0, kills: 0, t: 0 };
+      SL.Audio.playTrack('main');
+      this.playCut('intro', () => this.startLevel(1));
+    } else this.startLevel(startLevel);
+  }
+  playCut(id, then) {
+    this.state = 'cutscene'; this.dialog = null; this.dialogs = [];
+    this.cut = new SL.Cutscene(id, () => { this.cut = null; this.state = 'play'; SL.Input.takeDowns(); then(); });
   }
 
   /* ---------- levels ---------- */
@@ -277,7 +286,11 @@ SL.Story = class extends SL.Survival {
     for (const p of this.popups) { p.life -= dt; p.y -= 40 * dt; } this.popups = this.popups.filter(p => p.life > 0);
     this.asteroids = this.asteroids.filter(a => !a.dead);
     if (t > W - 0.35) { this.flash = Math.max(this.flash || 0, (t - (W - 0.35)) / 0.35 * 0.8); this.flashRgb = '255,230,255'; }
-    if (t >= W) this.startClear();
+    if (t >= W) {
+      // v0.4.2: boss levels with a scene: escape line -> warp -> CUTSCENE -> recount -> CONTINUE / MAP
+      if (this.lv.boss && SL.Cutscene.has(this.level)) { this.warpK = 0; this.flash = 0; SL.Audio.playTrack('clear'); this.playCut(this.level, () => { this.state = 'warp'; this.startClear(); }); }
+      else this.startClear();
+    }
   }
 
   /* ---------- level clear recount ---------- */
@@ -333,6 +346,7 @@ SL.Story = class extends SL.Survival {
     if (cut) { /* TODO: play cutscene, then continue */ }
     if (SL.Features.story.isFinalLevel(to)) { /* TODO: final level vs Commander Edisar Starlight */ }
     SL.Audio.sfx.blip(880);
+    if (to >= SL.FINAL_LEVEL) { SL.start('map', { session: this.sessionNow(), sel: to }); return; }   // final mission not built yet
     this.startLevel(to);
   }
 
@@ -340,15 +354,17 @@ SL.Story = class extends SL.Survival {
   update(dt) {
     if (this.state === 'clear') { this.T += dt; this.updateClear(dt); return; }
     if (this.state === 'warp') { this.T += dt; this.updateWarp(dt); return; }
+    if (this.state === 'cutscene') { this.T += dt; this.cut.update(dt); return; }
     super.update(dt);
   }
+  draw(g) { if (this.state === 'cutscene' && this.cut) return this.cut.draw(g); super.draw(g); }
   menuAction(id) {
     if (id === 'map') {
       SL.Audio.sfx.blip(780);
       // game over: session ends (already ranked). Pause -> MAP: mission abandoned, keep the session as it was at launch.
       const sess = this.state === 'over' ? null : this.session0;
       SL.start('map', { session: sess, sel: this.level });
-    } else if (id === 'retry') { SL.Audio.sfx.blip(780); SL.startMission(this.level, this.debug, null); }
+    } else if (id === 'retry') { SL.Audio.sfx.blip(780); SL.startMission(this.level, this.debug, null, { intro: false }); }
     else super.menuAction(id);
   }
   onUpdate(dt) {
