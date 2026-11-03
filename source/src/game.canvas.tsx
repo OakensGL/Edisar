@@ -2190,12 +2190,12 @@ interface Game { nq?: NQState; }
 function nq(g: Game): NQState { if (!g.nq) g.nq = { q: {}, talk: "", say: "", offer: "", log: false }; return g.nq; }
 // v27.2: todos los NPC de la villa juntos en una plaza ordenada (dos filas de 4 con un pasillo en medio), al este del templo,
 // sobre suelo libre de la zona segura: nunca encima de estatuas ni objetos del mapa. Si el sitio preferido no está libre, busca el hueco libre más cercano al templo.
-const NPC_PLAZA: Array<[string, number, number]> = [["rosa", 0, 0], ["dario", 2, 0], ["depot", 4, 0], ["stable", 6, 0], ["kiki", 0, 3], ["marin", 2, 3], ["shaina", 4, 3], ["pitia", 6, 3]];
-const NPC_PLAZA_AT: [number, number] = [49, 30 + OY]; // (49, 62): al este del templo, sin tapar el cartel del portal
+const NPC_PLAZA: Array<[string, number, number]> = [["rosa", 0, 0], ["dario", 2, 0], ["depot", 4, 0], ["stable", 6, 0], ["kiki", 0, 2], ["marin", 2, 2], ["shaina", 4, 2], ["pitia", 6, 2]];
+const NPC_PLAZA_AT: Array<[number, number]> = [[45, 35 + OY], [49, 30 + OY]]; // v27.3: 1º la alfombra roja de Juan Carlos (45–51, 67–69) en su templo; 2º al este del templo
 function placeNpcs(tiles: Uint8Array): void {
   const free = (x: number, y: number): boolean => { if (x <= TX0 || x >= TX1 || y <= TY0 || y >= TY1 || (x === TEMPLE_X && y === TEMPLE_Y)) return false; const t = tiles[y * MW + x] ?? ROCK; return walkable(t) && t !== PORTAL && TILE_BY_ID[t]?.layer !== "obj"; };
   const fits = (ax: number, ay: number): boolean => { for (let dy = -1; dy <= 3; dy++) for (let dx = 0; dx <= 6; dx++) if (!free(ax + dx, ay + dy)) return false; return true; };
-  let at: [number, number] | null = fits(NPC_PLAZA_AT[0], NPC_PLAZA_AT[1]) ? NPC_PLAZA_AT : null;
+  let at: [number, number] | null = NPC_PLAZA_AT.find((q: [number, number]) => fits(q[0], q[1])) ?? null;
   if (!at) { let best = 1e9; for (let ay = TY0 + 2; ay + 3 < TY1; ay++) for (let ax = TX0 + 1; ax + 6 < TX1; ax++) if (fits(ax, ay)) { const d = Math.abs(ax + 3 - TEMPLE_X) + Math.abs(ay + 1 - TEMPLE_Y); if (d < best) { best = d; at = [ax, ay]; } } }
   if (!at) return; // sin hueco libre: se quedan donde estaban
   for (const [id, dx, dy] of NPC_PLAZA) { const x = at[0] + dx, y = at[1] + dy;
@@ -5819,7 +5819,7 @@ const WK_SPAWNS: Array<[MonId, number, number]> = [[WK_ID, 15, 93], [WK_ID, 13, 
 // La torre está en el mapa oficial (assets/map.json); sin ese mapa (mundo original) no hay torre y estos respawns no salen.
 function wkOnT(tiles: Uint8Array): boolean { return tiles[BORIS_HOME[1] * MW + BORIS_HOME[0]] === STONEF; }
 function wkOn(g: Game): boolean { return wkOnT(g.tiles); }
-function inWkZone(g: Game, x: number, y: number): boolean { if (!wkOn(g) || x < WK_X0 || x > WK_X1 || y < WK_Y0 || y > WK_Y1) return false; const t = tileAt(g, x, y); return t === STONEF || t === WALL; }
+function inWkZone(g: Game, x: number, y: number): boolean { return wkOn(g) && wkTowerAt(g.tiles, x, y); }
 function wkZoneName(x: number, y: number): string { return x >= WK_KEEP[0] && x <= WK_KEEP[2] && y >= WK_KEEP[1] && y <= WK_KEEP[3] ? "👑 Cima de la torre: Boris" : "🛡 Torre del White Knight (nivel 50+)"; }
 function wkMiniMark(ctx: CanvasRenderingContext2D, g: Game, ox: number, oy: number, s: number, R: number, labels: boolean, dot: (x: number, y: number, c: string, r: number) => void): void {
   if (!wkOn(g)) return;
@@ -5872,7 +5872,8 @@ function drawWkSpr(ctx: CanvasRenderingContext2D, ph: number, now: number): void
 }
 // Solo el White Knight y Boris pisan la torre: los demás monstruos no entran (ni persiguiendo) y los respawns viejos que caían
 // dentro o a menos de 5 casillas se apartan a la hierba libre más cercana (con el mapa oficial: trolls (10, 56) → (9, 54) y (10, 62) → (17, 56)).
-function wkTowerAt(tiles: Uint8Array, x: number, y: number): boolean { if (x < WK_X0 || x > WK_X1 || y < WK_Y0 || y > WK_Y1) return false; const t = tiles[y * MW + x]; return t === STONEF || t === WALL; }
+function wkTowerAt(tiles: Uint8Array, x: number, y: number): boolean { if (x < WK_X0 || x > WK_X1 || y < WK_Y0 || y > WK_Y1) return false; const t = tiles[y * MW + x] ?? GRASS; return !WK_OUTDOOR.has(t); } // v27.3: todo lo construido (muros, suelos, alfombras, puertas, estatuas…)
+const WK_OUTDOOR = new Set<number>([GRASS, TREE, PATH, BUSH, SAND, WATER, T_DRYG, T_FLOWG, T_TALLG, T_FLOWERS, T_GRAVEL]);
 function wkNearTower(tiles: Uint8Array, x: number, y: number, r: number): boolean { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (wkTowerAt(tiles, x + dx, y + dy)) return true; return false; }
 function wkMayEnter(g: Game, m: Mon, x: number, y: number): boolean { return m.def.id === WK_ID || m.def.id === BORIS_ID || !wkOn(g) || !wkTowerAt(g.tiles, x, y); }
 function wkRelocate(tiles: Uint8Array, s: [MonId, number, number]): void {
@@ -5949,7 +5950,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v27.2 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v27.3 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
@@ -5987,9 +5988,12 @@ function TitleScreen(props: { onStart: (c: ClassId, n: string, id?: string) => v
   }, [props.full]);
   // v25: música del título en bucle tras el primer clic/tecla (los navegadores bloquean el autoplay); se para al entrar al juego
   const musRef = useRef<HTMLAudioElement | null>(null); const [muted, setMuted] = useState<boolean>(() => LS_KV.get("edisar_music_off") === "1");
-  useEffect(() => { const a = musRef.current; if (!a || !TITLE_MUSIC) return; a.volume = 0.5; a.muted = muted; const go = (): void => { if (!a.muted) void a.play().catch(() => undefined); };
-    go(); window.addEventListener("pointerdown", go); window.addEventListener("keydown", go);
-    return () => { window.removeEventListener("pointerdown", go); window.removeEventListener("keydown", go); }; }, [muted]);
+  useEffect(() => { const a = musRef.current; if (!a || !TITLE_MUSIC) return; a.volume = 0.5; a.muted = muted; if (muted) return; // silenciada: no se intenta
+    const EV = ["pointerdown", "click", "keydown", "touchstart"]; let done = false;
+    const off = (): void => { for (const t of EV) document.removeEventListener(t, go, true); };
+    const go = (): void => { if (done || a.muted) return; a.play().then(() => { done = true; off(); }).catch(() => undefined); }; // el navegador puede bloquear el autoplay: se reintenta en el 1er toque/tecla
+    go(); for (const t of EV) document.addEventListener(t, go, { capture: true, passive: true });
+    return off; }, [muted]);
   useEffect(() => () => { const a = musRef.current; if (a) { a.pause(); a.currentTime = 0; } }, []);
   const toggleMus = (): void => { const m = !muted; setMuted(m); LS_KV.set("edisar_music_off", m ? "1" : "0"); const a = musRef.current; if (a) { a.muted = m; if (m) a.pause(); else void a.play().catch(() => undefined); } };
   const start = (): void => { const e = createChar(LS_KV, acc, name, voc); if (!e) { setCerr(`Ya tienes ${MAX_CHARS} personajes: borra uno para crear otro.`); return; } props.onStart(voc, e.name, e.id); };

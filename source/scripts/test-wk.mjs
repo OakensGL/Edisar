@@ -56,13 +56,13 @@ await put(8, 65); await ev(() => { const g = globalThis.__edisarG.current; g.p.h
 // editor: los dos monstruos son marcadores; los marcadores sustituyen los respawns de fábrica
 const ed = await browser.newPage(); ed.on("pageerror", (e) => errs.push("editor: " + String(e))); await ed.setViewport({ width: 1366, height: 860 });
 await ed.goto("file://" + path.join(G, "dist/editor.html")); await ed.evaluate(() => localStorage.removeItem("edisar.editor.v1")); await ed.reload(); await sleep(900);
-const e1 = await ed.evaluate(() => { const E = window.__edisarEditor; const ids = [...document.querySelectorAll("#mon option")].map((o) => o.value); const tower = E.st.floor[62 * E.st.w + 8] === 17 || E.st.obj[62 * E.st.w + 8] === 17;
-  const n = E.wkMarks(); const mk = E.st.marks.filter((m) => m.k === "spawn"); const i = mk.findIndex((m) => m.m === "wknight" && m.x === 15 && m.y === 93); if (i >= 0) { mk[i].x = 12; mk[i].y = 93; } E.dirty();
+const e1 = await ed.evaluate(() => { const E = window.__edisarEditor; const ids = [...document.querySelectorAll("#mon option")].map((o) => o.value); const OX = E.st.ox || 0, OYf = E.st.oy || 0; const tower = E.st.floor[(62 + OYf) * E.st.w + 8 + OX] === 17 || E.st.obj[(62 + OYf) * E.st.w + 8 + OX] === 17;
+  const n = E.wkMarks(); const mk = E.st.marks.filter((m) => m.k === "spawn"); const i = mk.findIndex((m) => m.m === "wknight" && m.x === 15 + OX && m.y === 93 + OYf); if (i >= 0) { mk[i].x = 13 + OX; mk[i].y = 95 + OYf; } E.dirty();
   return { ids: ids.filter((x) => x === "wknight" || x === "boris"), tower, n, moved: i >= 0, txt: E.serialize() }; });
 check("editor starts from the official map; White Knight and Boris are selectable markers", e1.tower && e1.ids.length === 2 && e1.n === 11 && e1.moved, JSON.stringify({ ...e1, txt: e1.txt.length }));
 await ed.evaluate(() => { window.__edisarEditor.showCat("marks"); window.__edisarEditor.setZoom(1); window.__edisarEditor.centerOn(10, 82); }); await sleep(400); await ed.screenshot({ path: path.join(G, "shots", "v27-editor-wk.png") }); await ed.close(); await page.bringToFront();
 await page.evaluate((t) => localStorage.setItem("edisar.map.v1", t), e1.txt); await page.reload(); await sleep(500); await cont(); await sleep(1300);
-const s1 = await ev(() => { const g = globalThis.__edisarG.current; const wk = g.mons.filter((m) => m.def.id === "wknight"); return { n: wk.length, moved: wk.some((m) => m.sx === 12 && m.sy === 93), old: wk.some((m) => m.sx === 15 && m.sy === 93), boris: g.mons.filter((m) => m.def.id === "boris").length }; });
+const s1 = await ev(() => { const g = globalThis.__edisarG.current; const wk = g.mons.filter((m) => m.def.id === "wknight"); return { n: wk.length, moved: wk.some((m) => m.sx === 13 && m.sy === 95), old: wk.some((m) => m.sx === 15 && m.sy === 93), boris: g.mons.filter((m) => m.def.id === "boris").length }; });
 check("the game honours the editor markers (moved respawn, no duplicates)", s1.n === 10 && s1.moved && !s1.old && s1.boris === 1, JSON.stringify(s1));
 check("no page errors", errs.length === 0, errs.slice(0, 3).join(" | "));
 await browser.close(); const okAll = res.every(Boolean); console.log(`${res.filter(Boolean).length}/${res.length} White Knight checks passed`); process.exit(okAll ? 0 : 1);

@@ -33,4 +33,6 @@ Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts
   - White Knight (v27): sprite pixel art propio (30×34, dibujado en código, src/game.canvas.tsx), caballera de
     uniforme blanco y capa azul marino, inspirado en la referencia del dueño; sin arte de terceros (CC0 / propio).
   - Mapa oficial (assets/map.json, v27): dibujado por Juan Carlos en el editor (torre del White Knight incluida).
+  - Mapa oficial v27.3 (assets/map.json): juan-map-nov2b de Juan Carlos, 584×164 con margen ox/oy 10 (templo de mármol,
+    estatuas, torre del White Knight con alfombras y puerta de hierro), copiado byte a byte.
   No se usa ningún sprite de Tibia.

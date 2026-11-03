@@ -81,15 +81,35 @@ check("clic para caminar a través de una puerta cerrada: la abre y entra", JSON
 // ---------- C) NPC de la villa ----------
 await newChar("knight", "Caballera", 60);
 const np = await ev(() => { const g = globalThis.__edisarG.current; return { tem: [44, 63] }; });
-await put(50, 63); await sleep(1200); await shot("v27-2-npcs.png");
+await put(44, 64); await sleep(1200); await shot("v27-2-npcs.png"); await shot("v27-3-town.png");
 const npcs = await ev(() => { const g = globalThis.__edisarG.current; const W = 544; const L = globalThis.__edisarNpcs ? globalThis.__edisarNpcs() : []; return L.map(([n, x, y]) => [n, x, y, g.tiles[y * W + x]]); }); console.log("NPC: " + JSON.stringify(npcs));
-check("NPC juntos en la plaza, sobre suelo libre (sin objetos)", npcs.length === 8 && npcs.every((q) => q[3] === 4 || q[3] === 17 || q[3] === 5 || q[3] === 12), JSON.stringify(npcs));
-await put(50, 63); await key("t"); await sleep(600);
+check("NPC juntos en la plaza, sobre suelo libre (sin estatuas ni objetos)", npcs.length === 8 && npcs.every((q) => [4, 17, 5, 12, 26, 27].includes(q[3])), JSON.stringify(npcs));
+const rosa = npcs[0]; await put(rosa[1] + 1, rosa[2] + 1); await sleep(300); await key("t"); await sleep(600);
 check("tecla T cerca de Rosa abre la tienda", await ev(() => !!globalThis.__edisarG.current.shopOpen));
+// ---------- v27.3: mapa nuevo de Juan Carlos (584×164, ox/oy 10) ----------
+const m3 = await ev(() => { const g = globalThis.__edisarG.current; const W = 544; const T = (x, y) => g.tiles[y * W + x];
+  return { statues: [T(41, 61), T(55, 61), T(41, 71)], fount: [T(43, 66), T(53, 66)], portal: T(46, 65), tr: T(55, 71), door: T(18, 97), hall: T(82, 94), wk: g.mons.filter((m) => m.def.id === "wknight").length, boris: g.mons.filter((m) => m.def.id === "boris").map((m) => [m.sx, m.sy]) }; });
+check("v27.3: estatuas, fuentes, portales, puerta de la torre y sala de Croqui en su sitio (offset 10,10 bien aplicado)", m3.statues.every((t) => t === 57) && m3.fount.every((t) => t === 56) && m3.portal === 11 && m3.tr === 11 && m3.door === 40 && m3.hall === 11 && m3.wk === 10 && JSON.stringify(m3.boris) === "[[8,62]]", JSON.stringify(m3));
+await put(20, 97); await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; }); await sleep(1200); await rclick(18, 97); await sleep(300);
+check("v27.3: la puerta de hierro de la torre se abre con clic derecho", (await ev(() => globalThis.__edisarG.current.tiles[97 * 544 + 18])) === 75);
+await ev(() => { const g = globalThis.__edisarG.current; for (const m of g.mons) if ((m.def.id === "wknight" && m.x >= 11 && m.y >= 90) || (m.def.id !== "wknight" && m.def.id !== "boris" && Math.abs(m.x - 19) < 8 && Math.abs(m.y - 97) < 8)) m.alive = false; g.walkGoal = { x: 13, y: 95, open: false }; }); // los White Knight de la entrada atacan y tapan el paso: fuera para la prueba de la puerta
+t1 = Date.now(); while (Date.now() - t1 < 9000 && JSON.stringify(await at()) !== "[13,95]") { await ev(() => { globalThis.__edisarG.current.p.hp = 1e6; }); await sleep(200); }
+check("v27.3: se entra a la torre por la puerta", JSON.stringify(await at()) === "[13,95]", JSON.stringify(await at()));
+await sleep(4000); const wkOut = await ev(() => { const g = globalThis.__edisarG.current; const W = 544; const OUT = new Set([0, 1, 9, 20, 8, 2, 29]); return g.mons.filter((m) => m.alive && (m.def.id === "wknight" || m.def.id === "boris") && (OUT.has(g.tiles[m.y * W + m.x]) || m.x > 18)).map((m) => [m.x, m.y]); });
+check("v27.3: con la puerta abierta los White Knight siguen dentro de la torre", wkOut.length === 0, JSON.stringify(wkOut));
+await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 600; });
+// guardado del mundo de 544×144: la misma casilla del mundo
+await page.reload(); await sleep(600); await seed((d) => { d.x = 12; d.y = 95; }); await page.reload(); await sleep(500); await cont(); await sleep(1300);
+check("v27.3: un guardado del mapa 544×144 carga en la misma casilla (dentro de la torre)", JSON.stringify(await at()) === "[12,95]" && /White Knight/.test(await ev(() => globalThis.__edisarG.current.zone)), JSON.stringify(await at()) + " " + await ev(() => globalThis.__edisarG.current.zone));
+await put(62, 93); await ev(() => { const g = globalThis.__edisarG.current; g.p.hp = 1e6; for (const m of g.mons) if (Math.abs(m.x - 62) < 6 && Math.abs(m.y - 93) < 5) m.alive = false; }); await sleep(1500);
+const px3 = await ev(() => { const g = globalThis.__edisarG.current; const W = 544; const c = document.querySelector('canvas[data-drop="map"]'); const x2 = c.getContext("2d"); const [VW] = globalThis.__edisarView(); const k = c.width / VW; const out = [];
+  for (let y = 88; y <= 99; y++) for (let x = 56; x <= 69; x++) { const t = g.tiles[y * W + x]; if (t !== 71 && t !== 63) continue; const sx = Math.round((x * 32 - g.camX + 2) * k), sy = Math.round((y * 32 - g.camY + 29) * k); if (sx < 0 || sy < 0 || sx >= c.width || sy >= c.height) continue; const d = x2.getImageData(sx, sy, 1, 1).data; out.push([x, y, t, d[0], d[1], d[2]]); } return out; });
+check("v27.3: sus árboles secos y huesos del bosque se ven sobre ceniza (sin verde)", px3.length >= 5 && px3.every((q) => !(q[4] > q[3] + 20 && q[4] > q[5] + 20)), JSON.stringify(px3.filter((q) => q[4] > q[3] + 20 && q[4] > q[5] + 20)) + ` (${px3.length})`);
+await ev(() => { globalThis.__edisarG.current.p.hp = 600; }); await shot("v27-3-grove.png");
 // ---------- editor ----------
 const ed = await browser.newPage(); ed.on("pageerror", (e) => errs.push("editor: " + String(e))); await ed.setViewport({ width: 1366, height: 860 });
 await ed.goto("file://" + path.join(G, "dist/editor.html")); await ed.evaluate(() => localStorage.removeItem("edisar.editor.v1")); await ed.reload(); await sleep(900);
-const e1 = await ed.evaluate(() => { const E = window.__edisarEditor; const names = window.__ED.tiles.map((t) => t.n); let ash = 0; for (let y = 87; y <= 101; y++) for (let x = 55; x <= 91; x++) if (E.st.floor[y * E.st.w + x] === 74) ash++; return { ash, has: ["Tierra de ceniza", "Puerta de hierro (abierta)", "Reja (abierta)", "Puerta de madera (cerrada)"].every((n) => names.includes(n)) }; });
+const e1 = await ed.evaluate(() => { const E = window.__edisarEditor; const names = window.__ED.tiles.map((t) => t.n); let ash = 0; for (let y = 87; y <= 101; y++) for (let x = 55; x <= 91; x++) if (E.st.floor[(y + E.st.oy) * E.st.w + x + E.st.ox] === 74) ash++; return { ash, has: ["Tierra de ceniza", "Puerta de hierro (abierta)", "Reja (abierta)", "Puerta de madera (cerrada)"].every((n) => names.includes(n)) }; });
 check("editor: ceniza en el Bosque Muerto y nuevos tiles en Suelos/Puertas", e1.ash > 100 && e1.has, JSON.stringify(e1));
 check("sin errores en la página", errs.length === 0, errs.slice(0, 3).join(" | "));
 await browser.close(); const ok = res.every(Boolean); console.log(`${res.filter(Boolean).length}/${res.length} v27.2 checks passed`); process.exit(ok ? 0 : 1);
