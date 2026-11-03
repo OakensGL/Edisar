@@ -39,6 +39,7 @@ Tiles nuevos (v27): el atlas pasa a 116 tiles (8×15), mismo generador + scripts
   - Atuendos de héroe lote 3 (v28.2): Muichiro, Gambit, M. Bison, Vash, Dante (Inferno), Androides 17 y 16, mismo sistema (pixel art propio).
   - Caballeros Dorados etapa 1 (v29): Mu, Aldebarán, Saga, Máscara Mortal, Aioria y Shaka; sprites, técnicas y atuendos dorados dibujados en código (pixel art propio, solo "inspirado en", sin arte copiado).
   - Caballeros Dorados etapa 2 (v29.1): Dohko, Milo, Aioros, Shura, Camus y Afrodita; sprites, técnicas y atuendos dorados dibujados en código (pixel art propio, solo "inspirado en", sin arte copiado).
+  - Kanon de Géminis (v29.2): sprite nuevo dibujado en código con la armadura de Géminis (pelo más oscuro y salvaje, mirada siniestra, aura oscura); también su Ilusión gemela y su Eco. Pixel art propio, solo "inspirado en".
   - Mapa oficial v27.3 (assets/map.json): juan-map-nov2b de Juan Carlos, 584×164 con margen ox/oy 10 (templo de mármol,
     estatuas, torre del White Knight con alfombras y puerta de hierro), copiado byte a byte.
   No se usa ningún sprite de Tibia.

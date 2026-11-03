@@ -72,6 +72,21 @@ const sheets = async (LIST, TAG, TITLE) => {
   check("hoja de los 6 atuendos dorados (4 direcciones + paso)", fs.existsSync(path.join(G, "shots", `${TAG}-gold-outfits.png`))); }
 };
 const SAINTS2 = [["dohko", "Dohko de Libra", 6], ["milo", "Milo de Escorpio", 7], ["aioros", "Aioros de Sagitario", 8], ["shura", "Shura de Capricornio", 9], ["camus", "Camus de Acuario", 10], ["afro", "Afrodita de Piscis", 11]];
+// ---------- v29.2: Saga y Kanon lado a lado (4 direcciones, paso, ataque, furia) + quién usa el sprite nuevo ----------
+{ const COLS = [[2, 0, 0, 0, "sur"], [1, 0, 0, 0, "este"], [0, 0, 0, 0, "norte"], [3, 0, 0, 0, "oeste"], [2, 1, 0, 0, "paso sur"], [1, 2, 0, 0, "paso este"], [2, 0, 1, 0, "ataque"], [1, 0, 1, 0, "ataque este"], [2, 0, 0, 2, "furia (<30%)"], [1, 0, 0, 2, "furia este"]];
+  const ROWS = [["saga", "Saga de Géminis"], ["kanon", "Kanon de Géminis"]];
+  const sheet = await ev(([H, C]) => { const S = 4, cw = 58, ch = 66; const o = document.createElement("canvas"); o.width = C.length * cw * S; o.height = H.length * ch * S; const x = o.getContext("2d"); x.imageSmoothingEnabled = false;
+    H.forEach((h, r) => C.forEach(([f, ph, cast, alt], k) => { x.save(); x.setTransform(S, 0, 0, S, k * cw * S, r * ch * S); x.fillStyle = (r + k) % 2 ? "#4a4458" : "#403a4e"; x.fillRect(0, 0, cw, ch);
+      globalThis.__edisarGs.draw(x, 13, 26, h[0], f, ph, 1000, cast, false, alt === 2 && h[0] === "saga", alt === 2); x.restore(); }));
+    return o.toDataURL().split(",")[1]; }, [ROWS, COLS]);
+  const diff = await ev(() => { const mk = (id) => { const o = document.createElement("canvas"); o.width = 64; o.height = 72; globalThis.__edisarGs.draw(o.getContext("2d"), 13, 26, id, 2, 0, 1000, 0, false, false, false); return o.getContext("2d").getImageData(0, 0, 64, 72).data; };
+    const a = mk("saga"), b = mk("kanon"); let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 60) n++; return n; });
+  check("Kanon se distingue de Saga (sprite distinto)", diff > 250, `${diff} px distintos`);
+  const who = await ev(() => Object.fromEntries(["h12boss", "h12boss2", "h12clone1", "h12clone2", "h12echo"].map((i) => [i, globalThis.__edisarGs.look(i)])));
+  check("Kanon, su Ilusión gemela y su Eco usan el sprite nuevo de Kanon; el clon de Saga, el de Saga", who.h12boss === "saga" && who.h12boss2 === "kanon" && who.h12clone2 === "kanon" && who.h12echo === "kanon" && who.h12clone1 === "saga", JSON.stringify(who));
+  if (process.env.RAWSHEET) fs.writeFileSync(process.env.RAWSHEET + "v29-2-kanon.png", Buffer.from(sheet, "base64"));
+  globalThis.__kanonSheet = sheet; globalThis.__kanonCols = COLS.map((c) => c[4]); globalThis.__kanonRows = ROWS; }
+if (ONLY === "kanon") { console.log(`${res.filter(Boolean).length}/${res.length}`); await browser.close(); process.exit(0); }
 if (ONLY !== "sheets2") await sheets(SAINTS, "v29", "Edisar v29 — Caballeros Dorados (etapa 1)");
 await sheets(SAINTS2, "v29-1", "Edisar v29.1 — Caballeros Dorados (etapa 2)");
 if (ONLY.startsWith("sheets")) { console.log(`${res.filter(Boolean).length}/${res.length}`); await browser.close(); process.exit(0); }
@@ -249,6 +264,16 @@ check("topes de botín iguales (casa +6; Géminis +12)", JSON.stringify(lv.map((
 // partida antigua con atuendos dorados y desconocidos
 await page.reload(); await sleep(700); await seed((d) => { d.cs = { coins: 5, owned: ["o_g_leo", "o_raro", "o_croqui", "o_g_piscis"], outfit: "o_g_piscis", aura: "", ncol: "" }; }); await page.reload(); await sleep(600); await cont(); await sleep(900);
 check("partida guardada con atuendo dorado: se conserva; ids desconocidos fuera", await ev(() => { const c = globalThis.__edisarG.current.cs; return JSON.stringify(c.owned) === JSON.stringify(["o_g_leo", "o_croqui", "o_g_piscis"]) && c.outfit === "o_g_piscis"; }));
+// v29.2: Kanon real en la pelea (se une al 50% de Saga) y la imagen Saga/Kanon
+{ const b = await goBoss(12, -3); await ev(() => { const g = globalThis.__edisarG.current; const s = g.byRegion[12].find((m) => m.def.id === "h12boss" && m.alive); s.hp = Math.round(s.def.hp * 0.49); }); await sleep(500);
+  const kn = await ev(() => { const g = globalThis.__edisarG.current; const k = g.byRegion[12].find((m) => m.alive && m.def.id === "h12boss2"); return k ? { x: k.x, y: k.y, n: k.def.name, hp: k.def.hp, atk: k.def.atk, sp: k.def.boss.specials.map((s) => s.name), gsb: !!k.gsb } : null; });
+  check("en la pelea: Kanon se une al 50% con su nombre, vida, ataque y técnicas de siempre (sin IA del remake)", !!kn && kn.n === "Kanon de Géminis" && kn.sp.join("|") === "Explosión de Galaxias|Triángulo Dorado|Ilusión gemela|Golpe de Poseidón" && !kn.gsb, JSON.stringify(kn));
+  const live = await crop(b.x - 6, b.y - 4.5, 13, 8);
+  const p2 = await browser.newPage(); await p2.setViewport({ width: 1240, height: 900 });
+  const C = globalThis.__kanonCols, R = globalThis.__kanonRows;
+  await p2.setContent(`<html><body style="margin:0;background:#141018;color:#f4ead8;font-family:sans-serif"><h2 style="margin:10px 18px">Edisar v29.2 — Saga y Kanon de Géminis: columnas = ${C.join(" · ")}</h2><div style="display:flex;margin:0 18px"><div>${R.map((h) => `<div style="height:${66 * 1.9}px;display:flex;align-items:center;width:150px;font-weight:bold">${h[1]}</div>`).join("")}</div><img src="data:image/png;base64,${globalThis.__kanonSheet}" style="width:${C.length * 58 * 1.9}px;image-rendering:pixelated"></div><h3 style="margin:12px 18px 4px">En el juego: Kanon se une al 50% de Saga</h3><img src="data:image/png;base64,${live}" style="margin:0 18px;width:780px;border:1px solid #5a4a3a"></body></html>`);
+  await sleep(300); await p2.screenshot({ path: path.join(G, "shots", "v29-2-kanon.png"), fullPage: true }); await p2.close();
+  check("imagen v29-2-kanon.png", fs.existsSync(path.join(G, "shots", "v29-2-kanon.png"))); }
 check("sin errores en la página", errs.length === 0, errs.slice(0, 3).join(" | "));
 console.log(`${res.filter(Boolean).length}/${res.length} v29 checks passed`);
 await browser.close(); process.exit(res.every(Boolean) ? 0 : 1);

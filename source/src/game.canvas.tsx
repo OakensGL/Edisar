@@ -6048,7 +6048,7 @@ function hero16(H0: HeroCtx): void {
 // ===================== v29: remake de los Caballeros Dorados (etapa 1: Mu, Aldebarán, Máscara Mortal, Aioria, Shaka y Saga) =====================
 // Sprites nuevos (armadura de oro con el casco de cada signo, capa blanca, pelo y ojos del anime; dibujo propio en código, «inspirado en»),
 // técnicas telegrafiadas con efectos visibles y un atuendo cosmético de armadura dorada que sueltan muy rara vez (1/200, sin estadísticas).
-type GsId = "mu" | "alde" | "dm" | "aioria" | "shaka" | "saga" | "dohko" | "milo" | "aioros" | "shura" | "camus" | "afro";
+type GsId = "mu" | "alde" | "dm" | "aioria" | "shaka" | "saga" | "dohko" | "milo" | "aioros" | "shura" | "camus" | "afro" | "kanon";
 const GS_OF: Record<string, GsId> = { h1boss: "mu", h2boss: "alde", h3boss: "dm", h4boss: "aioria", h5boss: "shaka", h12boss: "saga", h6boss: "dohko", h7boss: "milo", h8boss: "aioros", h9boss: "shura", h10boss: "camus", h11boss: "afro" };
 const GS = {
   GAP: 1500,          // ms mínimos entre dos técnicas del mismo guardián (entre medias golpea cuerpo a cuerpo)
@@ -6080,10 +6080,12 @@ const GSL: Record<GsId, GsLook> = {
   shura: { n: "Shura de Capricornio", hair: "#22222e", hairHi: "#4a4a5e", hairS: "short", skin: "#e8c4a0", eyes: "#1a1a2a", s: 1.44, bulk: 1.1, cape: "#ece8dc", gem: "#5a5a8a", glow: "#e8f4ff" },
   camus: { n: "Camus de Acuario", hair: "#2a7a88", hairHi: "#5ab8c4", hairS: "long", skin: "#f4e0cc", eyes: "#2a5a9a", s: 1.42, bulk: 1.02, cape: "#f4f6f8", gem: "#2a8ab8", glow: "#bff4ff" },
   afro: { n: "Afrodita de Piscis", hair: "#9ad0f0", hairHi: "#d4f0ff", hairS: "long", skin: "#f8e6d8", eyes: "#3a6aa8", s: 1.4, bulk: 0.98, cape: "#f8f2f0", gem: "#ff70b0", glow: "#ff90c0" },
+  kanon: { n: "Kanon de Géminis", hair: "#24369a", hairHi: "#4e62c4", hairS: "wild", skin: "#ecc8a6", eyes: "#6a2a9a", s: 1.42, bulk: 1.08, cape: "#e4e0d6", gem: "#7a2aff", glow: "#9a5aff" }, // v29.2: solo aspecto
 };
 const GSC = { A: "#e8b430", H: "#fff0a0", D: "#9a6a10", M: "#c8901c", SUIT: "#2a2838" };
 /** Casco de cada signo. view: 2 frente · 0 espalda · 1 perfil (mirando a la derecha). */
 function gsHelm(c: CanvasRenderingContext2D, id: GsId, view: 0 | 1 | 2, hy: number): void {
+  if (id === "kanon") { gsHelm(c, "saga", view, hy); return; } // v29.2: el mismo casco de Géminis
   if (gsHelm2(c, id, view, hy)) return;
   const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M; const back = view === 0;
   if (view === 1) { // perfil: banda + rasgo del signo hacia arriba / atrás
@@ -6157,7 +6159,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
     hEll(c, D, 15.4, top + 2.6, 4 * bk, 3.1); hEll(c, A, 15.4, top + 2.1, 3.6 * bk, 2.6); hEll(c, H, 14.6, top + 1.3, 1.6, 0.9);
     if (id === "aioria" || id === "mu") hPoly(c, A, [[14, top + 0.4], [11, top - 3], [12.4, top + 1.4]]);
     if (id === "dm") { hPoly(c, A, [[13.4, top], [11.6, top - 3.6], [14.6, top - 0.6]]); hPoly(c, A, [[15.6, top], [15.4, top - 3.8], [16.8, top - 0.4]]); }
-    if (id === "saga") hPoly(c, M, [[13.6, top + 4], [19.6, top + 3.6], [17.4, top + 6.2]]);
+    if (id === "saga" || id === "kanon") hPoly(c, M, [[13.6, top + 4], [19.6, top + 3.6], [17.4, top + 6.2]]);
     if (cast) { v22R(c, 15.2, top + 3, 2.8, 2.6, M); v22R(c, 16.6, top + 3.2, 6.4, 2.6, A); v22R(c, 16.6, top + 3.2, 6.4, 0.6, H); v22R(c, 22.8, top + 3.3, 2, 2.2, S.skin); glowAt(25.6, top + 4.4, 6); }
     else { const am = lg * 0.5; v22R(c, 15.1 + am, top + 3, 2.8, 4, M); v22R(c, 14.8 + am, top + 6.4, 3.4, 3.6, A); v22R(c, 14.8 + am, top + 6.4, 3.4, 0.7, H); v22R(c, 17.4 + am, top + 6.8, 0.6, 3, D); v22R(c, 15.2 + am, top + 9.9, 2.4, 1.9, S.skin); }
     v22R(c, 14, hy + 1.6, 6.6, 7.6, S.skin); v22R(c, 14, hy + 7.8, 6.6, 1.4, "rgba(0,0,0,0.1)");
@@ -6195,7 +6197,7 @@ function gsFig(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, lg: numbe
   }
   // hombreras de varias capas (forma propia de cada signo)
   for (const sx of [-1, 1]) { const px = 16 + sx * (tw + 0.8);
-    if (id === "saga") hPoly(c, M, [[px - sx * 1.2, top + 3.6], [px + sx * 4.6, top + 3.2], [px + sx * 3.2, top + 6.4]]);
+    if (id === "saga" || id === "kanon") hPoly(c, M, [[px - sx * 1.2, top + 3.6], [px + sx * 4.6, top + 3.2], [px + sx * 3.2, top + 6.4]]);
     hEll(c, D, px, top + 2.7, 4 * bk, 3.2); hEll(c, A, px, top + 2.2, 3.6 * bk, 2.7); hEll(c, M, px, top + 3.4, 3.2 * bk, 1); hEll(c, H, px - sx * 0.9, top + 1.3, 1.7 * bk, 0.9);
     if (id === "aioria" || id === "mu") hPoly(c, A, [[px - sx * 0.6, top + 0.4], [px + sx * 4.4, top - 3.4], [px + sx * 3.4, top + 1.4]]);
     if (id === "dm") { hPoly(c, A, [[px - 1, top + 0.4], [px + sx * 1.6, top - 3.6], [px + 1, top + 0.6]]); hPoly(c, A, [[px + sx * 1.6, top + 0.8], [px + sx * 4.8, top - 2.4], [px + sx * 3.4, top + 1.6]]); }
@@ -6263,11 +6265,55 @@ function gsForce(g: Game, m: Mon, name: string, now: number): boolean {
 /** Guardián en el mapa: aura dorada, cosmos del signo, escala y el Muro de Cristal de Mu. */
 interface GsB { cd: Record<string, number>; next: number; cast: number; open: boolean; wall: number; wallFrom: number; }
 interface Mon { gsb?: GsB; }
-function gsMonId(m: Mon): GsId | null { return GS_OF[m.def.id] ?? (m.def.id === "h12clone1" ? "saga" : null); }
+function gsMonId(m: Mon): GsId | null { return GS_OF[m.def.id] ?? GS_LOOK[m.def.id] ?? null; }
+// ===================== v29.2: Kanon de Géminis con el sprite nuevo =====================
+// Kanon lleva la misma armadura de Géminis que Saga, pero se distingue: pelo azul más oscuro y salvaje (mechones que se
+// salen a los lados y uno que le cruza la frente), cejas en V, mirada entrecerrada con ojos violeta, sonrisa torcida
+// y una tenue aura oscura. Solo cambia el dibujo: sus técnicas, IA y números siguen siendo los de antes.
+/** Ids que se dibujan con un santo remodelado pero conservan su IA de siempre (clones, ecos y Kanon). */
+const GS_LOOK: Record<string, GsId> = { h12clone1: "saga", h12boss2: "kanon", h12clone2: "kanon", h12echo: "kanon" };
+/** Pose de ataque para los que no usan técnicas del remake: un instante justo después de cada golpe. */
+function gsLookCast(m: Mon, now: number): number { const ms = atkInterval(m); const t = m.nextAtk - now; return t > ms - 380 && t <= ms ? 1 : 0; }
+/** Detalles propios de Kanon por encima de la figura base (pelo salvaje, expresión siniestra). */
+function gsKanon(c: CanvasRenderingContext2D, face: 0 | 1 | 2, hy: number, now: number): void {
+  const S = GSL.kanon; const hair = S.hair, hi = S.hairHi, dk = "#141c4a"; const sw = Math.sin(now / 340) * 0.5;
+  if (face === 2) {
+    for (const sx of [-1, 1]) { const ex = (x: number): number => 16 + sx * (x - 16); // mechones que se salen hacia fuera
+      hPoly(c, hair, [[ex(10.4), hy + 3], [ex(7.4 - sw), hy + 4.6], [ex(10), hy + 6.6], [ex(7.2 - sw), hy + 9.4], [ex(10.2), hy + 10.6], [ex(8 - sw), hy + 14.4], [ex(11), hy + 13.2], [ex(10.6), hy + 15.6], [ex(12), hy + 12]]);
+      v22R(c, Math.min(ex(8.6), ex(9.2)), hy + 6.8, 0.6, 2.6, hi); v22R(c, Math.min(ex(9.4), ex(10)), hy + 11, 0.6, 2.4, dk); }
+    hPoly(c, hair, [[17.4, hy + 2], [20.2, hy + 2], [18.4, hy + 6.6], [17.6, hy + 4.2]]); // mechón que cruza la frente
+    v22R(c, 18.6, hy + 2.6, 0.5, 2.4, hi);
+    const ey = hy + 4.4; // mirada entrecerrada + cejas en V + sombra bajo los ojos
+    v22R(c, 13, ey, 2.3, 0.6, S.skin); v22R(c, 16.7, ey, 2.3, 0.6, S.skin);
+    hPoly(c, dk, [[12.6, ey - 1.6], [15.6, ey - 0.3], [15.6, ey + 0.4], [12.6, ey - 0.8]]); hPoly(c, dk, [[19.4, ey - 1.6], [16.4, ey - 0.3], [16.4, ey + 0.4], [19.4, ey - 0.8]]);
+    v22R(c, 13, ey + 1.7, 2.3, 0.5, "rgba(60,0,60,0.3)"); v22R(c, 16.7, ey + 1.7, 2.3, 0.5, "rgba(60,0,60,0.3)");
+    v22R(c, 14.6, hy + 7.2, 2.8, 0.9, S.skin); v22R(c, 14.4, hy + 7.5, 3, 0.5, "#6a1a2a"); v22R(c, 17.2, hy + 6.9, 0.7, 0.6, "#6a1a2a"); // sonrisa torcida
+  } else if (face === 1) {
+    hPoly(c, hair, [[12.4, hy + 2], [9 - sw, hy + 3.4], [11.6, hy + 5.4], [8.6 - sw, hy + 8.4], [11.4, hy + 9.4], [9.4 - sw, hy + 13.6], [12.4, hy + 12]]);
+    v22R(c, 10.2, hy + 5.4, 0.6, 2.4, hi);
+    hPoly(c, dk, [[17.2, hy + 3.2], [20.2, hy + 3.9], [20.2, hy + 4.5], [17.2, hy + 3.9]]); v22R(c, 18, hy + 4.4, 1.8, 0.5, S.skin); // ceja baja, ojo entrecerrado
+    v22R(c, 18.6, hy + 7.4, 1.6, 0.55, S.skin); v22R(c, 18.4, hy + 7.6, 1.8, 0.5, "#6a1a2a"); v22R(c, 19.8, hy + 7.1, 0.5, 0.5, "#6a1a2a");
+  } else {
+    for (const sx of [-1, 1]) { const ex = (x: number): number => 16 + sx * (x - 16);
+      hPoly(c, hair, [[ex(11), hy + 5], [ex(8.2 - sw), hy + 8], [ex(10.6), hy + 10], [ex(8.6 - sw), hy + 15], [ex(11.4), hy + 14], [ex(11), hy + 19.4], [ex(13), hy + 16]]); }
+    for (const k of [12.4, 14.6, 17, 19.2]) hPoly(c, hair, [[k, hy + 18], [k + 1.2 + sw * 0.4, hy + 20.6], [k + 2, hy + 18]]); // puntas sueltas
+    v22R(c, 15.6, hy + 9, 0.7, 9, dk);
+  }
+}
+/** Aura oscura y humo violeta que sube alrededor de Kanon. */
+function gsKanonAura(c: CanvasRenderingContext2D, x: number, y: number, now: number, s: number): void {
+  const pa = 0.22 + 0.08 * Math.sin(now / 330); const gr = c.createRadialGradient(x + 16, y + 14, 3, x + 16, y + 14, 26 * s);
+  gr.addColorStop(0, `rgba(40,0,70,${pa})`); gr.addColorStop(0.6, `rgba(20,0,40,${pa * 0.6})`); gr.addColorStop(1, "rgba(10,0,20,0)"); c.fillStyle = gr; c.fillRect(x - 30 * s, y - 34 * s, 92 * s, 92 * s);
+  const ga = c.globalAlpha;
+  for (let k = 0; k < 6; k++) { const t = ((now / 1300 + k / 6) % 1); const wx = x + 16 + Math.sin(k * 2.1 + now / 500) * 12 * s, wy = y + 26 - t * 44 * s;
+    c.globalAlpha = ga * 0.32 * Math.sin(t * Math.PI); c.fillStyle = k % 2 ? "#3a0a5a" : "#12001e"; c.beginPath(); c.ellipse(wx, wy, 2.6 + t * 3, 3.6 + t * 4, 0, 0, Math.PI * 2); c.fill(); }
+  c.globalAlpha = ga;
+}
+
 function drawGsMon(ctx: CanvasRenderingContext2D, m: Mon, x: number, y: number, now: number): boolean {
   const id = gsMonId(m); if (!id) return false; const b = m.gsb; const c = ctx;
-  c.save(); if (m.temp && m.def.exp === 0) c.globalAlpha = 0.72 + 0.15 * Math.sin(now / 200);
-  gsDrawAt(c, x, y, id, m.face as Dir, walkPhase(m, now), now, b && now < b.cast ? 1 : 0, id === "shaka" && !!b && b.open, id === "saga" && m.enraged, m.enraged);
+  c.save(); if (m.temp && m.def.exp === 0) c.globalAlpha = Math.min(0.72 + 0.15 * Math.sin(now / 200), (m.def.look?.alpha ?? 1) + 0.1);
+  gsDrawAt(c, x, y, id, m.face as Dir, walkPhase(m, now), now, b ? (now < b.cast ? 1 : 0) : gsLookCast(m, now), id === "shaka" && !!b && b.open, id === "saga" && m.enraged, m.enraged);
   c.restore();
   if (b) gsMon2(c, b, x, y, now);
   if (b && now < b.wall) { // Muro de Cristal: paneles hexagonales que giran alrededor de Mu
@@ -6320,6 +6366,7 @@ const GS_TECH: Record<GsId, GsTech[]> = {
   afro: [gt("rosefield", "Rosas Diabólicas Reales", 14000, 1000, 0.3, 0.5, { r: 6, r2: 8, vis: "rosefield", first: 4000, hint: "¡no pises el jardín: envenena!" }),
     gt("bolt", "Rosa Sangrienta", 12000, 1000, 0.9, 1.3, { fx: "drain", vis: "whiterose", first: 9000, hint: "¡la rosa blanca te chupa la vida!" }),
     gt("piranha", "Rosas Piraña", 7000, 900, 0.7, 1.0, { r: 6, fx: "shred", vis: "piranha", hint: "¡rosas negras: te rompen la armadura!" }), gt("summon", "Jardín de rosas", 14000, 0, 0, 0)],
+  kanon: [], // v29.2: Kanon sigue con su IA de siempre (Explosión de Galaxias, Triángulo Dorado, Ilusión gemela, Golpe de Poseidón)
 };
 interface GsFx { cells: Array<[number, number]>; at: number; fx: GsFxK; mon: number; amt: number; }
 interface GsVis { k: string; cells: Array<[number, number]>; born: number; at: number; ox: number; oy: number; tx: number; ty: number; name: string; }
@@ -6625,6 +6672,7 @@ function gsBack2(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, top: nu
 /** Delante (al final): armas de Libra, arco de Sagitario, Excalibur, rosas, lunar de Afrodita; alas sobre la capa de espaldas. */
 function gsFront2(c: CanvasRenderingContext2D, id: GsId, face: 0 | 1 | 2, top: number, hy: number, now: number, cast: number, tw: number): void {
   const A = GSC.A, H = GSC.H, D = GSC.D, M = GSC.M;
+  if (id === "kanon") gsKanon(c, face, hy, now);
   if (id === "aioros") {
     if (face === 0) gsWings(c, 0, top, now);
     else { const bx = face === 1 ? 21 : 16 - tw - 3.4, by = top + 8; c.save(); c.strokeStyle = D; c.lineWidth = 1.6; c.beginPath(); c.arc(bx + (face === 1 ? -5 : 6), by, 9, face === 1 ? -0.95 : 2.2, face === 1 ? 0.95 : 4.08); c.stroke();
@@ -6653,6 +6701,7 @@ function gsRageFx(c: CanvasRenderingContext2D, tw: number, top: number, now: num
 function gsAura2(c: CanvasRenderingContext2D, x: number, y: number, id: GsId, now: number, s: number): void {
   if (id === "camus") { const g2 = c.createRadialGradient(x + 16, y + 20, 2, x + 16, y + 20, 26 * s); g2.addColorStop(0, "rgba(190,240,255,0.35)"); g2.addColorStop(1, "rgba(120,200,255,0)"); c.fillStyle = g2; c.fillRect(x - 30 * s, y - 30 * s, 92 * s, 92 * s);
     for (let k = 0; k < 7; k++) { const a = now / 900 + k * 0.9; const rr = 15 * s + Math.sin(now / 300 + k) * 3; const fx = x + 16 + Math.cos(a) * rr, fy = y + 14 + Math.sin(a) * rr * 0.45 - ((now / 30 + k * 13) % 20); c.fillStyle = "rgba(230,250,255,0.85)"; c.fillRect(fx - 1.5, fy - 0.3, 3, 0.6); c.fillRect(fx - 0.3, fy - 1.5, 0.6, 3); } }
+  if (id === "kanon") gsKanonAura(c, x, y, now, s);
   if (id === "afro") for (let k = 0; k < 5; k++) { const t = ((now / 1600 + k / 5) % 1); const fx = x + 16 + Math.sin(k * 2.1 + now / 700) * 18 * s, fy = y - 6 + t * 40; c.fillStyle = k % 2 ? "rgba(230,30,70,0.8)" : "rgba(255,120,160,0.8)"; c.beginPath(); c.ellipse(fx, fy, 2.2, 1.2, t * 6, 0, Math.PI * 2); c.fill(); }
 }
 /** Escudo de Libra girando delante de Dohko mientras está activo. */
@@ -7125,7 +7174,7 @@ const TITLE_ART = "data:image/webp;base64," + TITLE_ART_PARTS_V25.join("");
 // Música del título: pon aquí una URL o data:audio (o deja assets/title-music.mp3 y el build la mete). Vacío = sin música y sin botón.
 const TITLE_MUSIC = "";
 const TITLE_SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif';
-const GAME_VER = `Versión v29.1 · prototipo · guardado v${SAVE_VER}`;
+const GAME_VER = `Versión v29.2 · prototipo · guardado v${SAVE_VER}`;
 // Placa de piedra vacía del arte (interior del marco dorado), en fracciones de la imagen 1280×720
 const PLAQUE = { l: 382 / 1280, t: 522 / 720, w: 519 / 1280, h: 139 / 720 };
 const PLAQUE_MIN_W = 900; // por debajo de este ancho del arte los controles van debajo de la imagen
