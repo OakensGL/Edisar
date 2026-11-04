@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.5.3';
+SL.VERSION = '0.5.4';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -79,7 +79,8 @@ SL.CONFIG = {
       hpBase: 20, hpPerEncounter: 10,                // hits per weak point
       attackBase: 1.7, attackPerEncounter: 0.25, attackMin: 0.55, angerPerPoint: 0.08,
       bulletBase: 170, bulletPerEncounter: 35,
-      bulletScale: [1, 1, 1, 0.66, 0.58],            // v0.5.3: bullet COUNT multiplier per boss tier (L5,10,15,20,25); weak-point reduction still applies on top
+      tierSpeed: { 5: 270 }, tierInterval: { 5: 0.98 },   // v0.5.4: L25 bullet speed / seconds between attacks overrides (formula elsewhere)
+      bulletScale: [1, 1, 1, 0.66, 0.45],            // v0.5.3/0.5.4: bullet COUNT multiplier per boss tier (L5,10,15,20,25); weak-point reduction still applies on top
       bombDamage: 8, assistDamage: 0.3,             // assist screen-clear takes 30% of each weak point's max HP
       tauntEvery: [13, 19], asteroidInterval: 2.6,
     },
