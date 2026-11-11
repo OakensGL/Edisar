@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.5.9
+PROJECT STARLIGHT v0.6.0
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -58,3 +58,4 @@ App icon (v0.5.6): icons/ — Oakens’ in-game ship with PROJECT STARLIGHT word
 v0.5.7: missions end at the kill goal (leftover time is a TIME BONUS); Avrill escorts the warp-out on levels 1–29; Magnet, Ricochet, Missiles and Slow-Mo power-ups.
 v0.5.8: pre-mission portrait briefs on levels 3, 7, 12, 17, 22 and 27.
 v0.5.9: Avrill dialogue portrait cut out onto a clean dark background (no title-screen graphics).
+v0.6.0: Survival backdrop zones (Normal, Fire, Ice, Earth, Toxic, Nebula/Black Hole) with ice-tinted asteroids, an enter-zone banner, and difficulty that keeps ramping past a loop.

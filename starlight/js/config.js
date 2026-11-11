@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.5.9';
+SL.VERSION = '0.6.0';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -24,11 +24,24 @@ SL.CONFIG = {
     },
     colors: ['255,70,220', '70,160,255', '170,90,255'],  // pink / blue / purple
   },
-  difficulty: {            // continuous ramp, t = seconds survived
-    spawnStart: 1.45, spawnMin: 0.30, spawnRamp: 0.017,   // interval = max(min, start - ramp*t)
-    speedStart: 65,  speedRamp: 2.0,  speedMax: 240,       // base fall speed
+  difficulty: {            // Survival: time ramp (same as v0.5.9 for the first ~88 s) + unbounded zone steps
+    spawnStart: 1.45, spawnMin: 0.30, spawnRamp: 0.017,   // time interval = max(min, start - ramp*t)
+    speedStart: 65,  speedRamp: 2.0,  speedMax: 240,       // time fall speed (old caps kept as the time component)
     sideChance: 0.28,                                      // share of spawns that drift in from the sides
-    mediumChanceRamp: 0.004,                               // later on, some spawns start as medium (faster)
+    mediumChanceRamp: 0.004, mediumChanceMax: 0.35,        // time medium-size chance
+    // v0.6.0: each new zone (incl. after a loop) steps difficulty up; high caps so it keeps ramping
+    spawnFloor: 0.15, spawnZoneMul: 0.90,                  // each zone: 10% tighter spawn interval
+    speedLateFrom: 87.5, speedLateRamp: 0.22,              // keep speeding up slowly after the old 240 cap
+    speedZoneMul: 1.11, speedCap: 720,                     // each zone: 11% faster; high cap
+    mediumLateFrom: 87.5, mediumLateRamp: 0.00035,
+    mediumZoneAdd: 0.04, mediumCap: 0.58,
+  },
+  zones: {                 // Survival backdrops only (Story is unchanged)
+    order: ['normal', 'fire', 'ice', 'earth', 'toxic', 'nebula'],
+    period: 90,            // seconds per zone, then loop
+    fade: 8,               // crossfade at the end of each period
+    bannerTime: 2.6,       // 'ENTERING: FIRE ZONE' duration
+    iceColors: ['120,220,255', '200,240,255', '80,190,255'],
   },
   score: {
     perSecond: 10,         // points for time survived

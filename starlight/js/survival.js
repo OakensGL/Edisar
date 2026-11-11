@@ -35,18 +35,38 @@ SL.Survival = class {
       for (let v = 0; v < 3; v++) this.spr[`${k}${ci}${v}`] = SL.Sprites.asteroid(C.asteroid.sizes[k].r, col);
     });
     for (const sp of ['gold', 'red']) for (const k of ['L', 'M']) this.spr[`${sp}${k}`] = SL.Sprites.asteroid(C.asteroid.sizes[k].r, C.special[sp + 'Rgb']);
+    this.iceSpr = {};
+    for (const k of Object.keys(C.asteroid.sizes)) (C.zones.iceColors).forEach((col, ci) => {
+      for (let v = 0; v < 3; v++) this.iceSpr[`${k}${ci}${v}`] = SL.Sprites.asteroid(C.asteroid.sizes[k].r, col);
+    });
     SL.Features.reset(this);
     this.ev.emit('start', this);
   }
 
   /* ---------------- difficulty ---------------- */
-  get spawnInterval() { const D = this.C.difficulty; return Math.max(D.spawnMin, D.spawnStart - D.spawnRamp * this.t); }
-  get fallSpeed() { const D = this.C.difficulty; return Math.min(D.speedMax, D.speedStart + D.speedRamp * this.t); }
+  get zoneStep() { return this.mode === 'survival' ? Math.floor(Math.max(0, this.t) / this.C.zones.period) : 0; }
+  get spawnInterval() {
+    const D = this.C.difficulty, time = Math.max(D.spawnMin, D.spawnStart - D.spawnRamp * this.t);
+    if (this.mode !== 'survival') return time;
+    return Math.max(D.spawnFloor, time * Math.pow(D.spawnZoneMul, this.zoneStep));
+  }
+  get fallSpeed() {
+    const D = this.C.difficulty, early = Math.min(D.speedMax, D.speedStart + D.speedRamp * this.t);
+    if (this.mode !== 'survival') return early;
+    const late = D.speedLateRamp * Math.max(0, this.t - D.speedLateFrom);
+    return Math.min(D.speedCap, early * Math.pow(D.speedZoneMul, this.zoneStep) + late);
+  }
+  get mediumChance() {
+    const D = this.C.difficulty, early = Math.min(D.mediumChanceMax ?? 0.35, this.t * D.mediumChanceRamp);
+    if (this.mode !== 'survival') return early;
+    const late = (D.mediumLateRamp || 0) * Math.max(0, this.t - (D.mediumLateFrom || 0));
+    return Math.min(D.mediumCap, early + late + D.mediumZoneAdd * this.zoneStep);
+  }
 
   spawn() {
     const D = this.C.difficulty, W = SL.W;
     const special = SL.Features.pickSpecial(this);
-    const size = special === 'gold' ? 'M' : Math.random() < Math.min(0.35, this.t * D.mediumChanceRamp) ? 'M' : 'L';
+    const size = special === 'gold' ? 'M' : Math.random() < this.mediumChance ? 'M' : 'L';
     const r = this.C.asteroid.sizes[size].r, sp = this.fallSpeed * (0.7 + Math.random() * 0.6);
     let x, y, vx, vy;
     if (Math.random() < D.sideChance) {
@@ -55,11 +75,15 @@ SL.Survival = class {
     } else { x = r + Math.random() * (W - 2 * r); y = -r; vx = (Math.random() - 0.5) * 80; vy = sp; }
     this.addAsteroid(size, x, y, vx, vy, null, special);
   }
-  addAsteroid(size, x, y, vx, vy, color, special = null) {
+  addAsteroid(size, x, y, vx, vy, color, special = null, opt = {}) {
     const ci = color ?? ((Math.random() * 3) | 0);
+    const icy = !special && this.mode === 'survival' && (opt.ice || (color == null && SL.Zones.iceMix(this.t) > 0.5));
+    const spr = special ? this.spr[special + size]
+      : icy ? this.iceSpr[`${size}${ci}${(Math.random() * 3) | 0}`]
+      : this.spr[`${size}${ci}${(Math.random() * 3) | 0}`];
     const a = { size, x, y, vx, vy, r: this.C.asteroid.sizes[size].r, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * (size === 'S' ? 3 : 1.6),
-      ci, sprite: special ? this.spr[special + size] : this.spr[`${size}${ci}${(Math.random() * 3) | 0}`], special, entered: false, dead: false,
-      rgb: special ? this.C.special[special + 'Rgb'] : this.C.asteroid.colors[ci] };
+      ci, sprite: spr, special, ice: !!icy, entered: false, dead: false,
+      rgb: special ? this.C.special[special + 'Rgb'] : icy ? this.C.zones.iceColors[ci] : this.C.asteroid.colors[ci] };
     if (special === 'gold') a.spin *= 2.5;
     this.asteroids.push(a); this.stats.spawned++; this.ev.emit('asteroidSpawned', a); return a;
   }
@@ -85,7 +109,7 @@ SL.Survival = class {
       const base = Math.atan2(a.vy, a.vx), spd = Math.max(70, Math.hypot(a.vx, a.vy)) * 1.25;
       for (const s of [-1, 1]) {
         const ang = base + s * (0.45 + Math.random() * 0.4);
-        const c = this.addAsteroid(S.next, a.x + s * a.r * 0.3, a.y, Math.cos(ang) * spd + s * 30, Math.max(25, Math.sin(ang) * spd), a.ci);
+        const c = this.addAsteroid(S.next, a.x + s * a.r * 0.3, a.y, Math.cos(ang) * spd + s * 30, Math.max(25, Math.sin(ang) * spd), a.ci, null, { ice: a.ice });
         c.entered = true; c.immune = opt.immune;
       }
     }
@@ -268,9 +292,11 @@ SL.Survival = class {
     if (this.shakeAmt > 0.1) g.translate((Math.random() - .5) * this.shakeAmt, (Math.random() - .5) * this.shakeAmt);
     SL.drawSpaceBg(g);
     this.stars.draw(g, this.T, 0.7 + Math.min(0.5, this.t / 180), this.warpK || 0);
+    if (this.mode === 'survival') SL.Zones.draw(g, this.t);
     // asteroids
     for (const a of this.asteroids) {
       if (a.special) SL.glow(g, a.x, a.y, a.r * 1.6, a.r * 1.6, a.rgb, a.special === 'red' ? 0.18 + 0.14 * Math.sin(this.T * 9) : 0.22);
+      else if (a.ice) SL.glow(g, a.x, a.y, a.r * 1.5, a.r * 1.5, '140,220,255', 0.14);
       const sz = a.sprite.size; g.save(); g.translate(a.x, a.y); g.rotate(a.rot); g.drawImage(a.sprite.c, -sz / 2, -sz / 2, sz, sz); g.restore();
     }
     this.drawWorld && this.drawWorld(g);
@@ -307,6 +333,7 @@ SL.Survival = class {
     g.restore();
     SL.Features.drawOverlay(this, g);
     this.drawHUD(g);
+    if (this.mode === 'survival' && this.state !== 'over' && this.state !== 'clear') SL.Zones.drawBanner(g, this.t);
     if (!SL.Input.touchMode && this.t < 6 && this.state === 'play') SL.neonText(g, SL.CONTROLS_HINT, 512, 556, 12, '160,200,255', { blur: 4, alpha: Math.min(0.85, (6 - this.t) / 1.5) });
     if (SL.Input.touchMode && this.state !== 'over' && this.state !== 'clear' && this.state !== 'warp') this.drawTouch(g);
     this.drawTop && this.drawTop(g);
