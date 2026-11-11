@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.5.8
+PROJECT STARLIGHT v0.5.9
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -50,10 +50,11 @@ ART
 ---
 Title screen image: assets/title.jpg (Project Starlight key art, v2).
 Dr. Nebula portraits: assets/nebula.jpg, assets/nebula-angry.jpg (Project Starlight art, downscaled to 256px).
-Cutscene portraits: assets/edisar.jpg (Commander Edisar Starlight) and assets/avrill.jpg (crop of the title art), Project Starlight art, 256px.
+Cutscene portraits: assets/edisar.jpg (Commander Edisar Starlight) and assets/avrill.jpg (Avrill cut from the title art onto a clean dark portrait background), Project Starlight art, 256px.
 Final level: assets/edisar-furious.jpg (Commander Edisar, furious), Project Starlight art, 256px.
 End credits backgrounds: assets/credits-nebula-oakens.jpg and assets/credits-avrill.jpg (Avrill "Supernova" memorial), Project Starlight art.
 In-game ship, asteroids, particles and UI are drawn procedurally on canvas.
 App icon (v0.5.6): icons/ — Oakens’ in-game ship with PROJECT STARLIGHT wordmark.
 v0.5.7: missions end at the kill goal (leftover time is a TIME BONUS); Avrill escorts the warp-out on levels 1–29; Magnet, Ricochet, Missiles and Slow-Mo power-ups.
 v0.5.8: pre-mission portrait briefs on levels 3, 7, 12, 17, 22 and 27.
+v0.5.9: Avrill dialogue portrait cut out onto a clean dark background (no title-screen graphics).
