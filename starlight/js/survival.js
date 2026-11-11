@@ -15,8 +15,7 @@ SL.Survival = class {
     this.spawnT = 0.6; this.shakeAmt = 0; this.overT = 0; this.sel = 0; this.T = 0;
     this.joy = null; this.fireId = null;
     // UI layout (logical coords)
-    this.btnPause = { x: 994, y: 26, w: 40, h: 32 };
-    this.btnMute = { x: 948, y: 26, w: 40, h: 32 };
+    this.btnPause = { x: 996, y: 26, w: 44, h: 36 };
     this.fireBtn = { x: 922, y: 478, r: 58 };
     this.bombBtn = { x: 806, y: 520, r: 32 };
     this.avrillBtn = { x: 842, y: 398, r: 32 };
@@ -26,8 +25,9 @@ SL.Survival = class {
       { id: 'menu',  label: 'MENU',       x: 632, y: 532, w: 170, h: 40, rgb: '70,160,255' },
     ];
     this.pauseBtns = [
-      { id: 'resume', label: 'RESUME', x: 512, y: 300, w: 220, h: 46, rgb: '255,80,220' },
-      { id: 'menu',   label: 'MENU',   x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' },
+      { id: 'resume',   label: 'RESUME',   x: 512, y: 240, w: 220, h: 46, rgb: '255,80,220' },
+      { id: 'settings', label: 'SETTINGS', x: 512, y: 300, w: 220, h: 46, rgb: '170,90,255' },
+      { id: 'menu',     label: 'MENU',     x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' },
     ];
     // cache asteroid sprites: 3 variants per size/color
     this.spr = {};
@@ -132,11 +132,14 @@ SL.Survival = class {
     const I = SL.Input, s = this.ship;
     let ax = 0, ay = 0, fire = false;
     const downs = I.takeDowns();
+    SL.Vol.handle(downs); SL.Vol.tick();
+    if (SL.Vol.keys(I)) return { ax: 0, ay: 0, fire: false };
+    if (SL.Vol.open) return { ax: 0, ay: 0, fire: false };
     for (const d of downs) {
+      if (d.role === 'ui') continue;
       if (SL.inBtn(this.btnPause, d)) { d.role = 'ui'; if (this.state === 'play') this.pause(true); else if (this.state === 'paused') this.pause(false); SL.Audio.sfx.blip(); continue; }
-      if (SL.inBtn(this.btnMute, d)) { d.role = 'ui'; SL.Audio.toggleMute(); continue; }
       const list = this.state === 'over' ? this.overBtns : this.state === 'paused' ? this.pauseBtns : null;
-      if (list) { const b = list.find(b => SL.inBtn(b, d)); d.role = 'ui'; if (b && (this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry'))) this.menuAction(b.id); continue; }
+      if (list) { const b = list.find(b => SL.inBtn(b, d)); if (b) { d.role = 'ui'; if (this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry')) this.menuAction(b.id); continue; } }
       if (d.type === 'mouse') continue;           // mouse plays with keyboard; touch gets stick + fire
       const near = (b, p) => Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 10;
       if (this.state === 'play' && near(this.bombBtn, d)) { d.role = 'ui'; SL.Features.fireBomb(this); continue; }
@@ -145,10 +148,9 @@ SL.Survival = class {
       else if (d.y > 70) { d.role = 'joy'; this.joy = d; }
     }
     if (I.hitAny('KeyP', 'Escape')) { if (this.state === 'play') this.pause(true); else if (this.state === 'paused') this.pause(false); }
-    if (I.hit('KeyM')) SL.Audio.toggleMute();
     if (this.state === 'over' || this.state === 'paused') {
       const list = this.state === 'over' ? this.overBtns : this.pauseBtns;
-      if (I.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) { this.sel = 1 - this.sel; SL.Audio.sfx.blip(520); }
+      if (I.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) { this.sel = (this.sel + list.length - 1) % list.length; SL.Audio.sfx.blip(520); }
       const ready = this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry');
       if (ready && (I.hitAny('Enter', 'NumpadEnter') || (this.state === 'over' && I.hit('Space')))) this.menuAction(list[this.sel].id);
       return { ax: 0, ay: 0, fire: false };
@@ -172,6 +174,7 @@ SL.Survival = class {
   menuAction(id) {
     SL.Audio.sfx.blip(780);
     if (id === 'resume') this.pause(false);
+    else if (id === 'settings') SL.Vol.openPanel();
     else if (id === 'again') SL.start(this.mode === 'story' ? 'story' : 'play');
     else if (id === 'menu') SL.start('menu');
   }
@@ -325,21 +328,15 @@ SL.Survival = class {
       g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(452, 58, 120, 3);
       g.fillStyle = `rgba(${col},0.9)`; g.fillRect(452, 58, 120 * prog, 3);
     }
-    SL.neonText(g, 'BEST ' + SL.pad(Math.max(this.best, Math.floor(this.score))), 906, 26, 14, '70,160,255', { align: 'right', blur: 8 });
+    SL.neonText(g, 'BEST ' + SL.pad(Math.max(this.best, Math.floor(this.score))), 872, 22, 14, '70,160,255', { align: 'right', blur: 8 });
     SL.Features.drawHUD(this, g);
-    // pause + mute icons
-    for (const b of [this.btnPause, this.btnMute]) {
-      g.save(); SL.roundRect(g, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 6); g.fillStyle = 'rgba(8,4,20,0.5)'; g.fill();
-      g.strokeStyle = 'rgba(160,200,255,0.6)'; g.lineWidth = 1.5; g.stroke(); g.restore();
-    }
-    g.save(); g.fillStyle = 'rgba(200,225,255,0.95)';
-    if (this.state === 'paused') { g.beginPath(); g.moveTo(988, 16); g.lineTo(1004, 26); g.lineTo(988, 36); g.fill(); }
-    else { g.fillRect(986, 16, 5, 20); g.fillRect(997, 16, 5, 20); }
-    // speaker
-    const mx = 948; g.beginPath(); g.moveTo(mx - 12, 21); g.lineTo(mx - 7, 21); g.lineTo(mx, 15); g.lineTo(mx, 37); g.lineTo(mx - 7, 31); g.lineTo(mx - 12, 31); g.fill();
-    g.strokeStyle = SL.Audio.muted ? 'rgba(255,90,140,1)' : 'rgba(200,225,255,0.95)'; g.lineWidth = 2;
-    if (SL.Audio.muted) { g.beginPath(); g.moveTo(mx + 4, 20); g.lineTo(mx + 13, 32); g.moveTo(mx + 13, 20); g.lineTo(mx + 4, 32); g.stroke(); }
-    else { g.beginPath(); g.arc(mx + 2, 26, 6, -0.9, 0.9); g.stroke(); g.beginPath(); g.arc(mx + 2, 26, 11, -0.9, 0.9); g.stroke(); }
+    // pause icon (speaker + settings are drawn by SL.Vol.drawChrome)
+    const b = this.btnPause;
+    g.save(); SL.roundRect(g, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 7); g.fillStyle = 'rgba(8,4,20,0.72)'; g.fill();
+    g.strokeStyle = 'rgba(160,200,255,0.7)'; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = 'rgba(200,225,255,0.95)';
+    if (this.state === 'paused') { g.beginPath(); g.moveTo(b.x - 6, b.y - 10); g.lineTo(b.x + 10, b.y); g.lineTo(b.x - 6, b.y + 10); g.fill(); }
+    else { g.fillRect(b.x - 8, b.y - 9, 5, 18); g.fillRect(b.x + 3, b.y - 9, 5, 18); }
     g.restore();
   }
   drawTouch(g) {
@@ -370,8 +367,8 @@ SL.Survival = class {
   }
   drawPause(g) {
     g.fillStyle = 'rgba(3,1,12,0.65)'; g.fillRect(0, 0, SL.W, SL.H);
-    SL.neonText(g, 'PAUSED', 512, 220, 48, '255,80,220', { blur: 22 });
-    SL.neonText(g, SL.Input.touchMode ? 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL' : SL.CONTROLS_HINT, 512, 430, 13, '160,200,255', { blur: 5, alpha: 0.85 });
+    SL.neonText(g, 'PAUSED', 512, 180, 48, '255,80,220', { blur: 22 });
+    SL.neonText(g, SL.Input.touchMode ? 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL' : SL.CONTROLS_HINT, 512, 530, 13, '160,200,255', { blur: 5, alpha: 0.85 });
     this.pauseBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
   drawOver(g) {

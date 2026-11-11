@@ -1,10 +1,10 @@
-/* Story Mode (v0.4 part 1; radio chatter v0.4.5; current build v0.5.4, final level in final.js): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
+/* Story Mode (v0.4 part 1; radio chatter v0.4.5; current build v0.5.5, final level in final.js): numbered levels, level-clear recount, Dr. Nebula boss every 5 levels.
    Built on top of Survival via its hook methods: onKill, onUpdate, hitExtra, onBlast, onScreenClear,
    drawWorld, drawTop, hudCenter, scoreEntry. */
 (() => {
 const NEBULA = {
   name: 'Dr. Nebula',
-  taunts: [
+  taunts: [   // kept for escape flavour / fallback; mid-fight uses jabs (v0.5.5)
     "Keep shooting, fool. You have no idea what you're breaking.",
     'Oh, Oakens. Still following orders like a good little dog?',
     'Destroy them all, puppet. See where that gets you.',
@@ -14,8 +14,9 @@ const NEBULA = {
     'Two little dogs on one leash. Edisar trained you well.',
     'Ask Avrill what she really thinks about your orders, puppet.',
   ],
-  onAssistCall: 'Calling your girlfriend again, Oakens? How cute.',
-  afterAssist: 'Need Avrill to save you again? Pathetic.',
+  jabs: ['Too slow!', 'Pathetic!', 'Is that all?', 'Stay down, fool!', 'Missed again!'],   // v0.5.5: short mid-fight lines
+  onAssistCall: 'Calling for help? Cute.',
+  afterAssist: 'Need her again? Pathetic.',
   escape: [
     "This isn't over, Oakens. Not even close.",
     "Enjoy your little victory, puppet. I'll be back with something bigger.",
@@ -76,7 +77,7 @@ const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 
 const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const SC = () => SL.CONFIG.story;
 const bossSpeed = (H, e) => (H.tierSpeed && H.tierSpeed[e]) || H.bulletBase + H.bulletPerEncounter * (e - 1);   // v0.5.4
-const bossInterval = (H, e) => (H.tierInterval && H.tierInterval[e]) || Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (e - 1));
+const bossInterval = (H, e) => ((H.tierInterval && H.tierInterval[e]) || Math.max(H.attackMin, H.attackBase - H.attackPerEncounter * (e - 1))) * (H.intervalScale || 1);   // v0.5.5
 const bulletK = (H, e) => (H.bulletScale && H.bulletScale[Math.min(H.bulletScale.length, Math.max(1, e)) - 1]) || 1;   // v0.5.3 per-tier bullet count scale
 
 /* ---------- portraits (lazy, framed) ---------- */
@@ -141,7 +142,7 @@ SL.Story = class extends SL.Survival {
       { id: 'map',   label: 'MAP',   x: 412, y: 532, w: 190, h: 40, rgb: '255,80,220' },
       { id: 'retry', label: 'RETRY', x: 632, y: 532, w: 190, h: 40, rgb: '70,160,255' },
     ];
-    this.pauseBtns[1] = { id: 'map', label: 'MAP', x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' };
+    this.pauseBtns[2] = { id: 'map', label: 'MAP', x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' };
     this.clearBtns = [
       { id: 'continue', label: 'CONTINUE', x: 412, y: 520, w: 220, h: 40, rgb: '255,80,220' },
       { id: 'map',      label: 'MAP',        x: 632, y: 520, w: 190, h: 40, rgb: '70,160,255' },
@@ -215,8 +216,7 @@ SL.Story = class extends SL.Survival {
     const B = SC().boss, n = Math.min(B.weakMax, B.weakBase + e), hp = B.hpBase + B.hpPerEncounter * (e - 1);
     const pts = [];
     for (let i = 0; i < n; i++) { const k = n === 1 ? 0 : i / (n - 1) * 2 - 1; pts.push({ ox: k * 132, oy: 34 - Math.abs(k) * 10, hp, max: hp, flash: 0, r: 15 }); }
-    this.boss = { e, x: 512, y: -170, t: 0, phase: 'enter', pts, maxHp: n * hp, atkT: 2.6, pi: 0, spiral: 0, spinA: 0, tauntT: 15, escT: 0, vy: 0, fx: 0 };
-    this.say(pick(NEBULA.taunts), 'normal', 1.2);
+    this.boss = { e, x: 512, y: -170, t: 0, phase: 'enter', pts, maxHp: n * hp, atkT: 2.6, pi: 0, spiral: 0, spinA: 0, tauntT: 18, escT: 0, vy: 0, fx: 0 };
   }
   bossHp() { return this.boss ? this.boss.pts.reduce((s, p) => s + Math.max(0, p.hp), 0) : 0; }
   damagePoint(p, dmg) {
@@ -277,14 +277,18 @@ SL.Story = class extends SL.Survival {
     for (const p of B.pts) p.flash = Math.max(0, p.flash - dt);
     if (B.phase === 'enter') {
       B.y += (H.y - B.y) * Math.min(1, dt * 1.5);
-      if (B.t > 2.6) B.phase = 'fight';
+      if (B.t > 2.6) {   // v0.5.5: pause for a short pre-fight portrait dialogue, then start attacking
+        const id = 'pre' + this.level;
+        if (SL.Cutscene.has(id)) { this.playCut(id, () => { B.phase = 'fight'; B.atkT = 1.4; SL.Input.takeDowns(); }); return; }
+        else B.phase = 'fight';
+      }
     } else if (B.phase === 'fight') {
       B.x = 512 + Math.sin(B.t * (0.35 + 0.06 * (B.e - 1))) * 210; B.y = H.y + Math.sin(B.t * 1.1) * 10;
       const dead = B.pts.filter(p => p.hp <= 0).length;
       B.atkT -= dt;
       if (B.atkT <= 0) { this.bossAttack(); B.atkT = bossInterval(H, B.e) * (1 + H.angerPerPoint * dead); }
       if (B.spiral > 0) { B.spiral -= dt; B.fx -= dt; if (B.fx <= 0) { B.fx = 0.07 / bulletK(H, B.e); B.spinA += 0.42 / bulletK(H, B.e); const sp = bossSpeed(H, B.e) * 0.85; this.fireE(B.x, B.y + 20, B.spinA, sp); this.fireE(B.x, B.y + 20, B.spinA + Math.PI, sp); } }
-      B.tauntT -= dt; if (B.tauntT <= 0) { this.say(pick(NEBULA.taunts), 'normal'); B.tauntT = H.tauntEvery[0] + Math.random() * (H.tauntEvery[1] - H.tauntEvery[0]); }
+      B.tauntT -= dt; if (B.tauntT <= 0) { this.say(pick(NEBULA.jabs), 'normal'); B.tauntT = 16 + Math.random() * 10; }   // v0.5.5: rare short jabs
       if (this.afterAssistT > 0) { this.afterAssistT -= dt; if (this.afterAssistT <= 0) this.say(NEBULA.afterAssist, 'normal'); }
       // ramming the hull hurts
       const ex = (s.x - B.x) / H.halfW, ey = (s.y - B.y - 6) / H.halfH;
@@ -379,9 +383,9 @@ SL.Story = class extends SL.Survival {
   }
   updateClear(dt) {
     const c = this.clearData, I = SL.Input, downs = I.takeDowns();
-    for (const d of downs) { if (SL.inBtn(this.btnMute, d)) { SL.Audio.toggleMute(); d.used = true; } }
-    if (I.hit('KeyM')) SL.Audio.toggleMute();
-    const go = !c.done && (I.confirm() || downs.some(d => !d.used));
+    SL.Vol.handle(downs); SL.Vol.tick();
+    if (SL.Vol.keys(I) || SL.Vol.open) return;
+    const go = !c.done && (I.confirm() || downs.some(d => d.role !== 'ui'));
     c.t += dt;
     if (!c.done) {
       const r = c.rows[c.i], dur = 0.6;

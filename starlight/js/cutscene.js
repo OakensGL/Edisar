@@ -1,4 +1,4 @@
-/* v0.4.2 Story cutscenes (current build v0.5.0): portrait dialogue boxes with typewriter text.
+/* v0.4.2 Story cutscenes (current build v0.5.5): portrait dialogue boxes with typewriter text.
    Tap / click / Space / Enter advances (first press completes a line still typing); SKIP ends the scene.
    Music is never paused here: callers only pick a track via SL.Audio.playTrack (single-player system). */
 (() => {
@@ -26,6 +26,22 @@ const SCENES = {
   20: { lines: [
     ['private', 'Private channel, Oakens. Just you and me.'],
     ['private', "Those reports... the dates, the signatures. Something doesn't add up."] ] },
+  // v0.5.5: short pre-fight portrait dialogues (gameplay paused). Post-fight scenes 5/10/15/20 are unchanged.
+  pre5: { lines: [
+    ['nebula', "Keep shooting, fool. You have no idea what you're breaking."],
+    ['nebula', 'Oh, Oakens. Still following orders like a good little dog?'] ] },
+  pre10: { lines: [
+    ['nebula', 'Destroy them all, puppet. See where that gets you.'],
+    ['nebula', 'Run along, little boy. Edisar must be so proud.'] ] },
+  pre15: { lines: [
+    ['nebula', "I'd explain it to you, Oakens, but clowns don't listen."],
+    ['nebula', 'Look closer. This belt is not your enemy.'] ] },
+  pre20: { lines: [
+    ['nebula', "Avrill, you're smarter than him. Why are you still flying with this imbecile?"],
+    ['nebula', 'Ask her what she really thinks about your orders, puppet.'] ] },
+  pre25: { lines: [
+    ['nebula', 'Two little dogs on one leash. Edisar trained you well.'],
+    ['nebula', 'This is your last chance to open your eyes, Oakens.'] ] },
   // v0.5.0 final level opening (between the in-engine shots in final.js)
   finalNebula: { lines: [['nebula', 'Kid... I told you!']] },
   finalEdisar: { lines: [

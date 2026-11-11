@@ -58,8 +58,8 @@ SL.Title = (() => {
     SL.glow(g, 840, 297, 48, 16, '70,150,255', 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(t * 2.2 + 1.6)));
   }
   function drawHiScore(g) {
-    g.fillStyle = 'rgba(2,1,8,0.96)'; g.fillRect(770, 12, 248, 38);
-    SL.neonText(g, 'HI-SCORE ' + SL.pad(SL.getBest()), 998, 31, 21, '255,80,210', { align: 'right', blur: 10 });
+    g.fillStyle = 'rgba(2,1,8,0.96)'; g.fillRect(760, 12, 258, 38);   // cover the baked HI-SCORE in the title art, including under the chrome buttons
+    SL.neonText(g, 'HI-SCORE ' + SL.pad(SL.getBest()), 922, 31, 21, '255,80,210', { align: 'right', blur: 10 });
   }
   function drawPress(g, t) {
     if ((t % 1.1) >= 0.7) SL.softRect(g, 512, 452, 195, 34, 'rgba(3,2,10,0.85)');
@@ -93,12 +93,14 @@ SL.Title = (() => {
     update(dt) {
       T += dt; stars.update(dt);
       const I = SL.Input, downs = I.takeDowns();
+      SL.Vol.handle(downs); SL.Vol.tick();
+      if (SL.Vol.keys(I) || SL.Vol.open) return;
       if (phase === 'press') {
-        if (downs.length || I.confirm() || I.hitAny('KeyA', 'KeyS', 'KeyD', 'KeyW', 'ArrowUp', 'ArrowDown')) { phase = 'menu'; flashAt = T; SL.Audio.sfx.blip(); }
+        if (downs.some(d => d.role !== 'ui') || I.confirm() || I.hitAny('KeyA', 'KeyS', 'KeyD', 'KeyW', 'ArrowUp', 'ArrowDown')) { phase = 'menu'; flashAt = T; SL.Audio.sfx.blip(); }
         return;
       }
       if (phase === 'scores') {
-        if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD') || downs.some(d => SL.inBtn(tabs[0], d) || SL.inBtn(tabs[1], d))) {
+        if (I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD') || downs.some(d => d.role !== 'ui' && (SL.inBtn(tabs[0], d) || SL.inBtn(tabs[1], d)))) {
           const d = downs.find(d => SL.inBtn(tabs[0], d) || SL.inBtn(tabs[1], d));
           tab = d ? (SL.inBtn(tabs[0], d) ? 'story' : 'survival') : (tab === 'story' ? 'survival' : 'story'); SL.Audio.sfx.blip(600);
         }
@@ -108,8 +110,7 @@ SL.Title = (() => {
       if (I.hitAny('ArrowUp', 'KeyW')) { sel = (sel + menu.length - 1) % menu.length; SL.Audio.sfx.blip(520); }
       if (I.hitAny('ArrowDown', 'KeyS')) { sel = (sel + 1) % menu.length; SL.Audio.sfx.blip(520); }
       if (I.confirm()) choose(sel);
-      for (const d of downs) menu.forEach((b, i) => { if (SL.inBtn(b, d)) choose(i); });
-      if (I.hit('KeyM')) SL.Audio.toggleMute();
+      for (const d of downs) if (d.role !== 'ui') menu.forEach((b, i) => { if (SL.inBtn(b, d)) choose(i); });
     },
     draw(g) {
       if (!img.complete || !img.naturalWidth) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); return; }

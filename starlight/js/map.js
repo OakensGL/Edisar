@@ -110,7 +110,8 @@ SL.Map = (() => {
     update(dt) {
       T += dt; stars.update(dt, 0.12);
       const I = SL.Input, downs = I.takeDowns();
-      if (I.hit('KeyM')) SL.Audio.toggleMute();
+      SL.Vol.handle(downs); SL.Vol.tick();
+      if (SL.Vol.keys(I) || SL.Vol.open) return;
       if (pendingSubmit) { pendingSubmit = false; leave(); return; }
       if (phase === 'entry') return;
       if (phase === 'table') {
@@ -202,8 +203,8 @@ SL.Map = (() => {
       SL.neonText(g, 'MISSION MAP', 512, 24, 30, '255,80,220', { blur: 18 });
       SL.neonText(g, `STORY MODE · ${SL.Progress.completed ? `ALL ${SL.FINAL_LEVEL} CLEARED` : `${u - 1} CLEARED`}`, 512, 48, 11, '160,200,255', { blur: 4, alpha: 0.85 });
       SL.drawButton(g, backBtn, false, T);
-      SL.neonText(g, 'SESSION', 1004, 20, 11, '160,200,255', { align: 'right', blur: 4 });
-      SL.neonText(g, SL.pad(session ? session.score : 0), 1004, 40, 18, '255,235,255', { align: 'right', blur: 8 });
+      SL.neonText(g, 'SESSION', 870, 20, 11, '160,200,255', { align: 'right', blur: 4 });
+      SL.neonText(g, SL.pad(session ? session.score : 0), 870, 40, 18, '255,235,255', { align: 'right', blur: 8 });
       // info panel
       g.save(); SL.roundRect(g, 14, 470, 996, 92, 12); g.fillStyle = 'rgba(4,2,14,0.85)'; g.fill(); g.strokeStyle = 'rgba(170,90,255,0.4)'; g.lineWidth = 1; g.stroke(); g.restore();
       const boss = isBoss(sel);

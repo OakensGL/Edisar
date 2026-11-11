@@ -72,7 +72,7 @@ const F = SL.Features = {
   activateAssist(g) {
     const A = g.assist;
     if (!A.ready || A.phase !== 'idle' || g.state !== 'play') { SL.Audio.sfx.deny(); return false; }
-    Object.assign(A, { phase: 'active', t: 0, energy: 0, ready: false, x: -80, y: 640, cool: 0, cleared: false });
+    Object.assign(A, { phase: 'active', t: 0, energy: 0, ready: false, readyPop: null, x: -80, y: 640, cool: 0, cleared: false });
     g.stats.assists = (g.stats.assists || 0) + 1; SL.Audio.sfx.assist(); SL.Events.emit('assist', g);
     return true;
   },
@@ -137,7 +137,11 @@ const F = SL.Features = {
     g.blasts = g.blasts.filter(bl => bl.t < bl.dur + 0.25);
     // Avrill
     if (A.phase === 'idle') {
-      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + (g.final && AC.finalPerSecond ? AC.finalPerSecond : AC.perSecond) * dt); if (A.energy >= AC.max) { A.ready = true; g.popup(F.assistName(g) + ' READY!', 512, 300, AC.color); SL.Audio.sfx.ready(); } }
+      if (A.readyPop) { A.readyPop.t += dt; if (A.readyPop.t > 2.4) A.readyPop = null; }
+      if (!A.ready) { A.energy = Math.min(AC.max, A.energy + (g.final && AC.finalPerSecond ? AC.finalPerSecond : AC.perSecond) * dt); if (A.energy >= AC.max) { A.ready = true; SL.Audio.sfx.ready();
+        if (g.final) g.popup(F.assistName(g) + ' READY!', 512, 300, AC.color);   // level 30 keeps the centre alert
+        else A.readyPop = { t: 0 };                                             // v0.5.5: Avrill "Ready when you are." once per charge
+      } }
     } else {
       if (g.assistKind === 'nebula') return F.updateNebulaAssist(g, dt);   // v0.5.0 final level
       A.t += dt; const t = A.t, T1 = 1.0, T2 = T1 + AC.sweepTime;
@@ -210,6 +214,10 @@ const F = SL.Features = {
   drawOverlay(g, ctx) {
     if (g.flash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(${g.flashRgb},${Math.min(0.55, g.flash * 0.55)})`; ctx.fillRect(0, 0, SL.W, SL.H); ctx.restore(); }
     const A = g.assist;
+    if (A.readyPop && A.phase === 'idle' && A.readyPop.t < 2.4) {   // v0.5.5: once-per-charge Avrill ready line
+      SL.dialogPopup(ctx, g, 'avrillReady', { side: 'left', t: A.readyPop.t, dur: 2.4, name: C().assist.pilot, rgb: '255,80,220',
+        lines: ['Ready when you are.'], typed: Math.floor((A.readyPop.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
+    }
     if (A.phase !== 'active' || A.t > F.POP_DUR) return;
     if (g.assistKind === 'nebula') { SL.dialogPopup(ctx, g, 'nebulaAssist', { side: 'left', t: A.t, dur: F.POP_DUR + 0.6, name: 'Dr. Nebula', rgb: '255,70,70',
       lines: ["Don't make me regret this,", 'fool.'], typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') }); return; }
@@ -268,10 +276,10 @@ const F = SL.Features = {
     }
     if (g.shield) SL.neonText(ctx, '◯ SHIELD', 18, y, 11, '90,255,140', { align: 'left', blur: 6 });
     // bombs (right, under BEST)
-    for (let i = 0; i < C().bombs.max; i++) F.bombIcon(ctx, 898 - i * 22, 52, 6.5, '255,90,150', i < g.bombs ? 1 : 0.2);
-    SL.neonText(ctx, 'F', 818 - (C().bombs.max - 3) * 22, 52, 10, '255,150,200', { blur: 4, alpha: SL.Input.touchMode ? 0 : 0.6 });
+    for (let i = 0; i < C().bombs.max; i++) F.bombIcon(ctx, 848 - i * 22, 52, 6.5, '255,90,150', i < g.bombs ? 1 : 0.2);
+    SL.neonText(ctx, 'F', 768 - (C().bombs.max - 3) * 22, 52, 10, '255,150,200', { blur: 4, alpha: SL.Input.touchMode ? 0 : 0.6 });
     // Avrill energy bar
-    const bx = 786, by = 72, bw = 120, k = A.phase === 'active' ? 0 : A.energy / AC.max;
+    const bx = 728, by = 72, bw = 120, k = A.phase === 'active' ? 0 : A.energy / AC.max;
     const pulse = A.ready ? 0.6 + 0.4 * Math.sin(g.T * 8) : 1;
     SL.neonText(ctx, A.ready ? F.assistName(g) + ' READY' + (SL.Input.touchMode ? '' : ' [R]') : A.phase === 'active' ? F.assistName(g) + ' ASSIST' : F.assistName(g), bx + bw, by - 1, 11, AC.color, { align: 'right', blur: A.ready ? 12 : 6, alpha: pulse });
     ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by + 9, bw, 5);

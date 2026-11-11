@@ -44,6 +44,7 @@
     const now = SL.state === 'title' ? SL.Title : SL.state === 'map' ? SL.Map : SL.state === 'credits' ? SL.Credits : SL.game;   // update may switch screens
     g.setTransform(SL.view.scale, 0, 0, SL.view.scale, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     now.draw(g);
+    if (SL.Vol && SL.Vol.drawChrome) SL.Vol.drawChrome(g, (now.T || 0));
     SL.Input.endFrame();
   };
   function loop(now) {

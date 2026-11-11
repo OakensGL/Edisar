@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.5.4
+PROJECT STARLIGHT v0.5.5
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -43,6 +43,7 @@ SOUND EFFECTS
 -------------
 Level 30 cinematic SFX (v0.5.2): assets/avrill-explosion.ogg, assets/thunder-strike.ogg, assets/thunder-short.ogg
   Synthesized for Project Starlight with numpy + ffmpeg (no third-party samples). Released as CC0.
+Level 30 flagship entrance rumble (v0.5.5): assets/edisar-rumble.ogg — same, CC0.
 All other sound effects are synthesized at runtime with the Web Audio API.
 
 ART
