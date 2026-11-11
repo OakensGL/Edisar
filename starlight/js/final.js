@@ -339,9 +339,16 @@ P.hitExtra = function (b) {
   for (const p of B.pts) {
     if (p.hp <= 0) continue;
     const dx = b.x - (B.x + p.ox), dy = b.y - (B.y + p.oy);
-    if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) { b.dead = true; this.countHit(b); this.damagePoint(p, 1); return true; }
+    if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) {
+      b.dead = true; this.countHit(b); this.damagePoint(p, 1);
+      if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b, p)) { b.dead = false; this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); }
+      return true;
+    }
   }
-  if (inFlagship(b.x - B.x, b.y - B.y, true)) { b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true; }
+  if (inFlagship(b.x - B.x, b.y - B.y, true)) {
+    if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b)) { this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); return true; }
+    b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true;
+  }
   return false;
 };
 P.finalAttack = function () {

@@ -67,7 +67,7 @@ SL.Survival = class {
   /* ---------------- events ---------------- */
   destroy(a, byPlayer = true, opt = {}) {
     if (a.dead) return; a.dead = true;
-    const S = this.C.asteroid.sizes[a.size], rgb = a.rgb;
+    const S = this.C.asteroid.sizes[a.size] || this.C.asteroid.sizes.M, rgb = a.rgb;
     let pts = 0;
     if (byPlayer && this.state === 'play') {
       this.streak++; this.mult = Math.min(this.C.score.comboMax, 1 + Math.floor(this.streak / this.C.score.comboStep));
@@ -191,6 +191,7 @@ SL.Survival = class {
       this.ev.emit('tick', dt);
     }
     SL.Features.update(this, dt);
+    const hdt = dt * SL.Features.hazardScale(this);   // v0.5.7 slow-mo: asteroids / enemy shots; player stays at full speed
     // ship movement with light inertia
     if (s.alive) {
       const mag = Math.hypot(inp.ax, inp.ay), nx = mag > 1 ? inp.ax / mag : inp.ax, ny = mag > 1 ? inp.ay / mag : inp.ay;
@@ -200,14 +201,14 @@ SL.Survival = class {
       s.invuln = Math.max(0, s.invuln - dt); s.cool -= dt;
       if (inp.fire && s.cool <= 0 && live) this.fire();
     }
-    // bullets
-    for (const b of this.bullets) { b.x += b.vx * dt; b.y += b.vy * dt; }
+    // bullets (player shots + missiles stay at full speed)
+    for (const b of this.bullets) { if (b.seek) SL.Features.steer(this, b, dt); b.x += b.vx * dt; b.y += b.vy * dt; }
     this.bullets = this.bullets.filter(b => b.y > -20 && !b.dead && b.x > -20 && b.x < W + 20);
     // spawning
-    if (live && this.spawnHold <= 0) { this.spawnT -= dt; if (this.spawnT <= 0) { this.spawn(); this.spawnT = this.spawnInterval * (0.7 + Math.random() * 0.6); } }
+    if (live && this.spawnHold <= 0) { this.spawnT -= hdt; if (this.spawnT <= 0) { this.spawn(); this.spawnT = this.spawnInterval * (0.7 + Math.random() * 0.6); } }
     // asteroids
     for (const a of this.asteroids) {
-      a.x += a.vx * dt; a.y += a.vy * dt; a.rot += a.spin * dt;
+      a.x += a.vx * hdt; a.y += a.vy * hdt; a.rot += a.spin * hdt;
       if (a.x > -a.r && a.x < W + a.r) a.entered = true;
       if (a.entered) { if (a.x < -a.r) a.x = W + a.r; else if (a.x > W + a.r) a.x = -a.r; }   // horizontal wrap, Asteroids-style
       if (a.y > H + a.r + 10) a.dead = true;
@@ -223,7 +224,9 @@ SL.Survival = class {
           this.fx.burst(b.x, b.y, b.pierce ? '160,255,255' : '255,200,255', 4, 90, 0.25, 1.5);
           this.countHit(b);
           if (b.pierce) { this.destroy(a, true, { immune: b }); continue; }
-          b.dead = true; this.destroy(a, true); break;
+          b.dead = true; this.destroy(a, true);
+          if (this.ricochet > 0 && !b.bounced && SL.Features.retarget(this, b, a)) { b.dead = false; this.fx.burst(b.x, b.y, '255,180,80', 8, 140, 0.3, 2); }
+          break;
         }
       }
     }
@@ -247,7 +250,7 @@ SL.Survival = class {
     if (this.state === 'dying') { this.overT -= dt; if (this.overT <= 0) this.gameOver(); }
     else if (this.state === 'over') this.overT -= dt;
   }
-  countHit(b) { if (b.kind !== 'avrill' && !b.counted) { b.counted = true; this.stats.bulletHits = (this.stats.bulletHits || 0) + 1; } }
+  countHit(b) { if (b.kind !== 'avrill' && b.kind !== 'missile' && !b.counted) { b.counted = true; this.stats.bulletHits = (this.stats.bulletHits || 0) + 1; } }
   fire() {
     const s = this.ship, C = this.C;
     s.gun = 1 - s.gun;
@@ -273,7 +276,7 @@ SL.Survival = class {
     this.drawWorld && this.drawWorld(g);
     // bullets
     g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-    const KINDS = { std: ['255,60,200', '255,110,230', 16], triple: ['255,120,40', '255,170,80', 16], laser: ['60,230,255', '150,255,255', 38], avrill: ['255,60,200', '255,140,240', 14] };
+    const KINDS = { std: ['255,60,200', '255,110,230', 16], triple: ['255,120,40', '255,170,80', 16], laser: ['60,230,255', '150,255,255', 38], avrill: ['255,60,200', '255,140,240', 14], missile: ['255,110,40', '255,220,160', 18] };
     for (const kind in KINDS) {
       const [c1, c2, len] = KINDS[kind], list = this.bullets.filter(b => (b.kind || 'std') === kind);
       if (!list.length) continue;
@@ -284,6 +287,7 @@ SL.Survival = class {
     }
     g.restore();
     SL.Features.draw(this, g);
+    SL.Features.drawEscort(this, g);
     // ship
     if (s.alive && !(s.invuln > 0 && Math.floor(this.T * 14) % 2)) {
       const f = 0.75 + 0.25 * (Math.sin(this.T * 31.7) * .5 + Math.sin(this.T * 53.1) * .3 + Math.sin(this.T * 97.3) * .2);

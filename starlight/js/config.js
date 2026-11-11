@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.5.6';
+SL.VERSION = '0.5.7';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -45,11 +45,17 @@ SL.CONFIG = {
       bomb:   { rgb: '255,90,150', icon: 'B', name: 'BOMB' },
       triple: { rgb: '255,150,50', icon: '3', name: 'TRIPLE SHOT' },
       laser:  { rgb: '90,255,255', icon: 'L', name: 'LASER' },
-      rapid:  { rgb: '255,235,80', icon: 'R', name: 'RAPID FIRE' },
-      shield: { rgb: '90,255,140', icon: 'S', name: 'SHIELD' },
+      rapid:    { rgb: '255,235,80', icon: 'R', name: 'RAPID FIRE' },
+      shield:   { rgb: '90,255,140', icon: 'S', name: 'SHIELD' },
+      magnet:   { rgb: '80,220,255', icon: 'M', name: 'MAGNET' },
+      ricochet: { rgb: '255,160,70', icon: 'C', name: 'RICOCHET' },
+      missiles: { rgb: '255,110,60', icon: 'H', name: 'MISSILES' },
+      slowmo:   { rgb: '180,120,255', icon: 'T', name: 'SLOW-MO' },
     },
   },
-  powerUps: { duration: 10, tripleSpread: 0.2, rapidMul: 0.5, laserRate: 0.09, laserSpeed: 1400 },
+  powerUps: { duration: 10, tripleSpread: 0.2, rapidMul: 0.5, laserRate: 0.09, laserSpeed: 1400,
+    magnetTime: 10, ricochetTime: 10, missilesTime: 10, slowmoTime: 5, slowmoScale: 0.5,
+    magnetRange: 300, magnetPull: 340, missileRate: 0.40, missileSpeed: 560 },
   bombs: { max: 3, start: 1, speed: 520, fuse: 0.55, radius: 240, blastTime: 0.5, fullInvBonus: 250 },
   assist: {
     max: 100, perSecond: 0.6, finalPerSecond: 3.6,   /* v0.5.1: level 30 Nebula meter fills on its own in ~28 s */ perKill: 0.8, comboBonus: 0.3,   // ~1 assist per minute of decent play
@@ -63,8 +69,8 @@ SL.CONFIG = {
   },
   /* ---------- v0.4 Story mode ---------- */
   story: {
-    // v0.4.1 longer levels: a mission lasts a sector timer (60 s at level 1, +5 s per level, max 150 s)
-    // and also needs a kill goal (30 at level 1, +5 per level). The warp opens when both are met.
+    // v0.5.7: a normal mission ends as soon as the kill goal is met; leftover sector time is a TIME BONUS.
+    // If the timer runs out first, keep playing until the goal (same as before). Boss levels are unchanged.
     durBase: 60, durPerLevel: 5, durMax: 150,
     goalBase: 30, goalPerLevel: 5,
     warpTime: 2.3,                                 // warp-exit animation (s) before the recount

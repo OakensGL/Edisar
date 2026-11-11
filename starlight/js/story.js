@@ -175,7 +175,7 @@ SL.Story = class extends SL.Survival {
     this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), dur: boss ? 0 : SL.Story.levelDuration(L), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
       score0: this.score, maxMult: this.mult, done: false, doneT: 0 };
     this.asteroids.length = 0; this.bullets.length = 0; this.ebullets = []; this.pickups.length = 0; this.bombShots.length = 0; this.blasts.length = 0;
-    this.weapon = null; this.dialogs = []; this.dialog = null; this.clearData = null;
+    this.weapon = null; SL.Features.clearBuffs(this); this.dialogs = []; this.dialog = null; this.clearData = null; this.escort = null;
     this.introT = S.introTime; this.spawnHold = S.introTime; this.spawnT = 0.3;
     this.goldBonus = S.goldPerLevel * L; this.redBonus = S.redPerLevel * (L - 1); this.redAfter = L >= S.redFromLevel ? -1 : 1e9;
     const sh = this.ship; Object.assign(sh, { x: SL.W / 2, y: this.C.ship.startY, vx: 0, vy: 0, alive: true });
@@ -205,8 +205,9 @@ SL.Story = class extends SL.Survival {
   onKill() { this.lv.kills++; }
   checkGoal() {
     const lv = this.lv;
-    if (!lv.boss && !lv.done && lv.kills >= lv.goal && lv.t >= lv.dur) {
-      lv.done = true; lv.doneT = 1.2; this.spawnHold = 99;
+    if (!lv.boss && !lv.done && lv.kills >= lv.goal) {   // v0.5.7: kill goal ends the mission immediately
+      lv.done = true; lv.doneT = 1.2; lv.left = Math.max(0, lv.dur - lv.t); this.spawnHold = 99;
+      this.ship.invuln = Math.max(this.ship.invuln, 2);
       this.popup('SECTOR CLEAR — WARP!', 512, 260, '255,220,90'); SL.Audio.sfx.ready();
     }
   }
@@ -241,10 +242,17 @@ SL.Story = class extends SL.Survival {
     for (const p of B.pts) {
       if (p.hp <= 0) continue;
       const dx = b.x - (B.x + p.ox), dy = b.y - (B.y + p.oy);
-      if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) { b.dead = true; this.countHit(b); this.damagePoint(p, 1); return true; }
+      if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) {
+        b.dead = true; this.countHit(b); this.damagePoint(p, 1);
+        if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b, p)) { b.dead = false; this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); }
+        return true;
+      }
     }
     const H = SC().boss, ex = (b.x - B.x) / H.halfW, ey = (b.y - B.y - 6) / (H.shotHalfH || H.halfH);
-    if (ex * ex + ey * ey < 1) { b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true; }
+    if (ex * ex + ey * ey < 1) {
+      if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b)) { this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); return true; }
+      b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true;
+    }
     return false;
   }
   onBlast(bl) {
@@ -335,19 +343,46 @@ SL.Story = class extends SL.Survival {
     for (const a of this.asteroids) if (!a.dead) this.destroy(a, false, { noSplit: true, quiet: true });
     this.state = 'warp'; this.warpT = 0; this.ebullets = []; this.pickups.length = 0; this.bullets.length = 0; this.dialog = null; this.dialogs = [];
     this.ship.invuln = 0; this.ship.vy = 0; this.whooshed = false;
+    // v0.5.7: Avrill escorts Oakens out on levels 1–29 (she's gone after the level 30 strike)
+    const withAv = this.level < SL.FINAL_LEVEL && !this.final;
+    if (withAv) {
+      const fromAssist = this.assist && this.assist.phase === 'active';
+      const side = this.ship.x < 512 ? 1 : -1;
+      this.escort = { t: 0, x: fromAssist ? this.assist.x : (side > 0 ? SL.W + 70 : -70), y: fromAssist ? this.assist.y : this.ship.y + 8, side, wave: 0, said: false,
+        line: ['Nice flying, Oakens.', 'On your wing.', "Let's head home."][(Math.random() * 3) | 0] };
+      if (fromAssist) this.assist.phase = 'idle';
+    } else this.escort = null;
     SL.Events.emit('warp', { level: this.level });
   }
   updateWarp(dt) {
-    const s = this.ship, W = SC().warpTime, t = (this.warpT += dt);
-    SL.Input.takeDowns(); if (SL.Input.hit('KeyM')) SL.Audio.toggleMute();
+    const s = this.ship, escort = !!this.escort, W = escort ? 2.75 : SC().warpTime, t = (this.warpT += dt);
+    const I = SL.Input, downs = I.takeDowns();
+    SL.Vol.handle(downs); SL.Vol.tick();
+    if (SL.Vol.keys(I) || SL.Vol.open) return;
+    if (I.hit('KeyM')) SL.Audio.toggleMute();
+    // tap / Enter skips the warp (and escort) and goes to the results
+    if (t > 0.12 && (I.confirm() || downs.some(d => d.role !== 'ui'))) { this.startClear(); return; }
+    const goAt = escort ? 1.15 : 0.45;
     s.x += (SL.W / 2 - s.x) * Math.min(1, dt * 3); s.vx = 0;
-    if (t < 0.45) { s.vy += (60 - s.vy) * Math.min(1, dt * 6); s.y += s.vy * dt; }          // brief dip: charging
-    else {
-      if (!this.whooshed) { this.whooshed = true; SL.Audio.sfx.whoosh(); this.fx.ring(s.x, s.y, '255,255,255', 80, 0.4); }
-      s.vy -= 2600 * dt; s.y += s.vy * dt;
-      if (Math.random() < 0.8) this.fx.burst(s.x, s.y + 22, '255,90,220', 3, 120, 0.4, 2);
+    if (this.escort) {
+      const E = this.escort; E.t += dt;
+      const tx = s.x + E.side * 52, ty = s.y + 4;
+      const k = Math.min(1, E.t / 0.55);
+      E.x += (tx - E.x) * Math.min(1, dt * (2.2 + 6 * k)); E.y += (ty - E.y) * Math.min(1, dt * (2.2 + 6 * k));
+      if (E.t > 0.55 && E.t < 1.15) E.wave = Math.sin((E.t - 0.55) * 22) * 0.32;
+      else E.wave = 0;
+      if (!E.said && E.t > 0.45) { E.said = true; E.lineT = 0; }
+      if (E.said) E.lineT = (E.lineT || 0) + dt;
     }
-    this.warpK = Math.min(1, Math.max(0, (t - 0.2) / 0.7));
+    if (t < goAt) { s.vy += (60 - s.vy) * Math.min(1, dt * 6); s.y += s.vy * dt; if (this.escort) this.escort.y += s.vy * dt * 0.35; }
+    else {
+      if (!this.whooshed) { this.whooshed = true; SL.Audio.sfx.whoosh(); this.fx.ring(s.x, s.y, '255,255,255', 80, 0.4); if (this.escort) this.fx.ring(this.escort.x, this.escort.y, '255,80,220', 60, 0.35); }
+      s.vy -= 2600 * dt; s.y += s.vy * dt;
+      if (this.escort) { this.escort.y += s.vy * dt; this.escort.x += (s.x + this.escort.side * 52 - this.escort.x) * Math.min(1, dt * 8); }
+      if (Math.random() < 0.8) this.fx.burst(s.x, s.y + 22, '255,90,220', 3, 120, 0.4, 2);
+      if (this.escort && Math.random() < 0.8) this.fx.burst(this.escort.x, this.escort.y + 22, '255,80,220', 3, 120, 0.4, 2);
+    }
+    this.warpK = Math.min(1, Math.max(0, (t - (escort ? 0.9 : 0.2)) / 0.7));
     this.stars.update(dt, 1 + this.warpK * 16); this.fx.update(dt);
     for (const p of this.popups) { p.life -= dt; p.y -= 40 * dt; } this.popups = this.popups.filter(p => p.life > 0);
     this.asteroids = this.asteroids.filter(a => !a.dead);
@@ -366,16 +401,18 @@ SL.Story = class extends SL.Survival {
     if (!this.debug) SL.Progress.unlock(this.level + 1);       // map: next mission unlocked
     const lv = this.lv, Bn = SC().bonus, shots = this.stats.shots - lv.shots0, hits = (this.stats.bulletHits || 0) - lv.hits0;
     const acc = shots > 0 ? Math.min(1, hits / shots) : 0;
-    const e = lv.boss ? this.level / SC().boss.every : 0, par = lv.boss ? 50 + 15 * e : lv.dur + 20;   // timed sectors: bonus for meeting the kill goal quickly
+    const e = lv.boss ? this.level / SC().boss.every : 0;
+    const left = lv.boss ? 0 : Math.max(0, lv.left != null ? lv.left : lv.dur - lv.t);
+    const timeBonus = lv.boss ? Math.max(0, Math.round((50 + 15 * e - lv.t) * Bn.timePerSec)) : Math.round(left * Bn.timePerSec);
     const rows = [
       { label: 'ASTEROIDS DESTROYED', disp: String(lv.kills), bonus: lv.kills * Bn.perKill },
       { label: 'ACCURACY', disp: Math.round(acc * 100) + '%', bonus: Math.round(acc * acc * Bn.accuracy) },
-      { label: 'TIME BONUS', disp: fmt(lv.t), bonus: Math.max(0, Math.round((par - lv.t) * Bn.timePerSec)) },
+      { label: 'TIME BONUS', disp: lv.boss ? fmt(lv.t) : fmt(left), bonus: timeBonus },
       { label: 'MAX COMBO', disp: 'x' + lv.maxMult, bonus: (lv.maxMult - 1) * Bn.comboStep },
     ];
     if (lv.boss) rows.push({ label: "DR. NEBULA REPELLED", disp: 'MK-' + roman(e), bonus: Bn.bossPerEncounter * e });
     rows.forEach(r => r.shown = 0);
-    this.state = 'clear'; this.ebullets = []; this.bullets.length = 0; this.dialog = null; this.dialogs = [];
+    this.state = 'clear'; this.escort = null; this.ebullets = []; this.bullets.length = 0; this.dialog = null; this.dialogs = []; this.popups = [];
     for (const a of this.asteroids) a.dead = true;
     this.clearData = { rows, i: 0, t: 0, levelPts: Math.floor(this.score - lv.score0), total0: Math.floor(this.score), done: false, tick: 0, boss: lv.boss, sel: 0 };
     SL.Audio.playTrack('clear');
@@ -438,13 +475,19 @@ SL.Story = class extends SL.Survival {
     const lv = this.lv, s = this.ship;
     lv.t += dt; this.introT -= dt; lv.maxMult = Math.max(lv.maxMult, this.mult);
     this.checkGoal();
-    if (lv.done) { lv.doneT -= dt; if (lv.doneT <= 0) { this.startWarp(); return; } }
-    if (this.boss) this.updateBoss(dt);
+    if (lv.done) {
+      let n = 0;
+      for (const a of this.asteroids) if (!a.dead) { this.destroy(a, false, { noSplit: true, quiet: true }); if (++n >= 4) break; }
+      this.ebullets = [];
+      lv.doneT -= dt; if (lv.doneT <= 0) { this.startWarp(); return; }
+    }
+    const hdt = dt * SL.Features.hazardScale(this);
+    if (this.boss) this.updateBoss(this.boss.phase === 'fight' || this.boss.phase === 'escape' ? hdt : dt);
     if (this.chat && this.chat.length && !lv.done && !lv.boss && this.chat[0].at <= lv.t && !this.dialog && !this.dialogs.length) {
       const c = this.chat.shift(); this.say(SL.Chatter.draw(c.who, c.tier), 'normal', 0, c.who);
     }
     for (const b of this.ebullets) {
-      b.x += b.vx * dt; b.y += b.vy * dt;
+      b.x += b.vx * hdt; b.y += b.vy * hdt;
       if (b.x < -20 || b.x > SL.W + 20 || b.y < -40 || b.y > SL.H + 20) b.dead = true;
       else if (s.alive && s.invuln <= 0 && Math.hypot(b.x - s.x, b.y - s.y) < 5 + this.C.ship.radius - 2) { b.dead = true; this.playerHit(null); }
     }
@@ -486,8 +529,8 @@ SL.Story = class extends SL.Survival {
     const lv = this.lv;
     if (lv.boss) { SL.neonText(g, `LEVEL ${this.level} · BOSS`, 512, 20, 16, '255,110,110', { blur: 8 }); return; }
     const left = Math.max(0, lv.dur - lv.t), need = Math.max(0, lv.goal - lv.kills);
-    const tm = left > 0 ? fmt(Math.ceil(left)) : 'WARP READY';
-    SL.neonText(g, `LEVEL ${this.level} · ${tm} · ${Math.min(lv.kills, lv.goal)}/${lv.goal}`, 512, 20, 16, left <= 0 && need > 0 ? '255,220,90' : '160,200,255', { blur: 8 });
+    const tm = lv.done ? 'SECTOR CLEAR' : left > 0 ? fmt(Math.ceil(left)) : 'WARP READY';
+    SL.neonText(g, `LEVEL ${this.level} · ${tm} · ${Math.min(lv.kills, lv.goal)}/${lv.goal}`, 512, 20, 16, lv.done ? '255,220,90' : left <= 0 && need > 0 ? '255,220,90' : '160,200,255', { blur: 8 });
     // sector progress bar (time)
     const k = lv.dur ? Math.min(1, lv.t / lv.dur) : 1;
     g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(432, 31, 160, 2); g.fillStyle = 'rgba(120,190,255,0.8)'; g.fillRect(432, 31, 160 * k, 2);
@@ -514,13 +557,22 @@ SL.Story = class extends SL.Survival {
           SL.neonText(g, 'DESTROY THE GLOWING WEAK POINTS', 512, 324, 14, '255,220,90', { blur: 6, alpha: a });
         } else {
           SL.neonText(g, `LEVEL ${this.level}`, 512, 246, 54, '255,80,220', { blur: 24, alpha: a });
-          SL.neonText(g, `DESTROY ${this.lv.goal} ASTEROIDS · HOLD THE SECTOR ${fmt(this.lv.dur)}`, 512, 308, 20, '160,200,255', { blur: 10, alpha: a });
+          SL.neonText(g, `DESTROY ${this.lv.goal} ASTEROIDS · LEFTOVER TIME IS BONUS`, 512, 308, 20, '160,200,255', { blur: 10, alpha: a });
         }
       }
       this.drawDialog(g);
       if (this.lv.boss && B && B.t < 7) SL.neonText(g, 'Music: "HellDrake" by Centurion_of_war — CC-BY 4.0', 512, 571, 9, '220,200,230', { blur: 2, alpha: 0.7 });
     }
-    if (this.state === 'warp' && this.warpT > 0.4) SL.neonText(g, 'WARP!', 512, 250, 46, '255,255,255', { blur: 26, alpha: Math.min(1, (this.warpT - 0.4) * 3) * (1 - Math.max(0, this.warpT - 1.6)) });
+    if (this.state === 'warp' && this.escort && this.escort.said && this.escort.lineT < 2.2) {
+      const E = this.escort;
+      SL.dialogPopup(g, this, 'avrillEscort', { side: 'left', t: E.lineT, dur: 2.2, name: SL.CONFIG.assist.pilot, rgb: '255,80,220',
+        lines: [E.line], typed: Math.floor((E.lineT - 0.1) * 40), por: SL.Features.portrait(), textRgb: '255,235,255' });
+    }
+    if (this.state === 'warp' && this.warpT > (this.escort ? 1.2 : 0.4)) {
+      const t0 = this.escort ? 1.2 : 0.4;
+      SL.neonText(g, 'WARP!', 512, 250, 46, '255,255,255', { blur: 26, alpha: Math.min(1, (this.warpT - t0) * 3) * (1 - Math.max(0, this.warpT - t0 - 1.2)) });
+    }
+    if (this.state === 'warp') SL.neonText(g, SL.Input.touchMode ? 'TAP TO SKIP' : 'ENTER TO SKIP', 512, 540, 12, '160,200,255', { blur: 4, alpha: 0.45 });
     if (this.state === 'clear') this.drawClear(g);
   }
   drawClear(g) {

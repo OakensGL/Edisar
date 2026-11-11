@@ -8,6 +8,9 @@
 const C = () => SL.CONFIG, rand = (a, b) => a + Math.random() * (b - a);
 const pickOne = l => l[(Math.random() * l.length) | 0];
 const WEAPONS = ['triple', 'laser', 'rapid'];
+const EXTRAS  = ['magnet', 'ricochet', 'missiles', 'slowmo'];
+const GUNS    = [...WEAPONS, 'shield'];
+const BUFF = { magnet: 'magnetTime', ricochet: 'ricochetTime', missiles: 'missilesTime', slowmo: 'slowmoTime' };
 
 const F = SL.Features = {
   reset(g) {
@@ -15,21 +18,28 @@ const F = SL.Features = {
     g.pickups = []; g.bombShots = []; g.blasts = []; g.flash = 0; g.flashRgb = '255,200,255';
     g.dropT = rand(...C().pickups.driftEvery); g.spawnHold = 0;
     g.assist = { energy: 0, phase: 'idle', t: 0, ready: false, x: -80, y: 600, cool: 0, cleared: false };
+    F.clearBuffs(g);
   },
+  clearBuffs(g) { g.magnet = 0; g.ricochet = 0; g.missiles = 0; g.slowmo = 0; g.missileCool = 0; },
+  hazardScale(g) { return g.slowmo > 0 ? (C().powerUps.slowmoScale || 0.5) : 1; },
 
   /* ---------- pickups ---------- */
   drop(g, x, y, type) {
     const P = C().pickups;
-    type = type || (Math.random() < P.bombShare ? 'bomb' : pickOne([...WEAPONS, 'shield']));
+    if (!type) {
+      if (Math.random() < P.bombShare) type = 'bomb';
+      else type = Math.random() < 0.62 ? pickOne(GUNS) : pickOne(EXTRAS);   // v0.5.7: new utilities share the non-bomb pool, classic guns stay common
+    }
     g.pickups.push({ type, x: Math.max(30, Math.min(SL.W - 30, x)), y, t: 0, life: P.life });
   },
   collect(g, p) {
-    const T = C().pickups.types[p.type], s = g.ship;
+    const T = C().pickups.types[p.type], s = g.ship, PU = C().powerUps;
     if (p.type === 'bomb') {
       if (g.bombs < C().bombs.max) { g.bombs++; g.popup('+1 BOMB', s.x, s.y - 36, T.rgb); }
       else { g.score += C().bombs.fullInvBonus; g.popup(`BOMBS FULL +${C().bombs.fullInvBonus}`, s.x, s.y - 36, T.rgb); }
     } else if (p.type === 'shield') { g.shield = true; g.popup('SHIELD', s.x, s.y - 36, T.rgb); }
-    else { g.weapon = { type: p.type, time: C().powerUps.duration }; g.popup(T.name, s.x, s.y - 36, T.rgb); }
+    else if (BUFF[p.type]) { g[p.type] = PU[BUFF[p.type]]; g.popup(T.name, s.x, s.y - 36, T.rgb); }
+    else { g.weapon = { type: p.type, time: PU.duration }; g.popup(T.name, s.x, s.y - 36, T.rgb); }
     g.fx.burst(p.x, p.y, T.rgb, 18, 160, 0.5, 2); g.fx.ring(p.x, p.y, T.rgb, 40, 0.35);
     SL.Audio.sfx.pickup(); g.stats.pickups = (g.stats.pickups || 0) + 1;
     SL.Events.emit('pickup', p);
@@ -52,6 +62,51 @@ const F = SL.Features = {
     g.fx.ring(g.ship.x, g.ship.y, '90,255,140', 80, 0.5); g.fx.burst(g.ship.x, g.ship.y, '90,255,140', 30, 220, 0.6, 2);
     g.popup('SHIELD DOWN', g.ship.x, g.ship.y - 40, '90,255,140'); g.shake(6); SL.Audio.sfx.hit();
     return true;
+  },
+
+  /* ---------- v0.5.7: seek / ricochet / missiles ---------- */
+  seekTargets(g, skip) {
+    const out = [];
+    for (const a of g.asteroids || []) if (!a.dead && a !== skip) out.push({ x: a.x, y: a.y, ref: a });
+    const B = g.boss;
+    if (B && !B.gone && B.phase !== 'escape' && B.phase !== 'dying' && B.y > -80) {
+      for (const p of B.pts || []) if (p.hp > 0 && p !== skip) out.push({ x: B.x + p.ox, y: B.y + p.oy, ref: p, weak: true });
+    }
+    return out;
+  },
+  nearestTarget(g, x, y, skip) {
+    let best = null, d = 1e9;
+    for (const t of F.seekTargets(g, skip)) {
+      const dd = Math.hypot(t.x - x, t.y - y);
+      if (dd < d && dd > 12) { d = dd; best = t; }
+    }
+    return best;
+  },
+  retarget(g, b, skip) {
+    const t = F.nearestTarget(g, b.x, b.y, skip);
+    if (!t) return false;
+    const sp = Math.hypot(b.vx, b.vy) || C().ship.bulletSpeed;
+    const a = Math.atan2(t.y - b.y, t.x - b.x);
+    b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.bounced = true;
+    return true;
+  },
+  steer(g, b, dt) {
+    const t = F.nearestTarget(g, b.x, b.y);
+    if (!t) return;
+    const sp = Math.hypot(b.vx, b.vy) || C().powerUps.missileSpeed;
+    const want = Math.atan2(t.y - b.y, t.x - b.x), cur = Math.atan2(b.vy, b.vx);
+    let d = want - cur; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+    const turn = 9 * dt, na = cur + Math.max(-turn, Math.min(turn, d));
+    b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp;
+  },
+  fireMissile(g) {
+    const s = g.ship, PU = C().powerUps, t = F.nearestTarget(g, s.x, s.y - 20);
+    g.missileSide = g.missileSide ? 0 : 1;
+    const side = g.missileSide ? 1 : -1, sp = PU.missileSpeed;
+    let ang = -Math.PI / 2 + side * 0.28;
+    if (t) ang = Math.atan2(t.y - s.y, t.x - (s.x + side * 14));
+    g.bullets.push({ x: s.x + side * 14, y: s.y - 6, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, kind: 'missile', seek: true });
+    SL.Audio.sfx.launch();
   },
 
   /* ---------- bombs ---------- */
@@ -115,11 +170,17 @@ const F = SL.Features = {
     g.dropT -= dt; if (g.dropT <= 0) { F.drop(g, rand(80, SL.W - 80), -20); g.dropT = rand(...P.driftEvery); }
     for (const p of g.pickups) {
       p.t += dt; p.y += P.fallSpeed * dt; p.x += Math.sin(p.t * 2) * 20 * dt;
+      if (g.magnet > 0 && s.alive) {
+        const dx = s.x - p.x, dy = s.y - p.y, d = Math.hypot(dx, dy) || 1;
+        if (d < C().powerUps.magnetRange) { const k = C().powerUps.magnetPull * (1 - d / C().powerUps.magnetRange); p.x += dx / d * k * dt; p.y += dy / d * k * dt; }
+      }
       if (s.alive && Math.hypot(p.x - s.x, p.y - s.y) < P.catchRadius) { p.dead = true; F.collect(g, p); }
       if (p.t > p.life || p.y > SL.H + 30) p.dead = true;
     }
     g.pickups = g.pickups.filter(p => !p.dead);
     if (g.weapon) { g.weapon.time -= dt; if (g.weapon.time <= 0) g.weapon = null; }
+    for (const k of EXTRAS) if (g[k] > 0) { g[k] -= dt; if (g[k] <= 0) g[k] = 0; }
+    if (g.missiles > 0 && s.alive) { g.missileCool = (g.missileCool || 0) - dt; if (g.missileCool <= 0) { F.fireMissile(g); g.missileCool = C().powerUps.missileRate; } }
     // bombs
     const B = C().bombs;
     for (const b of g.bombShots) {
@@ -207,11 +268,16 @@ const F = SL.Features = {
   drawShield(g, ctx) {
     if (!g.shield || !g.ship.alive) return;
     const s = g.ship, p = 0.6 + 0.4 * Math.sin(g.T * 5);
-    SL.glow(ctx, s.x, s.y, 40, 40, '90,255,140', 0.12 * p);
-    ctx.save(); ctx.strokeStyle = `rgba(90,255,140,${0.5 + 0.3 * p})`; ctx.lineWidth = 2; ctx.shadowColor = 'rgba(90,255,140,1)'; ctx.shadowBlur = 14 * SL.view.scale;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 34, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    SL.glow(ctx, s.x, s.y, 46, 46, '90,255,140', 0.18 * p);
+    ctx.save(); ctx.strokeStyle = `rgba(90,255,140,${0.55 + 0.35 * p})`; ctx.lineWidth = 2.4; ctx.shadowColor = 'rgba(90,255,140,1)'; ctx.shadowBlur = 16 * SL.view.scale;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 34, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.x, s.y, 28, 0, Math.PI * 2); ctx.strokeStyle = `rgba(200,255,220,${0.25 * p})`; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
   },
   drawOverlay(g, ctx) {
+    if (g.slowmo > 0) {
+      ctx.save(); ctx.fillStyle = 'rgba(80,40,160,0.14)'; ctx.fillRect(0, 0, SL.W, SL.H);
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(140,100,255,0.07)'; ctx.fillRect(0, 0, SL.W, SL.H); ctx.restore();
+    }
     if (g.flash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(${g.flashRgb},${Math.min(0.55, g.flash * 0.55)})`; ctx.fillRect(0, 0, SL.W, SL.H); ctx.restore(); }
     const A = g.assist;
     if (A.readyPop && A.phase === 'idle' && A.readyPop.t < 2.4) {   // v0.5.5: once-per-charge Avrill ready line
@@ -250,6 +316,15 @@ const F = SL.Features = {
     }
     ctx.save(); ctx.translate(A.x, A.y); ctx.scale(0.55, 0.55); ctx.drawImage(h.c, -h.W / 2, -h.H / 2, h.W, h.H); ctx.restore();
   },
+  drawEscort(g, ctx) {
+    const E = g.escort; if (!E) return;
+    if (!F._avShip) F._avShip = SL.Sprites.ship(C().assist.color);
+    const sz = F._avShip.size, wave = E.wave || 0;
+    SL.glow(ctx, E.x, E.y + 22, 16, 24, '255,60,210', 0.35);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,120,230,0.6)';
+    ctx.beginPath(); ctx.moveTo(E.x - 5, E.y + 14); ctx.lineTo(E.x, E.y + 34 + Math.random() * 10); ctx.lineTo(E.x + 5, E.y + 14); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(E.x, E.y); ctx.rotate(wave); ctx.drawImage(F._avShip.c, -sz / 2, -sz / 2 + 2, sz, sz); ctx.restore();
+  },
   portrait() {
     if (F._por) return F._por;
     if (!F._img) { F._img = new Image(); F._img.src = 'assets/title.jpg'; }
@@ -267,12 +342,14 @@ const F = SL.Features = {
     const AC = C().assist, A = g.assist;
     // weapon timer + shield (left, under lives)
     let y = 74;
-    if (g.weapon) {
-      const T = C().pickups.types[g.weapon.type], k = g.weapon.time / C().powerUps.duration;
-      SL.neonText(ctx, T.name, 18, y, 11, T.rgb, { align: 'left', blur: 6 });
+    const bars = [];
+    if (g.weapon) { const T = C().pickups.types[g.weapon.type]; bars.push({ name: T.name, rgb: T.rgb, k: g.weapon.time / C().powerUps.duration }); }
+    for (const id of EXTRAS) if (g[id] > 0) { const T = C().pickups.types[id], max = C().powerUps[BUFF[id]]; bars.push({ name: T.name, rgb: T.rgb, k: g[id] / max }); }
+    for (const b of bars) {
+      SL.neonText(ctx, b.name, 18, y, 11, b.rgb, { align: 'left', blur: 6 });
       ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(18, y + 9, 110, 4);
-      ctx.fillStyle = `rgba(${T.rgb},${k < 0.25 && Math.floor(g.T * 8) % 2 ? 0.4 : 0.95})`; ctx.fillRect(18, y + 9, 110 * k, 4);
-      y += 26;
+      ctx.fillStyle = `rgba(${b.rgb},${b.k < 0.25 && Math.floor(g.T * 8) % 2 ? 0.4 : 0.95})`; ctx.fillRect(18, y + 9, 110 * Math.max(0, b.k), 4);
+      y += 22;
     }
     if (g.shield) SL.neonText(ctx, '◯ SHIELD', 18, y, 11, '90,255,140', { align: 'left', blur: 6 });
     // bombs (right, under BEST)
