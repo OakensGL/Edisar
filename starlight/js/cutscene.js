@@ -42,6 +42,23 @@ const SCENES = {
   pre25: { lines: [
     ['nebula', 'Two little dogs on one leash. Edisar trained you well.'],
     ['nebula', 'This is your last chance to open your eyes, Oakens.'] ] },
+  // v0.5.8: pre-mission briefs on selected normal levels (shown each time the level starts, like pre-fight).
+  // Keys are briefN so they never collide with pre5/pre10/… (Nebula pre-fight) or 5/10/15/20 (post-fight).
+  brief3: { lines: [
+    ['avrill', "Commander Edisar picked us himself, Oakens. Let's not let him down."],
+    ['radio', 'Good work so far. Keep the belt clean.'] ] },
+  brief7: { lines: [
+    ['avrill', "Best wingman in the Fleet. Don't let it go to your head."] ] },
+  brief12: { lines: [
+    ['avrill', "Those reports... maybe they're fake. Nebula wants us to doubt him."],
+    ['radio', 'Focus, pilots. Questions slow you down.'] ] },
+  brief17: { lines: [
+    ['avrill', 'Oakens... why would the Commander hide files from his own pilots?'] ] },
+  brief22: { lines: [
+    ['avrill', "I decrypted more of the capsule. If this is true... we're the weapon."],
+    ['radio', 'Avrill. Your radio is breaking up. Stay on mission.'] ] },
+  brief27: { lines: [
+    ['avrill', 'If anything happens to me, finish reading those files. Promise me, Oakens.'] ] },
   // v0.5.0 final level opening (between the in-engine shots in final.js)
   finalNebula: { lines: [['nebula', 'Kid... I told you!']] },
   finalEdisar: { lines: [

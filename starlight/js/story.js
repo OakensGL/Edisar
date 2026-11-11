@@ -169,7 +169,16 @@ SL.Story = class extends SL.Survival {
   }
 
   /* ---------- levels ---------- */
-  startLevel(L) {
+  startLevel(L, opts = {}) {
+    // v0.5.8: pre-mission brief (levels 3/7/12/17/22/27). Same every-start, skippable behaviour as pre-fight.
+    // Radio chatter is only scheduled after the brief ends, so it never overlaps the portrait scene.
+    const brief = 'brief' + L;
+    if (opts.brief !== false && SL.Cutscene.has(brief)) {
+      this.level = L; this.dialogs = []; this.dialog = null;
+      SL.Audio.playTrack('main');
+      this.playCut(brief, () => this.startLevel(L, { brief: false }));
+      return;
+    }
     const S = SC(), boss = L % S.boss.every === 0;
     this.level = L; this.state = 'play';
     this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), dur: boss ? 0 : SL.Story.levelDuration(L), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
