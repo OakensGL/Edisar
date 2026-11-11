@@ -127,7 +127,12 @@ const F = SL.Features = {
   activateAssist(g) {
     const A = g.assist;
     if (!A.ready || A.phase !== 'idle' || g.state !== 'play') { SL.Audio.sfx.deny(); return false; }
-    Object.assign(A, { phase: 'active', t: 0, energy: 0, ready: false, readyPop: null, x: -80, y: 640, cool: 0, cleared: false });
+    Object.assign(A, { phase: 'active', t: 0, energy: 0, ready: false, readyPop: null, x: -80, y: 640, cool: 0, cleared: false, line: null });
+    if (g.assistKind === 'nebula') {
+      const i = g.nebulaAssistI || 0;
+      A.line = F.NEBULA_ASSIST[i % F.NEBULA_ASSIST.length];
+      g.nebulaAssistI = i + 1;
+    }
     g.stats.assists = (g.stats.assists || 0) + 1; SL.Audio.sfx.assist(); SL.Events.emit('assist', g);
     return true;
   },
@@ -284,15 +289,28 @@ const F = SL.Features = {
       SL.dialogPopup(ctx, g, 'avrillReady', { side: 'left', t: A.readyPop.t, dur: 2.4, name: C().assist.pilot, rgb: '255,80,220',
         lines: ['Ready when you are.'], typed: Math.floor((A.readyPop.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
     }
-    if (A.phase !== 'active' || A.t > F.POP_DUR) return;
-    if (g.assistKind === 'nebula') { SL.dialogPopup(ctx, g, 'nebulaAssist', { side: 'left', t: A.t, dur: F.POP_DUR + 0.6, name: 'Dr. Nebula', rgb: '255,70,70',
-      lines: ["Don't make me regret this,", 'fool.'], typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') }); return; }
+    const popDur = (g.assistKind === 'nebula') ? F.POP_DUR + 0.6 : F.POP_DUR;
+    if (A.phase !== 'active' || A.t > popDur) return;
+    if (g.assistKind === 'nebula') {
+      const text = A.line || F.NEBULA_ASSIST[0];
+      SL.dialogPopup(ctx, g, 'nebulaAssist', { side: 'left', t: A.t, dur: popDur, name: 'Dr. Nebula', rgb: '255,70,70',
+        lines: F.nebulaAssistLines(text), typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') });
+      return;
+    }
     // v0.4.1: compact semi-transparent popup, top-left corner (see SL.dialogPopup)
     const line = C().assist.line, cut = line.indexOf(',') + 1;
     SL.dialogPopup(ctx, g, 'avrill', { side: 'left', t: A.t, dur: F.POP_DUR, name: C().assist.pilot, rgb: '255,80,220',
       lines: [line.slice(0, cut), line.slice(cut).trim()], typed: Math.floor((A.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
   },
   POP_DUR: 2.6,
+  NEBULA_ASSIST: [
+    'You built a fleet. I built a grudge. Die, Starlight!',
+    'Light him up, Oakens!',
+  ],
+  nebulaAssistLines(text) {
+    if (text === F.NEBULA_ASSIST[0]) return ['You built a fleet.', 'I built a grudge.', 'Die, Starlight!'];
+    return [text];
+  },
   assistName(g) { return g.assistKind === 'nebula' ? 'NEBULA' : 'AVRILL'; },
   /* v0.5.0: in the final level the assist is Dr. Nebula's mothership: flies in from the left, charges,
      fires a screen-wide laser upward (same effect as Avrill's screen clear: bullets gone, boss damage), leaves right. */
@@ -353,10 +371,10 @@ const F = SL.Features = {
     }
     if (g.shield) SL.neonText(ctx, '◯ SHIELD', 18, y, 11, '90,255,140', { align: 'left', blur: 6 });
     // bombs (right, under BEST)
-    for (let i = 0; i < C().bombs.max; i++) F.bombIcon(ctx, 848 - i * 22, 52, 6.5, '255,90,150', i < g.bombs ? 1 : 0.2);
-    SL.neonText(ctx, 'F', 768 - (C().bombs.max - 3) * 22, 52, 10, '255,150,200', { blur: 4, alpha: SL.Input.touchMode ? 0 : 0.6 });
+    for (let i = 0; i < C().bombs.max; i++) F.bombIcon(ctx, 800 - i * 22, 52, 6.5, '255,90,150', i < g.bombs ? 1 : 0.2);
+    SL.neonText(ctx, 'F', 720 - (C().bombs.max - 3) * 22, 52, 10, '255,150,200', { blur: 4, alpha: SL.Input.touchMode ? 0 : 0.6 });
     // Avrill energy bar
-    const bx = 728, by = 72, bw = 120, k = A.phase === 'active' ? 0 : A.energy / AC.max;
+    const bx = 680, by = 72, bw = 120, k = A.phase === 'active' ? 0 : A.energy / AC.max;
     const pulse = A.ready ? 0.6 + 0.4 * Math.sin(g.T * 8) : 1;
     SL.neonText(ctx, A.ready ? F.assistName(g) + ' READY' + (SL.Input.touchMode ? '' : ' [R]') : A.phase === 'active' ? F.assistName(g) + ' ASSIST' : F.assistName(g), bx + bw, by - 1, 11, AC.color, { align: 'right', blur: A.ready ? 12 : 6, alpha: pulse });
     ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by + 9, bw, 5);

@@ -142,7 +142,7 @@ SL.Story = class extends SL.Survival {
       { id: 'map',   label: 'MAP',   x: 412, y: 532, w: 190, h: 40, rgb: '255,80,220' },
       { id: 'retry', label: 'RETRY', x: 632, y: 532, w: 190, h: 40, rgb: '70,160,255' },
     ];
-    this.pauseBtns[2] = { id: 'map', label: 'MAP', x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' };
+    this.pauseBtns[3] = { id: 'map', label: 'MAP', x: 512, y: 396, w: 220, h: 46, rgb: '70,160,255' };
     this.clearBtns = [
       { id: 'continue', label: 'CONTINUE', x: 412, y: 520, w: 220, h: 40, rgb: '255,80,220' },
       { id: 'map',      label: 'MAP',        x: 632, y: 520, w: 190, h: 40, rgb: '70,160,255' },
@@ -161,7 +161,7 @@ SL.Story = class extends SL.Survival {
       this.level = 1; this.lv = { boss: false, goal: 0, dur: 0, kills: 0, t: 0 };
       SL.Audio.playTrack('main');
       this.playCut('intro', () => this.startLevel(1));
-    } else this.startLevel(startLevel);
+    } else this.startLevel(startLevel, { brief: opts.brief });
   }
   playCut(id, then) {
     this.state = 'cutscene'; this.dialog = null; this.dialogs = [];
@@ -470,13 +470,14 @@ SL.Story = class extends SL.Survival {
     super.update(dt);
   }
   draw(g) { if (this.state === 'cutscene' && this.cut) return this.cut.draw(g); super.draw(g); }
+  retryRun() { SL.startMission(this.level, this.debug, this.session0, { intro: false, brief: false }); }
   menuAction(id) {
     if (id === 'map') {
       SL.Audio.sfx.blip(780);
       // game over: session ends (already ranked). Pause -> MAP: mission abandoned, keep the session as it was at launch.
       const sess = this.state === 'over' ? null : this.session0;
       SL.start('map', { session: sess, sel: this.level });
-    } else if (id === 'retry') { SL.Audio.sfx.blip(780); SL.startMission(this.level, this.debug, null, { intro: false }); }
+    } else if (id === 'retry' && this.state === 'over') { SL.Audio.sfx.blip(780); SL.startMission(this.level, this.debug, null, { intro: false }); }
     else super.menuAction(id);
   }
   onUpdate(dt) {

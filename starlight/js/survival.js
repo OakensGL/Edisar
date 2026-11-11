@@ -16,6 +16,12 @@ SL.Survival = class {
     this.joy = null; this.fireId = null;
     // UI layout (logical coords)
     this.btnPause = { x: 996, y: 26, w: 44, h: 36 };
+    this.btnRestart = { x: 852, y: 26, w: 44, h: 36 };
+    this.restartAsk = false; this.restartFrom = 'play'; this.restartSel = 0;
+    this.restartBtns = [
+      { id: 'yes', label: 'YES', x: 412, y: 320, w: 180, h: 50, rgb: '255,80,220' },
+      { id: 'no',  label: 'NO',  x: 612, y: 320, w: 180, h: 50, rgb: '70,160,255' },
+    ];
     this.fireBtn = { x: 922, y: 478, r: 58 };
     this.bombBtn = { x: 806, y: 520, r: 32 };
     this.avrillBtn = { x: 842, y: 398, r: 32 };
@@ -25,9 +31,10 @@ SL.Survival = class {
       { id: 'menu',  label: 'MENU',       x: 632, y: 532, w: 170, h: 40, rgb: '70,160,255' },
     ];
     this.pauseBtns = [
-      { id: 'resume',   label: 'RESUME',   x: 512, y: 240, w: 220, h: 46, rgb: '255,80,220' },
-      { id: 'settings', label: 'SETTINGS', x: 512, y: 300, w: 220, h: 46, rgb: '170,90,255' },
-      { id: 'menu',     label: 'MENU',     x: 512, y: 360, w: 220, h: 46, rgb: '70,160,255' },
+      { id: 'resume',   label: 'RESUME',   x: 512, y: 228, w: 220, h: 46, rgb: '255,80,220' },
+      { id: 'retry',    label: 'RETRY',    x: 512, y: 284, w: 220, h: 46, rgb: '255,200,90' },
+      { id: 'settings', label: 'SETTINGS', x: 512, y: 340, w: 220, h: 46, rgb: '170,90,255' },
+      { id: 'menu',     label: 'MENU',     x: 512, y: 396, w: 220, h: 46, rgb: '70,160,255' },
     ];
     // cache asteroid sprites: 3 variants per size/color
     this.spr = {};
@@ -149,7 +156,24 @@ SL.Survival = class {
   scoreEntry() { return { score: Math.floor(this.score), time: this.t, kills: this.stats.kills }; }
   popup(txt, x, y, rgb) { this.popups.push({ txt, x, y, rgb, life: 0.9 }); }
   shake(n) { this.shakeAmt = Math.max(this.shakeAmt, n); }
-  pause(on = true) { if (on && this.state === 'play') { this.state = 'paused'; this.sel = 0; } else if (!on && this.state === 'paused') this.state = 'play'; }
+  pause(on = true) {
+    if (on && this.state === 'play') { this.state = 'paused'; this.sel = 0; }
+    else if (!on && this.state === 'paused') { this.state = 'play'; this.restartAsk = false; }
+  }
+  canRestart() { return this.state === 'play' || this.state === 'paused'; }
+  askRestart(from = 'play') {
+    if (!this.canRestart()) return;
+    this.restartAsk = true; this.restartFrom = from; this.restartSel = 0;
+    if (this.state === 'play') this.pause(true);
+    SL.Audio.sfx.blip(700);
+  }
+  cancelRestart() {
+    if (!this.restartAsk) return;
+    this.restartAsk = false;
+    SL.Audio.sfx.blip(520);
+    if (this.restartFrom === 'play') this.pause(false);
+  }
+  retryRun() { SL.start('play'); }
 
   /* ---------------- input ---------------- */
   handleInput() {
@@ -161,6 +185,18 @@ SL.Survival = class {
     if (SL.Vol.open) return { ax: 0, ay: 0, fire: false };
     for (const d of downs) {
       if (d.role === 'ui') continue;
+      if (this.canRestart() && SL.inBtn(this.btnRestart, d)) {
+        d.role = 'ui';
+        if (this.restartAsk) this.cancelRestart();
+        else this.askRestart(this.state === 'paused' ? 'pause' : 'play');
+        continue;
+      }
+      if (this.restartAsk) {
+        const b = this.restartBtns.find(b => SL.inBtn(b, d));
+        d.role = 'ui';
+        if (b) { if (b.id === 'yes') this.retryRun(); else this.cancelRestart(); }
+        continue;
+      }
       if (SL.inBtn(this.btnPause, d)) { d.role = 'ui'; if (this.state === 'play') this.pause(true); else if (this.state === 'paused') this.pause(false); SL.Audio.sfx.blip(); continue; }
       const list = this.state === 'over' ? this.overBtns : this.state === 'paused' ? this.pauseBtns : null;
       if (list) { const b = list.find(b => SL.inBtn(b, d)); if (b) { d.role = 'ui'; if (this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry')) this.menuAction(b.id); continue; } }
@@ -171,12 +207,21 @@ SL.Survival = class {
       if (d.x > SL.W * 0.58) { d.role = 'fire'; this.fireId = d.id; }
       else if (d.y > 70) { d.role = 'joy'; this.joy = d; }
     }
+    if (this.restartAsk) {
+      if (I.hitAny('Escape', 'Backspace', 'KeyN')) this.cancelRestart();
+      else if (I.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) { this.restartSel = 1 - this.restartSel; SL.Audio.sfx.blip(520); }
+      else if (I.hitAny('Enter', 'NumpadEnter', 'KeyY') || (I.hit('Space') && this.restartSel === 0)) {
+        if (I.hit('KeyY') || this.restartSel === 0) this.retryRun(); else this.cancelRestart();
+      }
+      return { ax: 0, ay: 0, fire: false };
+    }
     if (I.hitAny('KeyP', 'Escape')) { if (this.state === 'play') this.pause(true); else if (this.state === 'paused') this.pause(false); }
     if (this.state === 'over' || this.state === 'paused') {
       const list = this.state === 'over' ? this.overBtns : this.pauseBtns;
       if (I.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) { this.sel = (this.sel + list.length - 1) % list.length; SL.Audio.sfx.blip(520); }
       const ready = this.state === 'paused' || (this.overT <= -0.5 && this.overPhase !== 'entry');
       if (ready && (I.hitAny('Enter', 'NumpadEnter') || (this.state === 'over' && I.hit('Space')))) this.menuAction(list[this.sel].id);
+      if (this.state === 'paused' && I.hit('KeyT')) this.askRestart('pause');
       return { ax: 0, ay: 0, fire: false };
     }
     // keyboard
@@ -184,6 +229,7 @@ SL.Survival = class {
     if (this.state === 'play') {
       if (I.hit('KeyF')) SL.Features.fireBomb(this);
       if (I.hit('KeyR')) SL.Features.activateAssist(this);
+      if (I.hit('KeyT')) this.askRestart('play');
     }
     // touch joystick
     if (this.joy && !I.pointers.has(this.joy.id)) this.joy = null;
@@ -199,6 +245,7 @@ SL.Survival = class {
     SL.Audio.sfx.blip(780);
     if (id === 'resume') this.pause(false);
     else if (id === 'settings') SL.Vol.openPanel();
+    else if (id === 'retry') this.retryRun();
     else if (id === 'again') SL.start(this.mode === 'story' ? 'story' : 'play');
     else if (id === 'menu') SL.start('menu');
   }
@@ -340,6 +387,7 @@ SL.Survival = class {
     if (this.state === 'paused') this.drawPause(g);
     if (this.state === 'over') this.drawOver(g);
     SL.drawScanlines(g);
+    if (this.canRestart() || this.restartAsk) this.drawRestartBtn(g);
   }
   drawHUD(g) {
     SL.neonText(g, 'SCORE', 18, 22, 14, '255,80,210', { align: 'left', blur: 8 });
@@ -359,7 +407,7 @@ SL.Survival = class {
       g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(452, 58, 120, 3);
       g.fillStyle = `rgba(${col},0.9)`; g.fillRect(452, 58, 120 * prog, 3);
     }
-    SL.neonText(g, 'BEST ' + SL.pad(Math.max(this.best, Math.floor(this.score))), 872, 22, 14, '70,160,255', { align: 'right', blur: 8 });
+    SL.neonText(g, 'BEST ' + SL.pad(Math.max(this.best, Math.floor(this.score))), 824, 22, 14, '70,160,255', { align: 'right', blur: 8 });
     SL.Features.drawHUD(this, g);
     // pause icon (speaker + settings are drawn by SL.Vol.drawChrome)
     const b = this.btnPause;
@@ -368,6 +416,16 @@ SL.Survival = class {
     g.fillStyle = 'rgba(200,225,255,0.95)';
     if (this.state === 'paused') { g.beginPath(); g.moveTo(b.x - 6, b.y - 10); g.lineTo(b.x + 10, b.y); g.lineTo(b.x - 6, b.y + 10); g.fill(); }
     else { g.fillRect(b.x - 8, b.y - 9, 5, 18); g.fillRect(b.x + 3, b.y - 9, 5, 18); }
+    g.restore();
+  }
+  drawRestartBtn(g) {
+    const b = this.btnRestart, hot = this.restartAsk;
+    g.save(); SL.roundRect(g, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 7); g.fillStyle = 'rgba(8,4,20,0.72)'; g.fill();
+    g.strokeStyle = hot ? 'rgba(255,200,90,0.95)' : 'rgba(160,200,255,0.7)'; g.lineWidth = 1.5; g.stroke();
+    g.strokeStyle = hot ? 'rgba(255,220,140,0.95)' : 'rgba(200,225,255,0.95)'; g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.arc(b.x, b.y, 8.5, 0.55, Math.PI * 2 - 0.55); g.stroke();
+    g.fillStyle = hot ? 'rgba(255,220,140,0.95)' : 'rgba(200,225,255,0.95)';
+    g.beginPath(); g.moveTo(b.x + 8.5, b.y - 7); g.lineTo(b.x + 14, b.y - 1); g.lineTo(b.x + 4, b.y - 1); g.closePath(); g.fill();
     g.restore();
   }
   drawTouch(g) {
@@ -398,7 +456,13 @@ SL.Survival = class {
   }
   drawPause(g) {
     g.fillStyle = 'rgba(3,1,12,0.65)'; g.fillRect(0, 0, SL.W, SL.H);
-    SL.neonText(g, 'PAUSED', 512, 180, 48, '255,80,220', { blur: 22 });
+    if (this.restartAsk) {
+      SL.neonText(g, 'RESTART?', 512, 210, 48, '255,80,220', { blur: 22 });
+      SL.neonText(g, this.mode === 'story' ? 'THIS LEVEL WILL START OVER' : 'THIS RUN WILL START OVER', 512, 262, 16, '160,200,255', { blur: 8, alpha: 0.9 });
+      this.restartBtns.forEach((b, i) => SL.drawButton(g, b, i === this.restartSel, this.T));
+      return;
+    }
+    SL.neonText(g, 'PAUSED', 512, 168, 48, '255,80,220', { blur: 22 });
     SL.neonText(g, SL.Input.touchMode ? 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL' : SL.CONTROLS_HINT, 512, 530, 13, '160,200,255', { blur: 5, alpha: 0.85 });
     this.pauseBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }

@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.6.0';
+SL.VERSION = '0.6.1';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -114,4 +114,4 @@ SL.store = {
   set(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} },
 };
 SL.pad = (n, len = 6) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
-SL.CONTROLS_HINT = 'MOVE WASD/ARROWS · FIRE SPACE/J · BOMB F · AVRILL R · PAUSE P/ESC · MUTE M';
+SL.CONTROLS_HINT = 'MOVE WASD/ARROWS · FIRE SPACE/J · BOMB F · AVRILL R · RETRY T · PAUSE P/ESC · MUTE M';
