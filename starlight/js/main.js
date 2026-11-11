@@ -4,9 +4,17 @@
   const stage = document.getElementById('stage'), cv = document.getElementById('c'), g = cv.getContext('2d');
   const credit = document.getElementById('credit');
   SL.view = { scale: 1 };
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+  function insets() {
+    if (!standalone()) return { t: 0, r: 0, b: 0, l: 0 };
+    const s = getComputedStyle(document.documentElement), n = v => parseFloat(s.getPropertyValue(v)) || 0;
+    return { t: n('--sat'), r: n('--sar'), b: n('--sab'), l: n('--sal') };
+  }
   function fit() {
-    const vw = innerWidth, vh = innerHeight, w = Math.min(vw, vh * 16 / 9), h = w * 9 / 16;
+    const ins = insets(), vw = Math.max(1, innerWidth - ins.l - ins.r), vh = Math.max(1, innerHeight - ins.t - ins.b);
+    const w = Math.min(vw, vh * 16 / 9), h = w * 9 / 16;
     stage.style.width = w + 'px'; stage.style.height = h + 'px'; stage.style.setProperty('--u', (h / H) + 'px');
+    stage.style.left = (ins.l + vw / 2) + 'px'; stage.style.top = (ins.t + vh / 2) + 'px';
     const dpr = Math.min(devicePixelRatio || 1, 2);
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); SL.view.scale = cv.width / W;
   }
