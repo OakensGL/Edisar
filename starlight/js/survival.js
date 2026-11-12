@@ -84,7 +84,10 @@ SL.Survival = class {
   }
   addAsteroid(size, x, y, vx, vy, color, special = null, opt = {}) {
     const ci = color ?? ((Math.random() * 3) | 0);
-    const icy = !special && this.mode === 'survival' && (opt.ice || (color == null && SL.Zones.iceMix(this.t) > 0.5));
+    const icy = !special && (opt.ice || (color == null && (
+      (this.mode === 'survival' && SL.Zones.iceMix(this.t) > 0.5) ||
+      (this.mode === 'story' && SL.Zones.isIceLevel(this.level))
+    )));
     const spr = special ? this.spr[special + size]
       : icy ? this.iceSpr[`${size}${ci}${(Math.random() * 3) | 0}`]
       : this.spr[`${size}${ci}${(Math.random() * 3) | 0}`];
@@ -340,6 +343,7 @@ SL.Survival = class {
     SL.drawSpaceBg(g);
     this.stars.draw(g, this.T, 0.7 + Math.min(0.5, this.t / 180), this.warpK || 0);
     if (this.mode === 'survival') SL.Zones.draw(g, this.t);
+    else if (this.mode === 'story' && this.level) SL.Zones.drawZone(g, SL.Zones.worldId(this.level));
     // asteroids
     for (const a of this.asteroids) {
       if (a.special) SL.glow(g, a.x, a.y, a.r * 1.6, a.r * 1.6, a.rgb, a.special === 'red' ? 0.18 + 0.14 * Math.sin(this.T * 9) : 0.22);
@@ -381,6 +385,10 @@ SL.Survival = class {
     SL.Features.drawOverlay(this, g);
     this.drawHUD(g);
     if (this.mode === 'survival' && this.state !== 'over' && this.state !== 'clear') SL.Zones.drawBanner(g, this.t);
+    if (this.mode === 'story' && this.state === 'play' && this.lv) {
+      const w = SL.Zones.world(this.level);
+      if (w && w.from === this.level) SL.Zones.drawSectorBanner(g, this.lv.t, w);
+    }
     if (!SL.Input.touchMode && this.t < 6 && this.state === 'play') SL.neonText(g, SL.CONTROLS_HINT, 512, 556, 12, '160,200,255', { blur: 4, alpha: Math.min(0.85, (6 - this.t) / 1.5) });
     if (SL.Input.touchMode && this.state !== 'over' && this.state !== 'clear' && this.state !== 'warp') this.drawTouch(g);
     this.drawTop && this.drawTop(g);

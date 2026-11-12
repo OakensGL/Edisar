@@ -984,11 +984,48 @@
     drawBanner(g, t) {
       const C = cfg(), s = at(t), dur = C.bannerTime;
       if (s.pos >= dur) return;
+      this.paintBanner(g, 'ENTERING: ' + ZONES[s.id].name, ZONES[s.id].rgb, s.pos, dur, 200);
+    },
+    /* ---------- Story: fixed world per level (no timer, no crossfade) ---------- */
+    worlds() { return (SL.CONFIG.story && SL.CONFIG.story.worlds) || []; },
+    world(L) { return this.worlds().find(w => L >= w.from && L <= w.to) || null; },
+    worldId(L) { const w = this.world(L); return w ? w.id : 'normal'; },
+    isIceLevel(L) { return this.worldId(L) === 'ice'; },
+    drawZone(g, id) {
+      if (!planetCache._warm) { this.warmup(); planetCache._warm = 1; }
+      const z = ZONES[id]; if (!z) return;
+      drawPlanet(g, z, 1); drawWash(g, z, 1);
+    },
+    drawSectorBanner(g, t, world) {
+      if (!world) return;
+      const C = cfg(), dur = C.bannerTime, z = ZONES[world.id];
+      this.paintBanner(g, world.banner, (z && z.rgb) || '160,200,255', t, dur, 168);
+    },
+    paintBanner(g, label, rgb, t, dur, y) {
+      if (t < 0 || t >= dur) return;
       let a = 1;
-      if (s.pos < 0.28) a = s.pos / 0.28;
-      else if (s.pos > dur - 0.5) a = Math.max(0, (dur - s.pos) / 0.5);
-      const z = ZONES[s.id];
-      SL.neonText(g, 'ENTERING: ' + z.name, 512, 200, 28, z.rgb, { blur: 18, alpha: a });
+      if (t < 0.28) a = t / 0.28;
+      else if (t > dur - 0.5) a = Math.max(0, (dur - t) / 0.5);
+      SL.neonText(g, label, 512, y, 28, rgb, { blur: 18, alpha: a });
+    },
+    drawIcon(g, id, x, y, size) {
+      if (!planetCache._warm) { this.warmup(); planetCache._warm = 1; }
+      const z = ZONES[id];
+      if (z && z.planet) {
+        const spr = getPlanet(z.planet);
+        g.save(); g.drawImage(spr.c, x - size / 2, y - size / 2, size, size); g.restore();
+        return;
+      }
+      g.save();
+      SL.glow(g, x, y, size * 0.9, size * 0.9, (z && z.rgb) || '160,200,255', 0.35);
+      g.strokeStyle = 'rgba(200,230,255,0.95)'; g.lineWidth = 1.6;
+      g.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 4, r = i % 2 ? size * 0.22 : size * 0.42;
+        g[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      g.closePath(); g.fillStyle = 'rgba(40,70,140,0.9)'; g.fill(); g.stroke();
+      g.restore();
     },
   };
 })();

@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.6.1';
+SL.VERSION = '0.6.2';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -36,7 +36,7 @@ SL.CONFIG = {
     mediumLateFrom: 87.5, mediumLateRamp: 0.00035,
     mediumZoneAdd: 0.04, mediumCap: 0.58,
   },
-  zones: {                 // Survival backdrops only (Story is unchanged)
+  zones: {                 // Survival loops these; Story pins one world per 5-level block
     order: ['normal', 'fire', 'ice', 'earth', 'toxic', 'nebula'],
     period: 90,            // seconds per zone, then loop
     fade: 8,               // crossfade at the end of each period
@@ -91,6 +91,14 @@ SL.CONFIG = {
     speedBase: 70, speedPerLevel: 9, speedMax: 250, speedInLevel: 0.35,
     goldPerLevel: 0.004, redPerLevel: 0.012, redFromLevel: 2,
     introTime: 2.4,
+    worlds: [              // v0.6.2: one backdrop world per 5-level block (no Survival difficulty)
+      { id: 'normal', from: 1,  to: 5,  sector: 'FLEET SPACE',   banner: 'SECTOR: FLEET SPACE',   line: 'Leaving Fleet base. Let\'s keep the belt clean.' },
+      { id: 'earth',  from: 6,  to: 10, sector: 'EARTH ORBIT',   banner: 'SECTOR: EARTH ORBIT',   line: "Earth below us. That's what we fight for." },
+      { id: 'ice',    from: 11, to: 15, sector: 'ICE FIELDS',    banner: 'SECTOR: ICE FIELDS',    line: 'Ice sector ahead. Stay sharp, Oakens.' },
+      { id: 'fire',   from: 16, to: 20, sector: 'FIRE BELT',     banner: 'SECTOR: FIRE BELT',     line: 'Fire belt. Watch your hull temperature.' },
+      { id: 'toxic',  from: 21, to: 25, sector: 'TOXIC EXPANSE', banner: 'SECTOR: TOXIC EXPANSE', line: "Toxic space... this is Nebula's turf." },
+      { id: 'nebula', from: 26, to: 30, sector: 'THE VOID',      banner: 'SECTOR: THE VOID',      line: 'A black hole? Why would the Commander hide out here?' },
+    ],
     bonus: { perKill: 25, accuracy: 2000, timePerSec: 20, comboStep: 500, bossPerEncounter: 3000, weakPointPerEncounter: 300 },
     boss: {
       every: 5, y: 168, halfW: 190, halfH: 55, shotHalfH: 30,   // shotHalfH: hull area that blocks shots, kept above the weak points

@@ -104,6 +104,7 @@ SL.Cutscene = class {
   draw(g) {
     const W = SL.W, H = SL.H, [who, text] = this.line, S = SPEAKERS[who], T = this.T;
     SL.drawSpaceBg(g); this.stars.draw(g, T, 0.5);
+    if (SL.Zones && SL.game && SL.game.level) SL.Zones.drawZone(g, SL.Zones.worldId(SL.game.level));
     g.fillStyle = 'rgba(2,1,8,0.55)'; g.fillRect(0, 0, W, H);
     // optional visual: Nebula's data capsule floating (scene after level 5)
     if (this.scene.capsule) {

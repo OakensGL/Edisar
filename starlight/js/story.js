@@ -192,7 +192,10 @@ SL.Story = class extends SL.Survival {
     this.lives = this.C.ship.startLives;                     // every mission starts with full lives
     this.warpK = 0; this.warpT = 0; this._pops = {};
     this.chat = boss ? [] : SL.Chatter.plan(L, this.lv.dur);   // v0.4.5 radio chatter schedule
-    this.theme = SL.Features.story.worldTheme(L);            // hook: palette change every 10 levels (not used yet)
+    this.theme = SL.Features.story.worldTheme(L);
+    // v0.6.2: Avrill sector line at the first level of each world, after the intro card (chatter waits if a line is queued)
+    const world = SL.Zones.world(L);
+    if (world && world.from === L && world.line) this.say(world.line, 'normal', S.introTime + 0.3, 'avrill');
     SL.Features.story.onLevelStart(this, L);
     this.boss = null;
     if (boss && L === SL.FINAL_LEVEL && this.startFinal) this.startFinal();   // v0.5.0 final level (final.js)

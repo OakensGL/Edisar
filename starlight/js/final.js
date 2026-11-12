@@ -234,6 +234,7 @@ class FinalOpening {
     const T = this.step === 'fly' ? this.T : this.T2;
     g.save(); if (this.shakeAmt > 0.1) g.translate((Math.random() - 0.5) * this.shakeAmt, (Math.random() - 0.5) * this.shakeAmt);
     SL.drawSpaceBg(g); this.stars.draw(g, T, 1.2);
+    if (SL.Zones) SL.Zones.drawZone(g, 'nebula');
     const ship = (sp, x, y, rgb) => { SL.glow(g, x, y + 22, 12, 22, rgb, 0.4); const sz = sp.size; g.drawImage(sp.c, x - sz / 2, y - sz / 2, sz, sz); };
     if (this.step === 'fly') {
       const ox = 440 + Math.sin(T * 0.9) * 24, oy = 430 + Math.sin(T * 1.7) * 8;

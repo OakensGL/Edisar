@@ -46,9 +46,11 @@ SL.Map = (() => {
   const clampCam = x => Math.max(0, Math.min(maxCam(), x));
   const focus = L => { camT = clampCam(nodeX(L) - W * 0.42); };
   const info = L => {
-    if (isFinal(L)) return 'FINAL MISSION';
-    if (isBoss(L)) return `BOSS · DR. NEBULA'S PROTOTYPE MK-${roman(L / SC().boss.every)}`;
-    return `DESTROY ${SC().goalBase + SC().goalPerLevel * (L - 1)} ASTEROIDS · HOLD THE SECTOR ${fmt(SL.Story.levelDuration(L))}`;
+    const world = SL.Zones && SL.Zones.world(L);
+    const sector = world ? world.sector : '';
+    if (isFinal(L)) return sector ? `FINAL MISSION · ${sector}` : 'FINAL MISSION';
+    if (isBoss(L)) return `BOSS · DR. NEBULA'S PROTOTYPE MK-${roman(L / SC().boss.every)}` + (sector ? ` · ${sector}` : '');
+    return `DESTROY ${SC().goalBase + SC().goalPerLevel * (L - 1)} ASTEROIDS · HOLD THE SECTOR ${fmt(SL.Story.levelDuration(L))}` + (sector ? ` · ${sector}` : '');
   };
   function select(L, say = true) {
     const u = SL.Progress.unlocked;
@@ -104,6 +106,7 @@ SL.Map = (() => {
       const u = SL.Progress.unlocked; sel = Math.max(1, Math.min(u, o.sel || u));
       focus(sel); camX = camT;
       if (!belt || beltN < count()) buildBelt(count() + 6);
+      if (SL.Zones) SL.Zones.warmup();
       SL.Audio.playTrack('main');
       pendingSubmit = !!o.submit;          // v0.5.0: after the end credits, rank the finished run right away
     },
@@ -136,10 +139,25 @@ SL.Map = (() => {
     },
     draw(g) {
       const u = SL.Progress.unlocked, N = count();
+      const last = Math.min(N + 1, FIN());            // route ends at the final level
       SL.drawSpaceBg(g); stars.draw(g, T, 0.6);
       // distant nebula clouds (parallax)
       for (let i = 0; i < 8; i++) { const x = ((i * 520 + 200) - camX * 0.4) % 2600 - 300, y = 120 + (i * 137) % 340; SL.glow(g, x, y, 260, 140, ['200,40,180', '40,90,255', '140,60,255'][i % 3], 0.07); }
       g.save(); g.translate(-camX, 0);
+      // v0.6.2: cheap per-world tint along the route, plus a small planet icon and sector label
+      const worlds = (SL.Zones && SL.Zones.worlds()) || [];
+      g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      for (const w of worlds) {
+        const z = SL.Zones.defs[w.id], rgb = (z && z.rgb) || '170,120,255';
+        const x0 = nodeX(w.from) - 70, x1 = nodeX(Math.min(w.to, last)) + 70;
+        g.beginPath();
+        for (let x = x0; x <= x1; x += 20) {
+          const L = (x - X0) / STEP + 1, y = Y0 + Math.sin((L - 1) * 0.9) * 92;
+          x <= x0 ? g.moveTo(x, y) : g.lineTo(x, y);
+        }
+        g.strokeStyle = `rgba(${rgb},0.16)`; g.lineWidth = 220; g.stroke();
+      }
+      g.restore();
       // asteroid belt dust band
       g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
       for (const [w, a] of [[230, 0.025], [150, 0.03]]) { g.beginPath(); for (let x = -100; x < nodeX(N + 2); x += 20) { const L = (x - X0) / STEP + 1, y = Y0 + Math.sin((L - 1) * 0.9) * 92; x < -90 ? g.moveTo(x, y) : g.lineTo(x, y); } g.strokeStyle = `rgba(170,120,255,${a})`; g.lineWidth = w; g.stroke(); }
@@ -150,7 +168,6 @@ SL.Map = (() => {
       }
       // route line
       const seg = (a, b) => { g.beginPath(); g.moveTo(nodeX(a), nodeY(a)); const mx = (nodeX(a) + nodeX(b)) / 2; g.bezierCurveTo(mx, nodeY(a), mx, nodeY(b), nodeX(b), nodeY(b)); };
-      const last = Math.min(N + 1, FIN());            // route ends at the final level
       for (let L = 1; L < last; L++) {
         const lit = L + 1 <= u, fade = L >= N ? 0.35 : 1;
         g.save(); g.globalAlpha = fade; g.lineCap = 'round';
@@ -159,6 +176,15 @@ SL.Map = (() => {
           seg(L, L + 1); g.strokeStyle = 'rgba(255,120,235,0.95)'; g.lineWidth = 3.5; g.shadowColor = 'rgba(255,80,220,1)'; g.shadowBlur = 14 * SL.view.scale; g.stroke();
           seg(L, L + 1); g.setLineDash([4, 18]); g.lineDashOffset = -T * 40; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2; g.shadowBlur = 0; g.stroke();
         } else { seg(L, L + 1); g.setLineDash([6, 10]); g.strokeStyle = 'rgba(140,110,220,0.45)'; g.lineWidth = 2.5; g.stroke(); }
+        g.restore();
+      }
+      for (const w of worlds) {
+        if (w.from > last) continue;
+        const x = nodeX(w.from), y = nodeY(w.from), z = SL.Zones.defs[w.id], rgb = (z && z.rgb) || '160,200,255';
+        const locked = w.from > u, fade = w.from > N ? 0.3 : locked ? 0.55 : 1;
+        g.save(); g.globalAlpha = fade;
+        SL.Zones.drawIcon(g, w.id, x - (w.from === 1 ? 56 : 52), y - 52, 44);
+        SL.neonText(g, w.sector, x, y - 72, 11, rgb, { blur: 6, alpha: 0.9 });
         g.restore();
       }
       // nodes
@@ -208,7 +234,9 @@ SL.Map = (() => {
       // info panel
       g.save(); SL.roundRect(g, 14, 470, 996, 92, 12); g.fillStyle = 'rgba(4,2,14,0.85)'; g.fill(); g.strokeStyle = 'rgba(170,90,255,0.4)'; g.lineWidth = 1; g.stroke(); g.restore();
       const boss = isBoss(sel);
-      SL.neonText(g, `LEVEL ${sel}` + (boss ? ' · DR. NEBULA' : ''), 34, 494, 22, isFinal(sel) ? '255,225,140' : boss ? '255,90,90' : '255,80,220', { align: 'left', blur: 12 });
+      const world = SL.Zones && SL.Zones.world(sel);
+      const worldTag = world ? ' · ' + world.sector : '';
+      SL.neonText(g, `LEVEL ${sel}` + (isFinal(sel) ? '' : boss ? ' · DR. NEBULA' : worldTag), 34, 494, 22, isFinal(sel) ? '255,225,140' : boss ? '255,90,90' : (world && SL.Zones.defs[world.id] ? SL.Zones.defs[world.id].rgb : '255,80,220'), { align: 'left', blur: 12 });
       SL.neonText(g, info(sel), 34, 522, 14, '200,210,255', { align: 'left', blur: 5 });
       const clr = sel < u || (isFinal(sel) && SL.Progress.completed);
       SL.neonText(g, clr ? '✓ CLEARED · REPLAY ANYTIME' : 'NEXT MISSION', 34, 546, 12, clr ? '90,230,150' : '255,220,90', { align: 'left', blur: 5 });

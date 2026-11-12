@@ -391,7 +391,7 @@ F.story = {
   energySystem: { enabled: false },                                              // TODO: ship energy instead of lives
   onLevelStart(game, level) {},                       // per-level setup hook (special waves, events)
   cutsceneBetween(fromLevel, toLevel) { return null; },  // TODO: story clue cutscenes; return {frames...} to play
-  worldTheme(level) { return { index: Math.floor((level - 1) / 10), changed: level > 1 && (level - 1) % 10 === 0 }; }, // TODO: palette swap every 10 levels
+  worldTheme(level) { const w = SL.Zones && SL.Zones.world(level); return { id: w && w.id, index: w ? SL.Zones.worlds().indexOf(w) : 0, changed: !!(w && w.from === level) }; },
   postCredits(opt) { return null; },                   // hook: post-credits scene (radio message, needs a voice recording); return { play(done) }
   isFinalLevel(level) { return this.finalLevel.enabled && level >= this.finalLevel.level; },
 };
