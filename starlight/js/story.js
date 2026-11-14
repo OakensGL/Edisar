@@ -186,6 +186,8 @@ SL.Story = class extends SL.Survival {
     this.asteroids.length = 0; this.bullets.length = 0; this.ebullets = []; this.pickups.length = 0; this.bombShots.length = 0; this.blasts.length = 0;
     this.weapon = null; SL.Features.clearBuffs(this); this.dialogs = []; this.dialog = null; this.clearData = null; this.escort = null;
     this.introT = S.introTime; this.spawnHold = S.introTime; this.spawnT = 0.3;
+    // v0.6.5: boss fights get self-spawned pickups; other missions keep the usual rare drift
+    this.dropT = boss ? S.introTime + 1.2 : (SL.CONFIG.pickups.driftEvery[0] + Math.random() * (SL.CONFIG.pickups.driftEvery[1] - SL.CONFIG.pickups.driftEvery[0]));
     this.goldBonus = S.goldPerLevel * L; this.redBonus = S.redPerLevel * (L - 1); this.redAfter = L >= S.redFromLevel ? -1 : 1e9;
     const sh = this.ship; Object.assign(sh, { x: SL.W / 2, y: this.C.ship.startY, vx: 0, vy: 0, alive: true });
     sh.invuln = Math.max(sh.invuln, 1.5);
@@ -203,6 +205,8 @@ SL.Story = class extends SL.Survival {
     else SL.Audio.playTrack('main');
     SL.Events.emit('levelStart', { level: L, boss });
   }
+  // v0.6.5: no asteroids during Nebula (L5/10/15/20/25) or Edisar (L30) fights
+  spawn() { if (this.lv && this.lv.boss) return null; return super.spawn(); }
   get spawnInterval() {
     const S = SC(); if (this.lv && this.lv.boss) return S.boss.asteroidInterval;
     return Math.max(S.spawnMin, S.spawnBase - S.spawnPerLevel * (this.level - 1) - S.spawnInLevel * (this.lv ? this.lv.t : 0));

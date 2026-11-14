@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.6.4';
+SL.VERSION = '0.6.5';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -110,7 +110,8 @@ SL.CONFIG = {
       intervalScale: 1.22,                                // v0.5.5: all Nebula bosses ~18% fewer bullets/s (intervals stretched; counts/HP unchanged)
       bulletScale: [1, 1, 1, 0.66, 0.45],            // v0.5.3/0.5.4: bullet COUNT multiplier per boss tier (L5,10,15,20,25); weak-point reduction still applies on top
       bombDamage: 8, assistDamage: 0.3,             // assist screen-clear takes 30% of each weak point's max HP
-      tauntEvery: [13, 19], asteroidInterval: 2.6,
+      tauntEvery: [13, 19], asteroidInterval: 2.6,   // unused in v0.6.5: boss fights no longer spawn asteroids
+      pickupEvery: [6, 8], pickupCap: 3,             // v0.6.5: self-spawned power-ups during Nebula / Edisar fights
     },
   },
   storage: { best: 'starlight.survival.best', muted: 'starlight.muted', music: 'starlight.musicVol', sfx: 'starlight.sfxVol', musicOn: 'starlight.musicOn', unlocked: 'starlight.story.unlocked' },

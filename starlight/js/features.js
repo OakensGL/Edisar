@@ -171,8 +171,15 @@ const F = SL.Features = {
     const P = C().pickups, s = g.ship, AC = C().assist, A = g.assist;
     g.flash = Math.max(0, g.flash - dt * 1.8); g.spawnHold = Math.max(0, g.spawnHold - dt);
     if (g.state !== 'play') return;
-    // drift-in pickups
-    g.dropT -= dt; if (g.dropT <= 0) { F.drop(g, rand(80, SL.W - 80), -20); g.dropT = rand(...P.driftEvery); }
+    // drift-in pickups (normal levels / Survival: rare. Story boss fights: every few seconds, capped)
+    const bossDrops = !!(g.lv && g.lv.boss && !g.lv.done);
+    const every = bossDrops ? (C().story.boss.pickupEvery || [6, 8]) : P.driftEvery;
+    const cap = bossDrops ? (C().story.boss.pickupCap || 3) : 1e9;
+    g.dropT -= dt;
+    if (g.dropT <= 0) {
+      if (g.pickups.length < cap) F.drop(g, rand(80, SL.W - 80), -20);
+      g.dropT = rand(...every);
+    }
     for (const p of g.pickups) {
       p.t += dt; p.y += P.fallSpeed * dt; p.x += Math.sin(p.t * 2) * 20 * dt;
       if (g.magnet > 0 && s.alive) {

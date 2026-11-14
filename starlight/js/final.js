@@ -277,6 +277,7 @@ P.beginFinalFight = function () {
   const S = SL.CONFIG.story, pts = TURRETS.map(t => ({ ox: t.ox, oy: t.oy, hp: FB.turretHp, max: FB.turretHp, flash: 0, r: 15 }));
   this.boss = { final: true, e: 6, x: 512, y: -200, t: 0, phase: 'enter', stage: 1, pts, maxHp: 4 * FB.turretHp + FB.coreHp, atkT: 2.2, pi: 0, spiral: 0, spinA: 0, tauntT: 16, fx: 0, lightT: 2.5, gun: 0 };
   this.bolts = []; this.introT = S.introTime; this.spawnHold = S.introTime; this.lv.t = 0;
+  this.dropT = S.introTime + 1.2;   // v0.6.5: first self-spawned pickup after the enter
   SL.Audio.setMusicVolume(1); SL.Audio.playTrack('finalBoss'); SL.Audio.sfx.alarm();
   SL.Events.emit('finalFight', {});
 };
