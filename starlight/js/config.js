@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.6.3';
+SL.VERSION = '0.6.4';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 

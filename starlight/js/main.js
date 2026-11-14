@@ -30,8 +30,11 @@
       // debug jump: ?level=N (1..99) skips the map. Harmless: debug runs are marked, never ranked, never unlock levels.
       const m = /[?&]level=(\d{1,2})\b/.exec(location.search);
       if (m) { SL.state = 'play'; SL.game = new SL.Story(Math.max(1, Math.min(SL.FINAL_LEVEL, +m[1])), true); }
-      else if (SL.Progress.shouldPlayIntro()) return SL.start('intro');
-      else return SL.start('map', { session: null });
+      else {
+        // v0.6.4: always play the crawl, then go where Story would have gone.
+        const then = () => SL.Progress.unlocked === 1 ? SL.startMission(1) : SL.start('map', { session: null });
+        return SL.start('intro', { then });
+      }
     }
     else if (s === 'intro') { SL.state = 'intro'; SL.game = null; SL.Intro.enter(opt); }
     else if (s === 'map') { SL.state = 'map'; SL.game = null; SL.Map.enter(opt); }

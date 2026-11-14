@@ -8,7 +8,6 @@ SL.Progress = {
   unlock(n) { if (n > this.unlocked) SL.store.set(SL.CONFIG.storage.unlocked, Math.min(SL.FINAL_LEVEL, n)); },
   get introSeen() { return SL.store.get('starlight.story.introSeen', '0') === '1'; },
   seeIntro() { SL.store.set('starlight.story.introSeen', '1'); },
-  shouldPlayIntro() { return this.unlocked === 1 && !this.introSeen; },
 };
 SL.Map = (() => {
   const { W, H } = SL, SC = () => SL.CONFIG.story;
@@ -21,7 +20,6 @@ SL.Map = (() => {
   let pendingSubmit = false, T = 0, sel = 1, camX = 0, camT = 0, drag = null, msg = null, phase = 'map', session = null, hiRank = -1;
   const stars = new SL.Starfield(0.8);
   const backBtn = { id: 'back', label: 'BACK', x: 72, y: 30, w: 116, h: 34, rgb: '70,160,255', size: 16 };
-  const introBtn = { id: 'intro', label: 'WATCH INTRO', x: 236, y: 30, w: 168, h: 34, rgb: '160,200,255', size: 14 };
   const playBtn = { id: 'play', label: 'LAUNCH', x: 868, y: 512, w: 200, h: 46, rgb: '255,80,220' };
   // Nebula icon (downscaled portrait, round)
   const nimg = new Image(); nimg.src = 'assets/nebula.jpg'; let nIcon = null;
@@ -66,11 +64,6 @@ SL.Map = (() => {
     if (sel > SL.Progress.unlocked) { SL.Audio.sfx.deny(); return; }
     SL.Audio.sfx.launch(); SL.startMission(sel, false, session);
   }
-  function watchIntro() {
-    SL.Audio.sfx.blip(780);
-    const sess = session, cur = sel;
-    SL.start('intro', { replay: true, then: () => SL.start('map', { session: sess, sel: cur }) });
-  }
   function leave() {
     // leaving the map ends the session: rank it if it qualifies
     const u = SL.Progress.unlocked, e = session && { score: session.score, level: u, time: session.time, kills: session.kills };
@@ -101,7 +94,6 @@ SL.Map = (() => {
   }
   function tap(p) {
     if (SL.inBtn(backBtn, p)) return leave();
-    if (SL.inBtn(introBtn, p)) return watchIntro();
     if (SL.inBtn(playBtn, p)) return launch();
     const L = nodeAt(p); if (!L) return;
     if (L === sel && L <= SL.Progress.unlocked) launch(); else select(L);
@@ -239,7 +231,6 @@ SL.Map = (() => {
       SL.neonText(g, 'MISSION MAP', 512, 24, 30, '255,80,220', { blur: 18 });
       SL.neonText(g, `STORY MODE · ${SL.Progress.completed ? `ALL ${SL.FINAL_LEVEL} CLEARED` : `${u - 1} CLEARED`}`, 512, 48, 11, '160,200,255', { blur: 4, alpha: 0.85 });
       SL.drawButton(g, backBtn, false, T);
-      SL.drawButton(g, introBtn, false, T);
       SL.neonText(g, 'SESSION', 870, 20, 11, '160,200,255', { align: 'right', blur: 4 });
       SL.neonText(g, SL.pad(session ? session.score : 0), 870, 40, 18, '255,235,255', { align: 'right', blur: 8 });
       // info panel
