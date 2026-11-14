@@ -17,6 +17,7 @@ SL.Credits = (() => {
     ['"Full Moon" (end credits)', 'Marcelo Fernández, migfus20 & ISAo  ·  mix by glitchart'],
     ['"Last One Standing" (final battle)', 'Centurion_of_war'],
     ['"Angel Eyes (Vision II)"', 'Kim Lightyear (KLY)'],
+    ['"Neon Owl" (opening crawl)', 'Zodik'],
     ['"The Last Encounter"', 'Matthew Pablo, Zefz & neocrey  ·  mix by glitchart'],
     ['"HellDrake"', 'Centurion_of_war'],
   ];

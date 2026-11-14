@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.6.2
+PROJECT STARLIGHT v0.6.3
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -10,6 +10,13 @@ MUSIC
 Source:  https://opengameart.org/content/angel-eyes-vision-ii
 License: CC-BY-SA 3.0 / 4.0  (https://creativecommons.org/licenses/by-sa/4.0/)
 File:    assets/angel-eyes-vision-ii.mp3 (used unmodified)
+
+INTRO CRAWL MUSIC
+-----------------
+"Neon Owl" by Zodik
+Source:  https://opengameart.org/content/zodik-neon-owl
+License: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+File:    assets/zodik-neon-owl.ogg (used unmodified)
 
 STORY MODE MUSIC
 ----------------
@@ -61,3 +68,4 @@ v0.5.9: Avrill dialogue portrait cut out onto a clean dark background (no title-
 v0.6.0: Survival backdrop zones (Normal, Fire, Ice, Earth, Toxic, Nebula/Black Hole) with ice-tinted asteroids, an enter-zone banner, and difficulty that keeps ramping past a loop.
 v0.6.1: mid-run RETRY from the pause menu and a HUD restart button with a YES/NO confirm (T to ask; R stays the assist). On level 30, each Nebula assist plays a short non-blocking radio line, alternating "You built a fleet. I built a grudge. Die, Starlight!" and "Light him up, Oakens!"
 v0.6.2: Story mode uses Survival backdrop worlds in 5-level blocks (Fleet Space, Earth Orbit, Ice Fields, Fire Belt, Toxic Expanse, The Void), with a sector banner and a short Avrill radio line at the start of each new world.
+v0.6.3: a skippable opening crawl plays once at the start of a new Story, over a painted Fleet-base observation deck (Edisar, Avrill and Oakens at the window); WATCH INTRO on the mission map replays it.

@@ -1,7 +1,7 @@
 /* Music (HTMLAudio, looping) + synthesized SFX (WebAudio). Unlocked on first user gesture. */
 SL.Audio = (() => {
   // Music tracks (all files used unmodified; credits in CREDITS.txt)
-  const TRACKS = { main: 'assets/angel-eyes-vision-ii.mp3', boss: 'assets/helldrake-extended.ogg', clear: 'assets/the-last-encounter-mix.ogg',
+  const TRACKS = { main: 'assets/angel-eyes-vision-ii.mp3', intro: 'assets/zodik-neon-owl.ogg', boss: 'assets/helldrake-extended.ogg', clear: 'assets/the-last-encounter-mix.ogg',
     // v0.5.0 final level + end credits
     finalIntro: 'assets/last-one-standing-6_initial_0.ogg', finalBoss: 'assets/last-one-standing-6low_0.ogg', credits: 'assets/full-moon-mix.ogg' };
   const BASE_VOL = 0.65;
@@ -146,12 +146,12 @@ SL.Vol = (() => {
     { id: 'sfx',   label: 'SFX',   x: 512, y: 338, w: 300 },
   ];
   function hidden() {
-    if (SL.state === 'credits') return true;
+    if (SL.state === 'credits' || SL.state === 'intro') return true;
     if (SL.game && (SL.game.state === 'cutscene' || SL.game.state === 'warp')) return true;
     if (SL.state === 'map' && SL.Map && (SL.Map.phase === 'entry' || SL.Map.phase === 'table')) return true;
     return false;
   }
-  function inGame() { return !!(SL.game && SL.state !== 'title' && SL.state !== 'map' && SL.state !== 'credits'); }
+  function inGame() { return !!(SL.game && SL.state !== 'title' && SL.state !== 'map' && SL.state !== 'credits' && SL.state !== 'intro'); }
   function speakerBtn() { return inGame() ? { x: 900, y: 26, w: 44, h: 36 } : { x: 948, y: 26, w: 44, h: 36 }; }
   function gearBtn()     { return inGame() ? { x: 948, y: 26, w: 44, h: 36 } : { x: 996, y: 26, w: 44, h: 36 }; }
   function value(id) { return id === 'music' ? SL.Audio.musicUser : SL.Audio.sfxUser; }
