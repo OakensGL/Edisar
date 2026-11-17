@@ -1,6 +1,6 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.7.2';
+SL.VERSION = '0.7.3';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
@@ -86,6 +86,7 @@ SL.CONFIG = {
     // If the timer runs out first, keep playing until the goal (same as before). Boss levels are unchanged.
     durBase: 60, durPerLevel: 5, durMax: 150,
     goalBase: 30, goalPerLevel: 5,
+    goalMul: 1.5, durMul: 1.5,   // v0.7.3: normal Story missions last ~50% longer (bosses unchanged)
     warpTime: 2.3,                                 // warp-exit animation (s) before the recount
     spawnBase: 1.45, spawnPerLevel: 0.07, spawnMin: 0.34, spawnInLevel: 0.0025,
     speedBase: 70, speedPerLevel: 9, speedMax: 250, speedInLevel: 0.35,

@@ -52,7 +52,7 @@ SL.Map = (() => {
     const sector = world ? world.sector : '';
     if (isFinal(L)) return sector ? `FINAL MISSION · ${sector}` : 'FINAL MISSION';
     if (isBoss(L)) return `BOSS · DR. NEBULA'S PROTOTYPE MK-${roman(L / SC().boss.every)}` + (sector ? ` · ${sector}` : '');
-    return `DESTROY ${SC().goalBase + SC().goalPerLevel * (L - 1)} ASTEROIDS · HOLD THE SECTOR ${fmt(SL.Story.levelDuration(L))}` + (sector ? ` · ${sector}` : '');
+    return `DESTROY ${SL.Story.levelGoal(L)} ASTEROIDS · HOLD THE SECTOR ${fmt(SL.Story.levelDuration(L))}` + (sector ? ` · ${sector}` : '');
   };
   function select(L, say = true) {
     const u = SL.Progress.unlocked;

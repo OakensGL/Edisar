@@ -181,7 +181,7 @@ SL.Story = class extends SL.Survival {
     }
     const S = SC(), boss = L % S.boss.every === 0;
     this.level = L; this.state = 'play';
-    this.lv = { boss, goal: boss ? 0 : S.goalBase + S.goalPerLevel * (L - 1), dur: boss ? 0 : SL.Story.levelDuration(L), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
+    this.lv = { boss, goal: boss ? 0 : SL.Story.levelGoal(L), dur: boss ? 0 : SL.Story.levelDuration(L), kills: 0, t: 0, shots0: this.stats.shots, hits0: this.stats.bulletHits || 0,
       score0: this.score, maxMult: this.mult, done: false, doneT: 0 };
     this.asteroids.length = 0; this.bullets.length = 0; this.ebullets = []; this.pickups.length = 0; this.bombShots.length = 0; this.blasts.length = 0;
     this.weapon = null; SL.Features.clearBuffs(this); this.dialogs = []; this.dialog = null; this.clearData = null; this.escort = null;
@@ -467,7 +467,8 @@ SL.Story = class extends SL.Survival {
     }
     this.stars.update(dt, 0.6); this.fx.update(dt);
   }
-  static levelDuration(L) { const S = SC(); return Math.min(S.durMax, S.durBase + S.durPerLevel * (L - 1)); }
+  static levelGoal(L) { const S = SC(); return Math.round((S.goalBase + S.goalPerLevel * (L - 1)) * (S.goalMul || 1)); }
+  static levelDuration(L) { const S = SC(); return Math.min(S.durMax, S.durBase + S.durPerLevel * (L - 1)) * (S.durMul || 1); }
   nextLevel() {
     const from = this.level, to = from + 1;
     const cut = SL.Features.story.cutsceneBetween(from, to);   // hook: story clue cutscene (null for now)

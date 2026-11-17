@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.7.2
+PROJECT STARLIGHT v0.7.3
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -74,3 +74,4 @@ v0.6.5: during Story boss fights against Dr. Nebula (levels 5, 10, 15, 20, 25) a
 v0.7.0: Skin Store on the main menu, with SKINS and BOOSTS tabs. Coins are earned from gold asteroids, completed Story missions, and time survived in Survival. Seven skins plus the default ship change hull colors, shots and trail; some are bought with coins, others unlock by finishing Story, defeating Edisar, defeating every Nebula boss, destroying 5,000 asteroids, a 2:00 no-hit Survival streak, or a no-death Story run. One-use boosts (extra bombs, Avrill fully charged, starting Shield, random power-up) are bought with coins, armed in the store, and applied at the start of the next run or level.
 v0.7.1: Avrill's warp-out escort line after Story missions (levels 1–29) is picked at random from a larger set and does not repeat the previous line. During Commander Edisar's core phase (level 30), shots that hit the flagship hull deal reduced damage, and a direct hit on the core deals extra damage with a CRITICAL flash.
 v0.7.2: the end-credits memorial line now reads: "In memory of Avrill, who fought for humankind until the very end."
+v0.7.3: normal Story missions require 50% more asteroids (kill goals rounded to the nearest integer) and their sector time limits are scaled by the same amount so the extra goal stays achievable. Boss fights (levels 5, 10, 15, 20, 25, 30) and Survival are unchanged.
