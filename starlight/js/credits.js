@@ -1,7 +1,7 @@
 /* v0.5.0 END CREDITS — canvas port of the approved preview (credits-preview/render.py).
    Laid out in the preview's 1280x720 space and scaled to the 1024x576 game canvas.
    Drifting neon star layers, flat upward crawl with edge fade, background art at 35% with a slow shared zoom,
-   2.5 s eased crossfade to Avrill's memorial art at 55% when the "Supernova" dedication enters, music fades at the end. */
+   2.5 s eased crossfade to Avrill's memorial art at 55% when the memorial dedication enters, music fades at the end. */
 SL.Credits = (() => {
   const CW = 1280, CH = 720, FONT = '"DejaVu Sans", Verdana, Arial, Helvetica, sans-serif';
   const PARAS = [
@@ -10,7 +10,7 @@ SL.Credits = (() => {
     'Together, Oakens and Nebula rebuilt the asteroid belt, the ancient shield that had always protected our world.',
     'The Starlight Fleet was disbanded. Its ships now guard the belt instead of breaking it.',
     'Oakens still flies the same route every night, with one empty wing beside him.',
-    'This game is dedicated to the memory of Avrill "Supernova", who died defending what she believed in.',
+    'In memory of Avrill, who fought for humankind until the very end.',
     'Some stars burn brightest at the very end.',
   ];
   const MUSIC = [
