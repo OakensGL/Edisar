@@ -13,6 +13,7 @@
     html,body{margin:0;background:#0a0508;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
     #wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;}
     canvas#game{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;display:block}
+    #wrap.aiming canvas#game{cursor:none}
     #touch{display:none;position:fixed;inset:0;pointer-events:none;z-index:5}
     #touch.on{display:block}
     .tb{pointer-events:auto;position:absolute;border:2px solid rgba(200,220,255,.35);background:rgba(10,6,12,.42);color:rgba(230,240,255,.85);
@@ -39,6 +40,7 @@
     <div class="tb" id="btnBomb">BOMB</div>
     <div class="tb" id="btnPause">II</div>
   </div>
+  <script src="js/input.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
