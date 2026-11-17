@@ -294,20 +294,20 @@ const F = SL.Features = {
     const A = g.assist;
     if (A.readyPop && A.phase === 'idle' && A.readyPop.t < 2.4) {   // v0.5.5: once-per-charge Avrill ready line
       SL.dialogPopup(ctx, g, 'avrillReady', { side: 'left', t: A.readyPop.t, dur: 2.4, name: C().assist.pilot, rgb: '255,80,220',
-        lines: ['Ready when you are.'], typed: Math.floor((A.readyPop.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
+        text: 'Ready when you are.', typed: Math.floor((A.readyPop.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
     }
     const popDur = (g.assistKind === 'nebula') ? F.POP_DUR + 0.6 : F.POP_DUR;
     if (A.phase !== 'active' || A.t > popDur) return;
     if (g.assistKind === 'nebula') {
       const text = A.line || F.NEBULA_ASSIST[0];
       SL.dialogPopup(ctx, g, 'nebulaAssist', { side: 'left', t: A.t, dur: popDur, name: 'Dr. Nebula', rgb: '255,70,70',
-        lines: F.nebulaAssistLines(text), typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') });
+        text, typed: Math.floor((A.t - 0.2) * 40), por: SL.nebulaPortrait && SL.nebulaPortrait('normal') });
       return;
     }
     // v0.4.1: compact semi-transparent popup, top-left corner (see SL.dialogPopup)
-    const line = C().assist.line, cut = line.indexOf(',') + 1;
+    const line = C().assist.line;
     SL.dialogPopup(ctx, g, 'avrill', { side: 'left', t: A.t, dur: F.POP_DUR, name: C().assist.pilot, rgb: '255,80,220',
-      lines: [line.slice(0, cut), line.slice(cut).trim()], typed: Math.floor((A.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
+      text: line, typed: Math.floor((A.t - 0.2) * 40), por: F.portrait(), textRgb: '255,235,255' });
   },
   POP_DUR: 2.6,
   NEBULA_ASSIST: [

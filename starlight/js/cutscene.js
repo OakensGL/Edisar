@@ -129,16 +129,26 @@ SL.Cutscene = class {
     g.save(); SL.roundRect(g, px, py, ps, ps, 14); g.strokeStyle = `rgba(${S.rgb},1)`; g.lineWidth = 3; g.shadowColor = `rgba(${S.rgb},1)`; g.shadowBlur = 18 * SL.view.scale; g.stroke(); g.restore();
     if (S.radio) SL.neonText(g, '◉ INCOMING TRANSMISSION', px + ps / 2, py + ps + 20, 12, S.rgb, { blur: 6, alpha: 0.6 + 0.4 * Math.sin(T * 6) });
     if (S.private) SL.neonText(g, 'ENCRYPTED LINK', px + ps / 2, py + ps + 20, 12, S.rgb, { blur: 6, alpha: 0.85 });
-    // dialogue box
-    const bx = 30, by = 362, bw = W - 60, bh = 182;
+    // dialogue box (v0.7.4: wrap to the box width; grow height to fit, shrink font last; keep the hint below)
+    const bx = 30, bw = W - 60, maxTextW = bw - 52, hintY = 562;
+    let size = 25, lh = 34, lines = SL.wrapText(g, text, maxTextW, size);
+    const boxH = (n, s, h) => Math.max(182, 30 + 22 + 22 + n * h + 28);
+    let bh = boxH(lines.length, size, lh);
+    const maxBh = hintY - 348 - 10;   // portrait label sits around y=342; leave a gap above the hint
+    while (bh > maxBh && size > 16) {
+      size -= 1; lh = Math.max(size + 6, Math.round(size * 34 / 25));
+      lines = SL.wrapText(g, text, maxTextW, size);
+      bh = boxH(lines.length, size, lh);
+    }
+    const by = Math.min(362, hintY - 10 - bh);
     g.save(); SL.roundRect(g, bx, by, bw, bh, 14); g.fillStyle = 'rgba(8,3,20,0.92)'; g.fill();
     g.strokeStyle = `rgba(${S.rgb},0.95)`; g.lineWidth = 2.5; g.shadowColor = `rgba(${S.rgb},1)`; g.shadowBlur = 16 * SL.view.scale; g.stroke(); g.restore();
     SL.neonText(g, S.name, bx + 26, by + 30, 22, S.rgb, { align: 'left', blur: 10 });
-    const lines = wrap(text, 52); let n = Math.floor(this.t * CPS);
-    lines.forEach((ln, k) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(g, part, bx + 26, by + 74 + k * 34, 25, '255,245,255', { align: 'left', blur: 6 }); });
+    let n = Math.floor(this.t * CPS);
+    lines.forEach((ln, k) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(g, part, bx + 26, by + 74 + k * lh, size, '255,245,255', { align: 'left', blur: 6 }); });
     if (this.typedAll && Math.floor(T * 3) % 2) SL.neonText(g, '▼', bx + bw - 30, by + bh - 24, 18, S.rgb, { blur: 8 });
     SL.neonText(g, `${this.i + 1}/${this.scene.lines.length}`, bx + bw - 26, by + 30, 13, '160,200,255', { align: 'right', blur: 4, alpha: 0.7 });
-    SL.neonText(g, SL.Input.touchMode ? 'TAP TO CONTINUE' : 'SPACE / ENTER / CLICK TO CONTINUE · ESC SKIP', 512, 562, 11, '160,200,255', { blur: 3, alpha: 0.6 });
+    SL.neonText(g, SL.Input.touchMode ? 'TAP TO CONTINUE' : 'SPACE / ENTER / CLICK TO CONTINUE · ESC SKIP', 512, hintY, 11, '160,200,255', { blur: 3, alpha: 0.6 });
     SL.drawButton(g, this.skipBtn, false, T);
     SL.drawScanlines(g);
   }

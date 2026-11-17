@@ -257,7 +257,7 @@ class FinalOpening {
       if (T < 5) SL.neonText(g, 'LEVEL 30 · FINAL SECTOR', 512, 26, 20, '255,80,220', { blur: 12, alpha: Math.min(1, T, 5 - T) });
       if (T < 6.5) SL.neonText(g, 'Music: "Last One Standing" by Centurion_of_war — CC0', 512, H - 26, 10, '220,200,230', { blur: 2, alpha: 0.7 });
       if (T >= 1.6 && T < 1.6 + 4) SL.dialogPopup(g, this.popGame, 'avrill', { side: 'left', t: T - 1.6, dur: 4, name: 'AVRILL', rgb: '255,80,220',
-        lines: ['Last sector, Oakens.', "Let's go home."], typed: Math.floor((T - 1.8) * 40), por: SL.Features.portrait(), textRgb: '255,235,255' });
+        text: "Last sector, Oakens. Let's go home.", typed: Math.floor((T - 1.8) * 40), por: SL.Features.portrait(), textRgb: '255,235,255' });
     } else SL.neonText(g, 'COMMANDER EDISAR STARLIGHT', 512, H - 26, 16, '120,220,255', { blur: 10, alpha: Math.min(1, T / 1.5) });
     SL.drawButton(g, this.skipBtn, false, T);
     SL.drawScanlines(g);

@@ -141,23 +141,67 @@ SL.Particles = class {
   }
 };
 
+/* Pixel word-wrap for dialogue (v0.7.4). Uses the same bold face as SL.neonText; measureText is in
+   font space (not affected by the canvas letterbox scale). Hard-breaks a single overlong word. */
+SL.wrapText = (g, text, maxW, size) => {
+  const str = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+  if (!str) return [''];
+  const font = `bold ${size}px ${F()}`;
+  const width = s => { g.save(); g.font = font; const w = g.measureText(s).width; g.restore(); return w; };
+  const out = [];
+  let cur = '';
+  const takeWord = word => {
+    if (width(word) <= maxW) { cur = word; return; }
+    let rest = word;
+    while (rest && width(rest) > maxW) {
+      let lo = 1, hi = rest.length;
+      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (width(rest.slice(0, mid)) <= maxW) lo = mid; else hi = mid - 1; }
+      if (lo < 1) lo = 1;
+      if (lo >= rest.length) break;
+      out.push(rest.slice(0, lo));
+      rest = rest.slice(lo);
+    }
+    cur = rest;
+  };
+  for (const w of str.split(' ')) {
+    const next = cur ? cur + ' ' + w : w;
+    if (cur && width(next) > maxW) { out.push(cur); takeWord(w); }
+    else cur = next;
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : [''];
+};
+
 /* ---------- compact dialogue popup (Dr. Nebula / Avrill / Cmdr. Edisar radio), v0.4.1, text bumped in v0.4.5 ----------
    Small, semi-transparent, parked in a top corner just below the boss health bar. It swaps to the other
    corner if the ship flies under it, and fades to ~35% while asteroids / bullets pass behind it.
-   Touch buttons all sit below y=330, so a popup at y=118..176 can never cover them. */
-SL.POP = { w: 300, h: 60, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 44, font: 13, lineH: 15 };   // v0.4.5: text 11->13px, name 10->11px
+   Touch buttons all sit below y=330, so a popup at y=118 can never cover them if its height stays under ~200.
+   v0.7.4: wrap to the text-area pixel width, grow the box to fit every line, shrink the font only as a last resort. */
+SL.POP = { w: 300, h: 60, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 44, font: 13, lineH: 15, maxH: 200, minFont: 9 };   // v0.4.5: text 11->13px, name 10->11px
 SL.dialogPopup = (ctx, game, key, o) => {
-  // o: { side:'left'|'right', t, dur, name, lines[], typed (chars), rgb, por (canvas), textRgb }
+  // o: { side:'left'|'right', t, dur, name, text or lines[], typed (chars), rgb, por (canvas), textRgb, w, font }
   const P = SL.POP, st = (game._pops ||= {})[key] ||= { side: o.side, x: null, a: P.alpha };
   const Wpop = o.w || P.w;
-  const H = Math.max(P.h, 32 + Math.min(3, o.lines.length) * P.lineH);
+  const raw = o.text != null ? o.text : (o.lines || []).join(' ');
+  const tx0 = 8 + P.por + 10, padR = 10, maxTextW = Math.max(40, Wpop - tx0 - padR - 4);   // 4px glow fudge
+  let font = o.font || P.font, lineH = font === P.font ? P.lineH : Math.round(font * P.lineH / P.font);
+  let lines = SL.wrapText(ctx, raw, maxTextW, font);
+  const boxH = (n, f, lh) => Math.max(P.h, 32 + Math.max(0, n - 1) * lh + Math.ceil(f / 2) + 8);
+  let H = boxH(lines.length, font, lineH);
+  const maxH = o.maxH || P.maxH;
+  while (H > maxH && font > P.minFont) {
+    font -= 1;
+    lineH = Math.max(font + 1, Math.round(font * P.lineH / P.font));
+    lines = SL.wrapText(ctx, raw, maxTextW, font);
+    H = boxH(lines.length, font, lineH);
+  }
   const rectAt = side => ({ x: side === 'left' ? P.margin : SL.W - P.margin - Wpop, y: P.y, w: Wpop, h: H });
   const near = (r, px, py, m) => px > r.x - m && px < r.x + r.w + m && py > r.y - m && py < r.y + r.h + m;
   const s = game.ship, other = st.side === 'left' ? 'right' : 'left';
   if (s && s.alive && near(rectAt(st.side), s.x, s.y, 40) && !near(rectAt(other), s.x, s.y, 40)) st.side = other;
   const R = rectAt(st.side); if (st.x === null) st.x = R.x;
   st.x += (R.x - st.x) * Math.min(1, 0.25);                       // glide when switching corners
-  const r = { x: st.x, y: R.y, w: P.w, h: H };
+  const r = { x: st.x, y: R.y, w: Wpop, h: H };
   // anything flying behind it?
   let busy = false;
   const hitC = (x, y, rad) => x + rad > r.x && x - rad < r.x + r.w && y + rad > r.y && y - rad < r.y + r.h;
@@ -175,10 +219,10 @@ SL.dialogPopup = (ctx, game, key, o) => {
   if (o.por) ctx.drawImage(o.por, r.x + 8, r.y + 8, P.por, P.por);
   ctx.restore();
   ctx.save(); ctx.globalAlpha = vis; ctx.translate(slide, 0);
-  const tx = r.x + 8 + P.por + 10;
+  const tx = r.x + tx0;
   SL.neonText(ctx, o.name, tx, r.y + 14, 11, o.rgb, { align: 'left', blur: 3 });
   let n = o.typed ?? 999;
-  o.lines.slice(0, 3).forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(ctx, part, tx, r.y + 32 + i * P.lineH, P.font, o.textRgb || '255,240,245', { align: 'left', blur: 3 }); });
+  lines.forEach((ln, i) => { const part = ln.slice(0, Math.max(0, n)); n -= ln.length + 1; if (part) SL.neonText(ctx, part, tx, r.y + 32 + i * lineH, font, o.textRgb || '255,240,245', { align: 'left', blur: 3 }); });
   ctx.restore();
   return r;
 };

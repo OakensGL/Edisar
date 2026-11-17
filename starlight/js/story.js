@@ -349,11 +349,11 @@ SL.Story = class extends SL.Survival {
     const d = this.dialog; if (!d) return;
     if (d.who && d.who !== 'nebula') {
       const S = SPK[d.who];
-      SL.dialogPopup(g, this, d.who, { side: S.side, t: d.t, dur: d.dur, name: S.name, lines: d.lines, typed: Math.floor((d.t - 0.2) * 40),
+      SL.dialogPopup(g, this, d.who, { side: S.side, t: d.t, dur: d.dur, name: S.name, text: d.text, typed: Math.floor((d.t - 0.2) * 40),
         rgb: S.rgb, por: d.who === 'edisar' ? edisarPortrait() : SL.Features.portrait() });
       return;
     }
-    SL.dialogPopup(g, this, 'nebula', { side: 'right', t: d.t, dur: d.dur, name: NEBULA.name, lines: d.lines, typed: Math.floor((d.t - 0.2) * 40),
+    SL.dialogPopup(g, this, 'nebula', { side: 'right', t: d.t, dur: d.dur, name: NEBULA.name, text: d.text, typed: Math.floor((d.t - 0.2) * 40),
       rgb: d.mood === 'angry' ? '255,60,40' : '255,70,70', por: portrait(d.mood) });
   }
 
@@ -593,7 +593,7 @@ SL.Story = class extends SL.Survival {
     if (this.state === 'warp' && this.escort && this.escort.said && this.escort.lineT < 2.2) {
       const E = this.escort;
       SL.dialogPopup(g, this, 'avrillEscort', { side: 'left', t: E.lineT, dur: 2.5, name: SL.CONFIG.assist.pilot, rgb: '255,80,220',
-        lines: SL.Story.wrapEscort(E.line), typed: Math.floor((E.lineT - 0.1) * 42), por: SL.Features.portrait(), textRgb: '255,235,255', w: 360 });
+        text: E.line, typed: Math.floor((E.lineT - 0.1) * 42), por: SL.Features.portrait(), textRgb: '255,235,255' });
     }
     if (this.state === 'warp' && this.warpT > (this.escort ? 1.2 : 0.4)) {
       const t0 = this.escort ? 1.2 : 0.4;
