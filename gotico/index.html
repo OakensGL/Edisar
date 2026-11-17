@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0508">
+  <title>GOTICO</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;background:#0a0508;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+    #wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;}
+    canvas#game{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;display:block}
+    #touch{display:none;position:fixed;inset:0;pointer-events:none;z-index:5}
+    #touch.on{display:block}
+    .tb{pointer-events:auto;position:absolute;border:2px solid rgba(200,220,255,.35);background:rgba(10,6,12,.42);color:rgba(230,240,255,.85);
+        font:700 13px/1 Verdana,Arial,sans-serif;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;
+        border-radius:50%;-webkit-user-select:none;user-select:none}
+    .tb.held{background:rgba(180,40,60,.45);border-color:rgba(255,180,180,.7)}
+    #btnL,#btnR{width:74px;height:74px;border-radius:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+    #btnL{left:calc(14px + env(safe-area-inset-left,0px))}
+    #btnR{left:calc(98px + env(safe-area-inset-left,0px))}
+    #btnJump,#btnShoot,#btnBomb{width:70px;height:70px}
+    #btnShoot{right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+    #btnJump{right:calc(92px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+    #btnBomb{right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:62px;height:62px;font-size:11px}
+    #btnPause{width:44px;height:36px;border-radius:10px;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));font-size:11px}
+  </style>
+</head>
+<body>
+  <div id="wrap"><canvas id="game" width="320" height="180"></canvas></div>
+  <div id="touch">
+    <div class="tb" id="btnL">◀</div>
+    <div class="tb" id="btnR">▶</div>
+    <div class="tb" id="btnJump">JUMP</div>
+    <div class="tb" id="btnShoot">FIRE</div>
+    <div class="tb" id="btnBomb">BOMB</div>
+    <div class="tb" id="btnPause">II</div>
+  </div>
+  <script src="js/game.js"></script>
+</body>
+</html>
