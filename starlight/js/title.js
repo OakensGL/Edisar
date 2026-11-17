@@ -8,9 +8,10 @@ SL.Title = (() => {
   const tabs = [{ id: 'story', label: 'STORY', x: 422, y: 94, w: 160, h: 32, rgb: '255,80,220', size: 18 }, { id: 'survival', label: 'SURVIVAL', x: 602, y: 94, w: 160, h: 32, rgb: '70,160,255', size: 18 }];
   let tab = 'story';
   const menu = [
-    { id: 'story', label: 'STORY MODE', x: 512, y: 442, w: 300, h: 34, rgb: '255,80,220' },
-    { id: 'survival', label: 'SURVIVAL', x: 512, y: 484, w: 300, h: 34, rgb: '70,160,255', size: 20 },
-    { id: 'scores', label: 'HIGH SCORES', x: 512, y: 526, w: 300, h: 34, rgb: '170,90,255', size: 20 },
+    { id: 'story', label: 'STORY MODE', x: 512, y: 424, w: 300, h: 32, rgb: '255,80,220' },
+    { id: 'survival', label: 'SURVIVAL', x: 512, y: 460, w: 300, h: 32, rgb: '70,160,255', size: 20 },
+    { id: 'store', label: 'STORE', x: 512, y: 496, w: 300, h: 32, rgb: '255,210,70', size: 20 },
+    { id: 'scores', label: 'HIGH SCORES', x: 512, y: 532, w: 300, h: 32, rgb: '170,90,255', size: 20 },
   ];
 
   // mask: where moving stars may appear (soft holes over title art)
@@ -67,8 +68,8 @@ SL.Title = (() => {
   }
   function drawMenu(g, t) {
     // opaque panel over the baked PRESS START / TAP THE SCREEN text
-    SL.softRect(g, 512, 476, 250, 90, 'rgba(3,1,12,0.9)', .7);
-    g.save(); SL.roundRect(g, 322, 418, 380, 134, 12); g.fillStyle = 'rgba(4,2,14,0.97)'; g.fill();
+    SL.softRect(g, 512, 470, 250, 110, 'rgba(3,1,12,0.9)', .7);
+    g.save(); SL.roundRect(g, 322, 400, 380, 166, 12); g.fillStyle = 'rgba(4,2,14,0.97)'; g.fill();
     g.strokeStyle = 'rgba(170,90,255,0.35)'; g.lineWidth = 1; g.stroke(); g.restore();
     menu.forEach((b, i) => {
       const shake = (b.disabled && denyAt >= 0 && T - denyAt < 0.3) ? Math.sin((T - denyAt) * 80) * 4 : 0;
@@ -85,6 +86,7 @@ SL.Title = (() => {
     if (b.disabled) { denyAt = T; SL.Audio.sfx.deny(); return; }
     SL.Audio.sfx.blip(880);
     if (b.id === 'scores') { phase = 'scores'; return; }
+    if (b.id === 'store') { SL.start('store'); return; }
     SL.start(b.id === 'story' ? 'story' : 'play');
   }
   return {

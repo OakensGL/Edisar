@@ -203,6 +203,10 @@ SL.Story = class extends SL.Survival {
     if (boss && L === SL.FINAL_LEVEL && this.startFinal) this.startFinal();   // v0.5.0 final level (final.js)
     else if (boss) { this.spawnBoss(L / S.boss.every); SL.Audio.playTrack('boss'); SL.Audio.sfx.alarm(); }
     else SL.Audio.playTrack('main');
+    if (L === 1 && !this.debug && SL.Skins) SL.Skins.setCleanRun(true);
+    this.shipSprite = (SL.Skins && SL.Skins.sprite()) || this.shipSprite;
+    if (SL.Boosts) SL.Boosts.apply(this);
+    if (SL.Skins) SL.Skins.checkUnlocks();
     SL.Events.emit('levelStart', { level: L, boss });
   }
   // v0.6.5: no asteroids during Nebula (L5/10/15/20/25) or Edisar (L30) fights
@@ -431,6 +435,11 @@ SL.Story = class extends SL.Survival {
     this.state = 'clear'; this.escort = null; this.ebullets = []; this.bullets.length = 0; this.dialog = null; this.dialogs = []; this.popups = [];
     for (const a of this.asteroids) a.dead = true;
     this.clearData = { rows, i: 0, t: 0, levelPts: Math.floor(this.score - lv.score0), total0: Math.floor(this.score), done: false, tick: 0, boss: lv.boss, sel: 0 };
+    if (SL.Coins) {
+      this.clearData.coins = SL.Coins.awardStory(this.level, lv.boss, !!this.final, this.debug);
+      this.clearData.coinBal = SL.Coins.get();
+    }
+    if (SL.Skins) SL.Skins.checkUnlocks();
     SL.Audio.playTrack('clear');
     SL.Events.emit('levelClear', { level: this.level });
   }
@@ -612,6 +621,10 @@ SL.Story = class extends SL.Survival {
     SL.neonText(g, SL.pad(c.levelPts + sum), 724, y + 4, 20, '255,235,255', { align: 'right', blur: 10 });
     SL.neonText(g, 'RUNNING TOTAL', 300, y + 40, 19, '70,160,255', { align: 'left', blur: 10 });
     SL.neonText(g, SL.pad(c.total0 + sum), 724, y + 40, 22, '255,255,255', { align: 'right', blur: 12 });
+    if (c.coins != null) {
+      SL.neonText(g, 'COINS', 300, y + 76, 19, '255,210,70', { align: 'left', blur: 10 });
+      SL.neonText(g, (c.coins ? '+' + c.coins + '    ' : '') + c.coinBal, 724, y + 76, 20, '255,210,70', { align: 'right', blur: 10 });
+    }
     if (c.done) this.clearBtns.forEach((b, i) => SL.drawButton(g, b, i === c.sel, this.T));
     else SL.neonText(g, SL.Input.touchMode ? 'TAP TO SKIP' : 'ENTER TO SKIP', 512, 520, 12, '160,200,255', { blur: 4, alpha: 0.5 });
     SL.neonText(g, 'Music: "The Last Encounter" mix by Matthew Pablo, Zefz & neocrey — CC-BY-SA 3.0', 512, 562, 10, '220,200,230', { blur: 2, alpha: 0.7 });

@@ -2,7 +2,7 @@
    v0.3 FEATURES: pickups (bombs + weapon power-ups + shield), bombs,
    Avrill assist, special asteroids. Survival calls these at fixed hook points;
    per-game state lives on the game object (reset() at game start).
-   Story levels/bosses and store/skins remain stubs.
+   Story levels/bosses live in story.js / final.js; the Skin Store is js/store.js.
    ========================================================================== */
 (() => {
 const C = () => SL.CONFIG, rand = (a, b) => a + Math.random() * (b - a);
@@ -402,5 +402,5 @@ F.story = {
   postCredits(opt) { return null; },                   // hook: post-credits scene (radio message, needs a voice recording); return { play(done) }
   isFinalLevel(level) { return this.finalLevel.enabled && level >= this.finalLevel.level; },
 };
-F.store = { enabled: false, current: 'default', skins: { default: { name: 'Oakens Blue', color: '80,170,255' } }, shipColor() { return this.skins[this.current].color; } };
+F.store = { enabled: true, get current() { return SL.Skins ? SL.Skins.equipped() : 'default'; }, shipColor() { return SL.Skins ? SL.Skins.color() : '80,170,255'; } };
 })();

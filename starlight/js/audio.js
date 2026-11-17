@@ -151,7 +151,7 @@ SL.Vol = (() => {
     if (SL.state === 'map' && SL.Map && (SL.Map.phase === 'entry' || SL.Map.phase === 'table')) return true;
     return false;
   }
-  function inGame() { return !!(SL.game && SL.state !== 'title' && SL.state !== 'map' && SL.state !== 'credits' && SL.state !== 'intro'); }
+  function inGame() { return !!(SL.game && SL.state !== 'title' && SL.state !== 'map' && SL.state !== 'credits' && SL.state !== 'intro' && SL.state !== 'store'); }
   function speakerBtn() { return inGame() ? { x: 900, y: 26, w: 44, h: 36 } : { x: 948, y: 26, w: 44, h: 36 }; }
   function gearBtn()     { return inGame() ? { x: 948, y: 26, w: 44, h: 36 } : { x: 996, y: 26, w: 44, h: 36 }; }
   function value(id) { return id === 'music' ? SL.Audio.musicUser : SL.Audio.sfxUser; }

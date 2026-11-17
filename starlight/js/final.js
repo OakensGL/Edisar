@@ -478,7 +478,10 @@ P.startClear = function () {
   rows.push({ label: 'COMMANDER EDISAR DEFEATED', disp: '★', bonus: FB.bonus, shown: 0 });
   c.title = 'COMMANDER EDISAR DEFEATED!'; c.final = true;
   this.clearBtns = [{ id: 'continue', label: 'END CREDITS', x: 512, y: 520, w: 280, h: 40, rgb: '120,220,255' }]; c.sel = 0;
-  if (!this.debug) SL.Progress.complete();
+  if (!this.debug) {
+    SL.Progress.complete();
+    if (SL.Skins) { SL.Skins.markEdisar(); SL.Skins.checkUnlocks(); }
+  }
   SL.Events.emit('storyComplete', { score: Math.floor(this.score) });
 };
 P.toCredits = function () {

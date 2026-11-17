@@ -9,7 +9,8 @@ SL.Survival = class {
     this.streak = 0; this.mult = 1; this.best = SL.getBest(); this.newBest = false;
     this.stats = { kills: 0, splits: 0, hits: 0, shots: 0, spawned: 0 };
     this.ship = { x: SL.W / 2, y: C.ship.startY, vx: 0, vy: 0, cool: 0, invuln: 1.0, alive: true, gun: 0 };
-    this.shipSprite = SL.Sprites.ship(this.Fx.store.shipColor());
+    this.shipSprite = (SL.Skins && SL.Skins.sprite()) || SL.Sprites.ship(this.Fx.store.shipColor());
+    this.ghostT = 0;
     this.bullets = []; this.asteroids = []; this.popups = [];
     this.fx = new SL.Particles(); this.stars = new SL.Starfield();
     this.spawnT = 0.6; this.shakeAmt = 0; this.overT = 0; this.sel = 0; this.T = 0;
@@ -108,6 +109,11 @@ SL.Survival = class {
       pts = S.points * this.mult * (a.special === 'gold' ? this.C.special.goldMul : 1); this.score += pts; this.stats.kills++;
       this.onKill && this.onKill(a);
       if (!opt.quiet) this.popup(`+${pts}`, a.x, a.y, a.special === 'gold' ? '255,210,70' : this.mult > 1 ? '255,230,120' : rgb);
+      if (a.special === 'gold' && SL.Coins) {
+        const n = SL.Coins.awardGold(this);
+        if (n && !opt.quiet) this.popup(`+${n} COINS`, a.x, a.y - 22, '255,210,70');
+      }
+      if (SL.Skins) SL.Skins.addAsteroids(1, this.debug);
     }
     const k = a.r / 44;
     this.fx.burst(a.x, a.y, rgb, Math.round((opt.quiet ? 8 : 14) + 26 * k), 140 + 120 * k, 0.8, 2.2);
@@ -129,6 +135,8 @@ SL.Survival = class {
   playerHit(a) {
     const s = this.ship;
     if (SL.Features.absorbHit(this)) { if (a) this.destroy(a, false); return; }
+    this.ghostT = 0;
+    if (this.mode === 'story' && SL.Skins) SL.Skins.setCleanRun(false);
     this.lives--; this.stats.hits++; this.streak = 0;
     if (this.mult > 1) this.popup('COMBO LOST', s.x, s.y - 40, '255,90,120');
     this.mult = 1;
@@ -143,6 +151,10 @@ SL.Survival = class {
   }
   gameOver() {
     this.state = 'over'; this.sel = 0; this.score = Math.floor(this.score); this.hiRank = -1;
+    if (this.mode === 'survival' && !this._coinsPaid && SL.Coins) {
+      this._coinsPaid = true; this.coinsEarned = SL.Coins.awardSurvival(this.t, this.debug);
+    }
+    this.coinBalance = SL.Coins ? SL.Coins.get() : 0;
     if (this.score > this.best) { this.best = this.score; this.newBest = true; }
     SL.Audio.sfx.gameOver();
     if (!this.debug && SL.Scores.qualifies(this.scoreEntry(), this.mode)) {
@@ -262,6 +274,10 @@ SL.Survival = class {
     const live = this.state === 'play';
     if (live) {
       this.t += dt; if (this.timeScore) this.score += C.score.perSecond * dt;
+      if (this.mode === 'survival') {
+        this.ghostT = (this.ghostT || 0) + dt;
+        if (SL.Skins) SL.Skins.ghostStreak(this.ghostT, this.debug);
+      }
       this.ev.emit('tick', dt);
     }
     SL.Features.update(this, dt);
@@ -330,6 +346,10 @@ SL.Survival = class {
     s.gun = 1 - s.gun;
     let shots = [{ x: s.x + (s.gun ? 7 : -7), y: s.y - 12, vx: 0, vy: -C.ship.bulletSpeed }];
     shots = SL.Features.modifyFire(this, shots);
+    if (SL.Skins) {
+      const rgb = SL.Skins.shotRgb(this), hi = SL.Skins.shotHi();
+      shots.forEach(sh => { if (!sh.kind || sh.kind === 'std') { sh.rgb = rgb; sh.rgbHi = hi; } });
+    }
     this.bullets.push(...shots); this.stats.shots += shots.length;
     s.cool = C.ship.fireRate * SL.Features.fireRateMul(this);
     SL.Audio.sfx.shot(); this.ev.emit('fire', shots);
@@ -354,29 +374,42 @@ SL.Survival = class {
     // bullets
     g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
     const KINDS = { std: ['255,60,200', '255,110,230', 16], triple: ['255,120,40', '255,170,80', 16], laser: ['60,230,255', '150,255,255', 38], avrill: ['255,60,200', '255,140,240', 14], missile: ['255,110,40', '255,220,160', 18] };
-    for (const kind in KINDS) {
-      const [c1, c2, len] = KINDS[kind], list = this.bullets.filter(b => (b.kind || 'std') === kind);
-      if (!list.length) continue;
+    const beam = (list, c1, c2, len, kind) => {
       const bpath = () => { g.beginPath(); for (const b of list) { const n = Math.hypot(b.vx, b.vy) || 1; g.moveTo(b.x, b.y); g.lineTo(b.x - b.vx / n * len, b.y - b.vy / n * len); } };
       bpath(); g.strokeStyle = `rgba(${c1},0.25)`; g.lineWidth = kind === 'laser' ? 10 : 8; g.stroke();
       bpath(); g.strokeStyle = `rgba(${c2},0.9)`; g.lineWidth = 3; g.stroke();
       bpath(); g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.2; g.stroke();
+    };
+    for (const kind in KINDS) {
+      const [c1, c2, len] = KINDS[kind], list = this.bullets.filter(b => (b.kind || 'std') === kind);
+      if (!list.length) continue;
+      if (kind === 'std' && list.some(b => b.rgb)) {
+        const groups = new Map();
+        for (const b of list) { const key = (b.rgb || c1) + '|' + (b.rgbHi || c2); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(b); }
+        groups.forEach(gl => beam(gl, gl[0].rgb || c1, gl[0].rgbHi || c2, len, kind));
+      } else beam(list, c1, c2, len, kind);
     }
     g.restore();
     SL.Features.draw(this, g);
     SL.Features.drawEscort(this, g);
     // ship
     if (s.alive && !(s.invuln > 0 && Math.floor(this.T * 14) % 2)) {
-      const f = 0.75 + 0.25 * (Math.sin(this.T * 31.7) * .5 + Math.sin(this.T * 53.1) * .3 + Math.sin(this.T * 97.3) * .2);
-      const len = 18 + 12 * f + Math.max(0, -s.vy) * 0.03, y0 = s.y + 14;
-      g.save(); g.globalCompositeOperation = 'lighter';
-      const gr = g.createLinearGradient(0, y0, 0, y0 + len);
-      gr.addColorStop(0, `rgba(255,235,255,${.7 * f})`); gr.addColorStop(.3, `rgba(255,90,220,${.55 * f})`); gr.addColorStop(1, 'rgba(255,40,180,0)');
-      g.fillStyle = gr; g.beginPath(); g.moveTo(s.x - 5, y0); g.quadraticCurveTo(s.x - 4, y0 + len * .6, s.x, y0 + len); g.quadraticCurveTo(s.x + 4, y0 + len * .6, s.x + 5, y0); g.fill();
-      g.restore();
-      SL.glow(g, s.x, y0 + 8, 16 + 4 * f, 22 + 6 * f, '255,60,210', 0.25 * f + 0.08);
+      if (SL.Skins && SL.Skins.drawTrail) SL.Skins.drawTrail(g, this, s, this.T);
+      else {
+        const f = 0.75 + 0.25 * (Math.sin(this.T * 31.7) * .5 + Math.sin(this.T * 53.1) * .3 + Math.sin(this.T * 97.3) * .2);
+        const len = 18 + 12 * f + Math.max(0, -s.vy) * 0.03, y0 = s.y + 14;
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const gr = g.createLinearGradient(0, y0, 0, y0 + len);
+        gr.addColorStop(0, `rgba(255,235,255,${.7 * f})`); gr.addColorStop(.3, `rgba(255,90,220,${.55 * f})`); gr.addColorStop(1, 'rgba(255,40,180,0)');
+        g.fillStyle = gr; g.beginPath(); g.moveTo(s.x - 5, y0); g.quadraticCurveTo(s.x - 4, y0 + len * .6, s.x, y0 + len); g.quadraticCurveTo(s.x + 4, y0 + len * .6, s.x + 5, y0); g.fill();
+        g.restore();
+        SL.glow(g, s.x, y0 + 8, 16 + 4 * f, 22 + 6 * f, '255,60,210', 0.25 * f + 0.08);
+      }
       const sz = this.shipSprite.size, tilt = Math.max(-0.2, Math.min(0.2, s.vx / 2000));
-      g.save(); g.translate(s.x, s.y); g.rotate(tilt); g.drawImage(this.shipSprite.c, -sz / 2, -sz / 2 + 2, sz, sz); g.restore();
+      g.save(); g.translate(s.x, s.y); g.rotate(tilt);
+      const sk = SL.Skins && SL.Skins.get();
+      if (sk && sk.ghost) g.globalAlpha = 0.42 + 0.16 * Math.sin(this.T * 3.2);
+      g.drawImage(this.shipSprite.c, -sz / 2, -sz / 2 + 2, sz, sz); g.restore();
     }
     SL.Features.drawShield(this, g);
     this.fx.draw(g);
@@ -481,15 +514,16 @@ SL.Survival = class {
     if (this.overPhase === 'entry') {
       SL.neonText(g, 'GAME OVER', 512, 96, 52, '255,70,210', { blur: 24, alpha: k });
       SL.neonText(g, 'NEW HIGH SCORE — ENTER YOUR NAME', 512, 160, 22, '255,220,90', { blur: 14, alpha: (0.75 + 0.25 * Math.sin(this.T * 7)) * k });
-      SL.neonText(g, 'SCORE ' + SL.pad(this.score) + `   ·   TIME ${m}:${String(sec).padStart(2, '0')}   ·   KILLS ${this.stats.kills}`, 512, 196, 15, '255,235,255', { blur: 8, alpha: k });
+      SL.neonText(g, 'SCORE ' + SL.pad(this.score) + `   ·   TIME ${m}:${String(sec).padStart(2, '0')}   ·   KILLS ${this.stats.kills}` + (this.coinsEarned ? `   ·   COINS +${this.coinsEarned}` : '') + (this.coinBalance != null ? `   (${this.coinBalance})` : ''), 512, 196, 15, '255,235,255', { blur: 8, alpha: k });
       SL.neonText(g, SL.Input.touchMode ? 'TAP THE BOX TO TYPE  ·  A–Z 0–9  ·  MAX 10' : 'TYPE YOUR NAME  ·  ENTER TO CONFIRM', 512, 330, 13, '160,200,255', { blur: 5, alpha: 0.85 * k });
       return;
     }
     SL.neonText(g, 'GAME OVER', 512, 44, 40, '255,70,210', { blur: 22, alpha: k });
     SL.neonText(g, (this.mode === 'story' ? `LEVEL ${this.level}   ` : '') + 'SCORE ' + SL.pad(this.score) + `   TIME ${m}:${String(sec).padStart(2, '0')}   KILLS ${this.stats.kills}`, 512, 86, 17, '255,235,255', { blur: 8, alpha: k });
-    if (this.debug) SL.neonText(g, 'DEBUG RUN (?level) — NOT RANKED', 512, 112, 13, '255,150,80', { blur: 6, alpha: k });
-    else if (this.newBest) SL.neonText(g, '★ NEW #1 ★', 512, 112, 15, '255,220,90', { blur: 12, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
-    SL.neonText(g, (this.mode === 'story' ? 'STORY' : 'SURVIVAL') + ' TOP 10', 512, 140, 16, '170,90,255', { blur: 10, alpha: k });
+    if (this.coinBalance != null) SL.neonText(g, (this.coinsEarned ? `COINS +${this.coinsEarned}   ` : 'COINS   ') + this.coinBalance, 512, 108, 15, '255,210,70', { blur: 8, alpha: k });
+    if (this.debug) SL.neonText(g, 'DEBUG RUN (?level) — NOT RANKED', 512, 128, 13, '255,150,80', { blur: 6, alpha: k });
+    else if (this.newBest) SL.neonText(g, '★ NEW #1 ★', 512, 128, 15, '255,220,90', { blur: 12, alpha: (0.6 + 0.4 * Math.sin(this.T * 7)) * k });
+    SL.neonText(g, (this.mode === 'story' ? 'STORY' : 'SURVIVAL') + ' TOP 10', 512, 150, 16, '170,90,255', { blur: 10, alpha: k });
     SL.drawScoreTable(g, SL.Scores.list(this.mode), 168, this.hiRank, this.T, this.mode);
     this.overBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
