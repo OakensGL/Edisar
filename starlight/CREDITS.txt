@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.7.0
+PROJECT STARLIGHT v0.7.1
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -72,3 +72,4 @@ v0.6.3: a skippable opening crawl plays once at the start of a new Story, over a
 v0.6.4: the opening crawl plays every time you tap STORY MODE (the WATCH INTRO map button is gone). After the crawl, a fresh story goes to the level-1 brief and a mid-story run goes to the mission map. The crawl text is larger, centered, and sits on a soft dark veil so it stays readable over the painting.
 v0.6.5: during Story boss fights against Dr. Nebula (levels 5, 10, 15, 20, 25) and Commander Edisar (level 30), asteroids no longer spawn; power-ups drift in on their own every 6–8 seconds (capped at 3 on screen).
 v0.7.0: Skin Store on the main menu, with SKINS and BOOSTS tabs. Coins are earned from gold asteroids, completed Story missions, and time survived in Survival. Seven skins plus the default ship change hull colors, shots and trail; some are bought with coins, others unlock by finishing Story, defeating Edisar, defeating every Nebula boss, destroying 5,000 asteroids, a 2:00 no-hit Survival streak, or a no-death Story run. One-use boosts (extra bombs, Avrill fully charged, starting Shield, random power-up) are bought with coins, armed in the store, and applied at the start of the next run or level.
+v0.7.1: Avrill's warp-out escort line after Story missions (levels 1–29) is picked at random from a larger set and does not repeat the previous line. During Commander Edisar's core phase (level 30), shots that hit the flagship hull deal reduced damage, and a direct hit on the core deals extra damage with a CRITICAL flash.

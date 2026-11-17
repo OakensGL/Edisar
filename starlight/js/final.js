@@ -10,7 +10,7 @@ const EDISAR_TAUNTS = [   // v0.5.5: short mid-fight jabs only (story lines live
   'Too slow!', 'Pathetic!', 'Is that all?', 'Kneel, pilot!', 'I trained you!',
 ];
 SL.EDISAR_TAUNTS = EDISAR_TAUNTS;
-const FB = { y: 158, turretHp: 50, coreHp: 180, phase3At: 0.45, bullet: [240, 250, 255], interval: [0.38, 0.55, 0.80],
+const FB = { y: 158, turretHp: 50, coreHp: 180, phase3At: 0.45, hullDmg: 0.4, coreDmg: 1.5, bullet: [240, 250, 255], interval: [0.38, 0.55, 0.80],
   lightningEvery: [0, 3.4, 2.4], warn: [0, 1.1, 0.9], boltHalfW: 24, bonus: 25000 };
 /* v0.5.5: turrets at the wing tips and mid-wing so shots come from across the full flagship width */
 const TURRETS = [{ ox: -240, oy: -14 }, { ox: -108, oy: 26 }, { ox: 108, oy: 26 }, { ox: 240, oy: -14 }];
@@ -307,6 +307,9 @@ P.updateBoss = function (dt) {
   const B = this.boss; if (!B.final) return orig.updateBoss.call(this, dt);
   const s = this.ship, st = B.stage - 1; B.t += dt;
   for (const p of B.pts) p.flash = Math.max(0, p.flash - dt);
+  if (B.hullFlash) B.hullFlash = Math.max(0, B.hullFlash - dt);
+  if (this._critT) this._critT = Math.max(0, this._critT - dt);
+  if (B.sparks) { for (const s of B.sparks) s.t -= dt; B.sparks = B.sparks.filter(s => s.t > 0); }
   this.updateBolts(dt);
   if (B.phase === 'enter') { B.y += (FB.y - B.y) * Math.min(1, dt * 1.6); if (B.t > 2.4) B.phase = 'fight'; return; }
   if (B.phase === 'dying') {
@@ -342,16 +345,47 @@ P.hitExtra = function (b) {
     if (p.hp <= 0) continue;
     const dx = b.x - (B.x + p.ox), dy = b.y - (B.y + p.oy);
     if (dx * dx + dy * dy < (p.r + 8) * (p.r + 8)) {
-      b.dead = true; this.countHit(b); this.damagePoint(p, 1);
+      b.dead = true; this.countHit(b);
+      if (p.core) this.hitFinalCore(b, FB.coreDmg, true);
+      else this.damagePoint(p, 1);
       if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b, p)) { b.dead = false; this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); }
       return true;
     }
   }
   if (inFlagship(b.x - B.x, b.y - B.y, true)) {
     if (this.ricochet > 0 && !b.bounced && !b.pierce && SL.Features.retarget(this, b)) { this.fx.burst(b.x, b.y, '255,180,80', 6, 120, 0.25, 2); return true; }
-    b.dead = true; this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4); return true;
+    b.dead = true;
+    // v0.7.1: once the core is exposed (stages 2–3), hull hits deal reduced damage
+    if (B.stage >= 2 && B.core && B.core.hp > 0) this.hitFinalCore(b, FB.hullDmg, false);
+    else this.fx.burst(b.x, b.y, '255,255,255', 3, 80, 0.2, 1.4);
+    return true;
   }
   return false;
+};
+P.hitFinalCore = function (b, dmg, crit) {
+  const B = this.boss, p = B && B.core; if (!B || !p || p.hp <= 0 || B.phase !== 'fight') return;
+  const x = B.x + p.ox, y = B.y + p.oy;
+  if (crit) {
+    this.damagePoint(p, dmg);
+    this.fx.burst(x, y, '120,240,255', 22, 200, 0.5, 2.4);
+    this.fx.burst(x, y, '255,255,255', 10, 140, 0.35, 2.0);
+    this.fx.ring(x, y, '180,250,255', 52, 0.28);
+    this.flash = Math.max(this.flash || 0, 0.32); this.flashRgb = '140,250,255'; this.shake(5);
+    if (!this._critT || this._critT <= 0) { this._critT = 0.55; }
+  } else {
+    this.fx.burst(b.x, b.y, '255,230,140', 14, 150, 0.5, 2.0);
+    this.fx.burst(b.x, b.y, '255,255,255', 6, 90, 0.4, 1.5);
+    B.hullFlash = Math.max(B.hullFlash || 0, 0.22);
+    (B.sparks ||= []).push({ x: b.x, y: b.y, t: 0.4 });
+    if (dmg >= p.hp) this.damagePoint(p, p.hp);
+    else {
+      p.hp -= dmg;
+      if (B.stage === 2 && p.hp <= p.max * FB.phase3At) {
+        B.stage = 3; this.popup('DESPERATION MODE!', 512, 300, '255,90,90'); this.flash = 0.5; this.flashRgb = '255,120,120'; this.shake(14); SL.Audio.sfx.alarm();
+        B.lightT = 1.2; this.say("I'll burn this sector!", 'angry', 0.4, 'edisar');
+      } else SL.Audio.sfx.bossHit();
+    }
+  }
 };
 P.finalAttack = function () {
   const B = this.boss, s = this.ship, st = B.stage - 1, sp = FB.bullet[st];
@@ -419,6 +453,23 @@ P.drawWorld = function (g) {
     g.save();
     if (B.phase === 'dying') { g.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6); g.globalAlpha = Math.max(0.3, 1 - B.dieT / 4); }
     drawFlagship(g, B.x, B.y, this.T, { shutters: B.stage === 1 });
+    if (B.hullFlash > 0) { g.save(); g.globalCompositeOperation = 'lighter'; SL.glow(g, B.x, B.y + 10, 300, 90, '255,230,150', 0.28 * Math.min(1, B.hullFlash / 0.1)); g.restore(); }
+    if (B.sparks) for (const s of B.sparks) {
+      const a = Math.max(0, Math.min(1, s.t / 0.18));
+      g.save(); g.globalCompositeOperation = 'lighter';
+      SL.glow(g, s.x, s.y, 22, 22, '255,220,120', 0.85 * a);
+      g.strokeStyle = `rgba(255,255,220,${a})`; g.lineWidth = 2.4;
+      g.beginPath(); g.moveTo(s.x - 10, s.y); g.lineTo(s.x + 10, s.y); g.moveTo(s.x, s.y - 10); g.lineTo(s.x, s.y + 10);
+      g.moveTo(s.x - 7, s.y - 7); g.lineTo(s.x + 7, s.y + 7); g.moveTo(s.x - 7, s.y + 7); g.lineTo(s.x + 7, s.y - 7); g.stroke();
+      g.restore();
+    }
+    if (this._critT > 0 && B.core && B.core.hp > 0) {
+      const a = Math.min(1, this._critT / 0.12);
+      const cx = B.x + B.core.ox, cy = B.y + B.core.oy + 80;
+      g.save(); g.globalAlpha = 0.72 * a; g.fillStyle = 'rgba(4,2,16,0.82)';
+      g.beginPath(); g.roundRect(cx - 90, cy - 18, 180, 34, 8); g.fill(); g.restore();
+      SL.neonText(g, 'CRITICAL', cx, cy, 24, '160,255,255', { blur: 18, alpha: a });
+    }
     for (const p of B.pts) {
       const x = B.x + p.ox, y = B.y + p.oy;
       if (p.hp > 0) {

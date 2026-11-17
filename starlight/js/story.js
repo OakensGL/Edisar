@@ -369,7 +369,7 @@ SL.Story = class extends SL.Survival {
       const fromAssist = this.assist && this.assist.phase === 'active';
       const side = this.ship.x < 512 ? 1 : -1;
       this.escort = { t: 0, x: fromAssist ? this.assist.x : (side > 0 ? SL.W + 70 : -70), y: fromAssist ? this.assist.y : this.ship.y + 8, side, wave: 0, said: false,
-        line: ['Nice flying, Oakens.', 'On your wing.', "Let's head home."][(Math.random() * 3) | 0] };
+        line: SL.Story.pickEscortLine() };
       if (fromAssist) this.assist.phase = 'idle';
     } else this.escort = null;
     SL.Events.emit('warp', { level: this.level });
@@ -591,8 +591,8 @@ SL.Story = class extends SL.Survival {
     }
     if (this.state === 'warp' && this.escort && this.escort.said && this.escort.lineT < 2.2) {
       const E = this.escort;
-      SL.dialogPopup(g, this, 'avrillEscort', { side: 'left', t: E.lineT, dur: 2.2, name: SL.CONFIG.assist.pilot, rgb: '255,80,220',
-        lines: [E.line], typed: Math.floor((E.lineT - 0.1) * 40), por: SL.Features.portrait(), textRgb: '255,235,255' });
+      SL.dialogPopup(g, this, 'avrillEscort', { side: 'left', t: E.lineT, dur: 2.5, name: SL.CONFIG.assist.pilot, rgb: '255,80,220',
+        lines: SL.Story.wrapEscort(E.line), typed: Math.floor((E.lineT - 0.1) * 42), por: SL.Features.portrait(), textRgb: '255,235,255', w: 360 });
     }
     if (this.state === 'warp' && this.warpT > (this.escort ? 1.2 : 0.4)) {
       const t0 = this.escort ? 1.2 : 0.4;
@@ -630,4 +630,36 @@ SL.Story = class extends SL.Survival {
     SL.neonText(g, 'Music: "The Last Encounter" mix by Matthew Pablo, Zefz & neocrey — CC-BY-SA 3.0', 512, 562, 10, '220,200,230', { blur: 2, alpha: 0.7 });
   }
 };
+
+  /* v0.7.1: Avrill warp-out escort lines (L1–29). Avoid repeating the previous pick. */
+  const ESCORT_KEY = 'starlight.story.lastEscort';
+  SL.Story.ESCORT_LINES = [
+    "Let's head home.",
+    "Nice flying, Oakens. Form up on me.",
+    "Belt's a little cleaner. Let's go.",
+    "Not bad, prodigy. Not bad at all.",
+    "Edisar's gonna love this report.",
+    "You okay back there? Stay on my wing.",
+    "That's how we do it. Warp in three.",
+    "Show-off. Come on, base is waiting.",
+    "I'll buy the first round. Let's move.",
+    "Another sector clear. Nebula's getting nervous.",
+    "Stick close, Oakens. Something feels off out here.",
+  ];
+  SL.Story.wrapEscort = function (s) {
+    if (!s || s.length <= 36) return [s];
+    const dot = s.indexOf('. ');
+    if (dot > 8 && dot < s.length - 6) return [s.slice(0, dot + 1), s.slice(dot + 2)];
+    let i = s.lastIndexOf(' ', 36);
+    if (i < 12) i = 36;
+    return [s.slice(0, i), s.slice(i).trim()];
+  };
+  SL.Story.pickEscortLine = function () {
+    const lines = SL.Story.ESCORT_LINES, last = SL.store.get(ESCORT_KEY, '');
+    const pool = lines.filter(l => l !== last);
+    const pickFrom = pool.length ? pool : lines;
+    const line = pickFrom[(Math.random() * pickFrom.length) | 0];
+    SL.store.set(ESCORT_KEY, line);
+    return line;
+  };
 })();

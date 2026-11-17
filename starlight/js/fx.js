@@ -149,8 +149,9 @@ SL.POP = { w: 300, h: 60, y: 118, margin: 12, alpha: 0.78, behind: 0.35, por: 44
 SL.dialogPopup = (ctx, game, key, o) => {
   // o: { side:'left'|'right', t, dur, name, lines[], typed (chars), rgb, por (canvas), textRgb }
   const P = SL.POP, st = (game._pops ||= {})[key] ||= { side: o.side, x: null, a: P.alpha };
+  const Wpop = o.w || P.w;
   const H = Math.max(P.h, 32 + Math.min(3, o.lines.length) * P.lineH);
-  const rectAt = side => ({ x: side === 'left' ? P.margin : SL.W - P.margin - P.w, y: P.y, w: P.w, h: H });
+  const rectAt = side => ({ x: side === 'left' ? P.margin : SL.W - P.margin - Wpop, y: P.y, w: Wpop, h: H });
   const near = (r, px, py, m) => px > r.x - m && px < r.x + r.w + m && py > r.y - m && py < r.y + r.h + m;
   const s = game.ship, other = st.side === 'left' ? 'right' : 'left';
   if (s && s.alive && near(rectAt(st.side), s.x, s.y, 40) && !near(rectAt(other), s.x, s.y, 40)) st.side = other;
