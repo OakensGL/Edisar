@@ -26,7 +26,7 @@ SL.Survival = class {
     this.fireBtn = { x: 922, y: 478, r: 58 };
     this.bombBtn = { x: 806, y: 520, r: 32 };
     this.avrillBtn = { x: 842, y: 398, r: 32 };
-    this.joyHome = { x: 118, y: 468, r: 58 };
+    this.joyHome = { x: 118, y: 468, r: (C.ship.touch && C.ship.touch.r) || 70 };   // v0.7.5: slightly larger stick
     this.overBtns = [
       { id: 'again', label: 'PLAY AGAIN', x: 412, y: 532, w: 210, h: 40, rgb: '255,80,220' },
       { id: 'menu',  label: 'MENU',       x: 632, y: 532, w: 170, h: 40, rgb: '70,160,255' },
@@ -246,15 +246,31 @@ SL.Survival = class {
       if (I.hit('KeyR')) SL.Features.activateAssist(this);
       if (I.hit('KeyT')) this.askRestart('play');
     }
-    // touch joystick
+    // touch steering (v0.7.5): STICK = eased floating joystick; DRAG = follow a point above the finger
     if (this.joy && !I.pointers.has(this.joy.id)) this.joy = null;
+    let follow = null;
     if (this.joy) {
-      let dx = this.joy.x - this.joy.ox, dy = this.joy.y - this.joy.oy; const R = this.joyHome.r, L = Math.hypot(dx, dy);
-      if (L > R) { this.joy.ox += dx - dx / L * R; this.joy.oy += dy - dy / L * R; dx = dx / L * R; dy = dy / L * R; } // floating base follows the thumb
-      if (L > 6) { ax = dx / R; ay = dy / R; }
+      const T = (this.C.ship && this.C.ship.touch) || {};
+      if (SL.touchMove.drag()) {
+        const off = T.dragOffset || 80;
+        follow = {
+          x: Math.max(24, Math.min(SL.W - 24, this.joy.x)),
+          y: Math.max(80, Math.min(SL.H - 26, this.joy.y - off)),
+        };
+      } else {
+        let dx = this.joy.x - this.joy.ox, dy = this.joy.y - this.joy.oy;
+        const R = this.joyHome.r, dead = T.dead ?? 6, expo = T.expo ?? 1.8, L = Math.hypot(dx, dy);
+        if (L > R) { this.joy.ox += dx - dx / L * R; this.joy.oy += dy - dy / L * R; dx = dx / L * R; dy = dy / L * R; } // floating base follows the thumb
+        const L2 = Math.hypot(dx, dy);
+        if (L2 > dead) {
+          const u = Math.min(1, (L2 - dead) / Math.max(1, R - dead));
+          const m = Math.pow(u, expo);
+          ax = dx / L2 * m; ay = dy / L2 * m;
+        }
+      }
     }
     if (this.fireId !== null) { if (I.pointers.has(this.fireId)) fire = true; else this.fireId = null; }
-    return { ax, ay, fire };
+    return { ax, ay, fire, follow };
   }
   menuAction(id) {
     SL.Audio.sfx.blip(780);
@@ -282,11 +298,25 @@ SL.Survival = class {
     }
     SL.Features.update(this, dt);
     const hdt = dt * SL.Features.hazardScale(this);   // v0.5.7 slow-mo: asteroids / enemy shots; player stays at full speed
-    // ship movement with light inertia
+    // ship movement with light inertia (v0.7.5: touch-only precision curve is in handleInput; harder brake on release)
     if (s.alive) {
-      const mag = Math.hypot(inp.ax, inp.ay), nx = mag > 1 ? inp.ax / mag : inp.ax, ny = mag > 1 ? inp.ay / mag : inp.ay;
-      const k = Math.min(1, C.ship.response * dt);
-      s.vx += (nx * C.ship.maxSpeed - s.vx) * k; s.vy += (ny * C.ship.maxSpeed - s.vy) * k;
+      const T = C.ship.touch || {};
+      if (inp.follow) {
+        const dx = inp.follow.x - s.x, dy = inp.follow.y - s.y, dist = Math.hypot(dx, dy);
+        let tvx = 0, tvy = 0;
+        if (dist > 1.5) {
+          const spd = Math.min(C.ship.maxSpeed, dist * (T.dragArrive || 10));
+          tvx = dx / dist * spd; tvy = dy / dist * spd;
+        }
+        const k = Math.min(1, (T.followResponse || 18) * dt);
+        s.vx += (tvx - s.vx) * k; s.vy += (tvy - s.vy) * k;
+      } else {
+        const mag = Math.hypot(inp.ax, inp.ay), nx = mag > 1 ? inp.ax / mag : inp.ax, ny = mag > 1 ? inp.ay / mag : inp.ay;
+        let resp = C.ship.response;
+        if (SL.Input.touchMode && mag <= (T.stopBand ?? 0.05)) resp = T.stopResponse || 22;
+        const k = Math.min(1, resp * dt);
+        s.vx += (nx * C.ship.maxSpeed - s.vx) * k; s.vy += (ny * C.ship.maxSpeed - s.vy) * k;
+      }
       s.x = Math.max(24, Math.min(W - 24, s.x + s.vx * dt)); s.y = Math.max(80, Math.min(H - 26, s.y + s.vy * dt));
       s.invuln = Math.max(0, s.invuln - dt); s.cool -= dt;
       if (inp.fire && s.cool <= 0 && live) this.fire();
@@ -471,14 +501,18 @@ SL.Survival = class {
   }
   drawTouch(g) {
     const J = this.joyHome, j = this.joy;
-    const bx = j ? j.ox : J.x, by = j ? j.oy : J.y;
-    let kx = bx, ky = by; if (j) { kx = j.x; ky = j.y; const dx = kx - bx, dy = ky - by, L = Math.hypot(dx, dy); if (L > J.r) { kx = bx + dx / L * J.r; ky = by + dy / L * J.r; } }
-    g.save();
-    g.strokeStyle = `rgba(70,160,255,${j ? 0.75 : 0.4})`; g.lineWidth = 2; g.shadowColor = 'rgba(70,160,255,1)'; g.shadowBlur = 12 * SL.view.scale;
-    g.beginPath(); g.arc(bx, by, J.r, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = 'rgba(70,160,255,0.08)'; g.fill();
-    g.beginPath(); g.arc(kx, ky, 24, 0, Math.PI * 2); g.fillStyle = `rgba(120,190,255,${j ? 0.55 : 0.3})`; g.fill(); g.stroke();
+    if (!SL.touchMove.drag()) {
+      const bx = j ? j.ox : J.x, by = j ? j.oy : J.y;
+      let kx = bx, ky = by; if (j) { kx = j.x; ky = j.y; const dx = kx - bx, dy = ky - by, L = Math.hypot(dx, dy); if (L > J.r) { kx = bx + dx / L * J.r; ky = by + dy / L * J.r; } }
+      g.save();
+      g.strokeStyle = `rgba(70,160,255,${j ? 0.75 : 0.4})`; g.lineWidth = 2; g.shadowColor = 'rgba(70,160,255,1)'; g.shadowBlur = 12 * SL.view.scale;
+      g.beginPath(); g.arc(bx, by, J.r, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(70,160,255,0.08)'; g.fill();
+      g.beginPath(); g.arc(kx, ky, 24, 0, Math.PI * 2); g.fillStyle = `rgba(120,190,255,${j ? 0.55 : 0.3})`; g.fill(); g.stroke();
+      g.restore();
+    }
     const F = this.fireBtn, on = this.fireId !== null;
+    g.save();
     g.strokeStyle = `rgba(255,80,220,${on ? 1 : 0.7})`; g.shadowColor = 'rgba(255,80,220,1)'; g.shadowBlur = (on ? 22 : 12) * SL.view.scale; g.lineWidth = on ? 3.5 : 2.5;
     g.beginPath(); g.arc(F.x, F.y, F.r, 0, Math.PI * 2); g.fillStyle = `rgba(255,80,220,${on ? 0.28 : 0.1})`; g.fill(); g.stroke();
     g.restore();
@@ -504,7 +538,7 @@ SL.Survival = class {
       return;
     }
     SL.neonText(g, 'PAUSED', 512, 168, 48, '255,80,220', { blur: 22 });
-    SL.neonText(g, SL.Input.touchMode ? 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL' : SL.CONTROLS_HINT, 512, 530, 13, '160,200,255', { blur: 5, alpha: 0.85 });
+    SL.neonText(g, SL.Input.touchMode ? (SL.touchMove.drag() ? 'DRAG TO MOVE · FIRE: HOLD · BOMB · AVRILL' : 'STICK: MOVE · FIRE: HOLD · BOMB · AVRILL') : SL.CONTROLS_HINT, 512, 530, 13, '160,200,255', { blur: 5, alpha: 0.85 });
     this.pauseBtns.forEach((b, i) => SL.drawButton(g, b, i === this.sel, this.T));
   }
   drawOver(g) {

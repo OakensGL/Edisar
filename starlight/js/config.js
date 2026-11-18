@@ -1,13 +1,23 @@
 /* Project Starlight — global namespace + tunables. Everything gameplay-related lives here. */
 window.SL = window.SL || {};
-SL.VERSION = '0.7.4';
+SL.VERSION = '0.7.5';
 SL.FINAL_LEVEL = 30;                // Story ends at level 30 (final mission, not built yet)
 SL.W = 1024; SL.H = 576;            // logical design resolution (16:9)
 
 SL.CONFIG = {
   ship: {
     maxSpeed: 430,        // px/s
-    response: 9,          // inertia: higher = snappier
+    response: 9,          // inertia: higher = snappier (keyboard / desktop)
+    touch: {              // v0.7.5: phone stick + drag only; keyboard unchanged
+      r: 70,              // slightly larger stick radius than the old 58
+      dead: 6,            // px dead zone (kept)
+      expo: 1.8,          // magnitude curve: small throws stay slow
+      stopResponse: 22,   // hard brake when the stick/drag is released or near center
+      stopBand: 0.05,     // target-speed fraction treated as "near center"
+      dragOffset: 80,     // follow a point this many px above the finger
+      dragArrive: 10,     // 1/s: ease into the follow point so it doesn't overshoot
+      followResponse: 18, // snappy catch-up while dragging
+    },
     radius: 12,           // collision radius
     fireRate: 0.12,       // seconds between shots (hold to autofire)
     bulletSpeed: 860,
@@ -115,7 +125,7 @@ SL.CONFIG = {
       pickupEvery: [6, 8], pickupCap: 3,             // v0.6.5: self-spawned power-ups during Nebula / Edisar fights
     },
   },
-  storage: { best: 'starlight.survival.best', muted: 'starlight.muted', music: 'starlight.musicVol', sfx: 'starlight.sfxVol', musicOn: 'starlight.musicOn', unlocked: 'starlight.story.unlocked' },
+  storage: { best: 'starlight.survival.best', muted: 'starlight.muted', music: 'starlight.musicVol', sfx: 'starlight.sfxVol', musicOn: 'starlight.musicOn', unlocked: 'starlight.story.unlocked', touchMove: 'starlight.touchMove' },
   font: '"Courier New", Courier, monospace',
 };
 
@@ -125,3 +135,8 @@ SL.store = {
 };
 SL.pad = (n, len = 6) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 SL.CONTROLS_HINT = 'MOVE WASD/ARROWS · FIRE SPACE/J · BOMB F · AVRILL R · RETRY T · PAUSE P/ESC · MUTE M';
+SL.touchMove = {
+  get() { return SL.store.get(SL.CONFIG.storage.touchMove, 'stick') === 'drag' ? 'drag' : 'stick'; },
+  set(m) { SL.store.set(SL.CONFIG.storage.touchMove, m === 'drag' ? 'drag' : 'stick'); },
+  drag() { return this.get() === 'drag'; },
+};

@@ -1,4 +1,4 @@
-PROJECT STARLIGHT v0.7.4
+PROJECT STARLIGHT v0.7.5
 ======================
 
 Game design, art direction: Juan Carlos Garcia
@@ -76,3 +76,4 @@ v0.7.1: Avrill's warp-out escort line after Story missions (levels 1–29) is pi
 v0.7.2: the end-credits memorial line now reads: "In memory of Avrill, who fought for humankind until the very end."
 v0.7.3: normal Story missions require 50% more asteroids (kill goals rounded to the nearest integer) and their sector time limits are scaled by the same amount so the extra goal stays achievable. Boss fights (levels 5, 10, 15, 20, 25, 30) and Survival are unchanged.
 v0.7.4: dialog and speech-bubble text word-wraps to the box width (Avrill warp-out lines, mid-mission radio, cutscenes and briefs). The box grows to fit every wrapped line; the font shrinks only if the box would cover the touch controls or the continue hint.
+v0.7.5: on a phone, the touch joystick uses a precision curve (small thumb moves stay slow; full speed only near the edge) and the ship brakes quickly when the stick is released, so it no longer overshoots. Settings includes a DRAG option that moves the ship toward a point just above your finger. Keyboard and desktop controls are unchanged.

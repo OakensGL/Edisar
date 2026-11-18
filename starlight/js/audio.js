@@ -139,11 +139,15 @@ SL.Audio = (() => {
 /* v0.5.5: top-corner speaker (music on/off) + settings gear (Music/SFX sliders). Shared on title, map, and in-game. */
 SL.Vol = (() => {
   let drag = null, open = false;
-  const closeBtn = { label: 'CLOSE', x: 512, y: 412, w: 180, h: 40, rgb: '160,200,255', size: 16 };
-  const panel = { x: 512, y: 300, w: 420, h: 280 };
+  const closeBtn = { label: 'CLOSE', x: 512, y: 456, w: 180, h: 40, rgb: '160,200,255', size: 16 };
+  const panel = { x: 512, y: 310, w: 440, h: 372 };
   const bars = [
-    { id: 'music', label: 'MUSIC', x: 512, y: 278, w: 300 },
-    { id: 'sfx',   label: 'SFX',   x: 512, y: 338, w: 300 },
+    { id: 'music', label: 'MUSIC', x: 512, y: 232, w: 300 },
+    { id: 'sfx',   label: 'SFX',   x: 512, y: 292, w: 300 },
+  ];
+  const modeBtns = [
+    { id: 'stick', label: 'STICK', x: 429, y: 372, w: 150, h: 42, rgb: '70,160,255' },
+    { id: 'drag',  label: 'DRAG',  x: 595, y: 372, w: 150, h: 42, rgb: '255,80,220' },
   ];
   function hidden() {
     if (SL.state === 'credits' || SL.state === 'intro') return true;
@@ -170,6 +174,8 @@ SL.Vol = (() => {
     for (const d of downs) {
       if (open) {
         if (SL.inBtn(closeBtn, d)) { close(); d.role = 'ui'; continue; }
+        const mb = modeBtns.find(b => SL.inBtn(b, d));
+        if (mb) { SL.touchMove.set(mb.id); SL.Audio.sfx.blip(700); d.role = 'ui'; continue; }
         let onBar = false;
         for (const bar of bars) if (hitBar(bar, d)) { drag = { id: bar.id, pid: d.id }; setFromX(bar, d.x); d.role = 'ui'; onBar = true; }
         if (!onBar) { if (!inPanel(d)) close(); d.role = 'ui'; }
@@ -188,6 +194,9 @@ SL.Vol = (() => {
   function keys(I) {
     if (I.hit('KeyM')) { SL.Audio.toggleMusic(); SL.Audio.sfx.blip(520); }
     if (open && I.hitAny('Escape', 'Backspace')) { close(); return true; }
+    if (open && I.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD')) {
+      SL.touchMove.set(SL.touchMove.drag() ? 'stick' : 'drag'); SL.Audio.sfx.blip(700); return true;
+    }
     return open;
   }
   function iconBtn(g, b, hot) {
@@ -242,6 +251,10 @@ SL.Vol = (() => {
     g.strokeStyle = 'rgba(170,90,255,0.7)'; g.lineWidth = 2; g.shadowColor = 'rgba(170,90,255,0.8)'; g.shadowBlur = 14 * (SL.view ? SL.view.scale : 1); g.stroke(); g.restore();
     SL.neonText(g, 'SETTINGS', 512, y + 36, 26, '255,80,220', { blur: 16 });
     bars.forEach(bar => drawSlider(g, bar));
+    const x0 = 512 - 150;
+    SL.neonText(g, 'TOUCH', x0, 336, 13, '255,80,220', { align: 'left', blur: 5, alpha: 0.95 });
+    const cur = SL.touchMove.get();
+    modeBtns.forEach(b => SL.drawButton(g, b, b.id === cur, t || 0));
     SL.drawButton(g, closeBtn, false, t || 0);
   }
   function drawChrome(g, t) {
