@@ -1,0 +1,80 @@
+STARLIGHT DEFENSE v0.1.2
+======================
+
+A tower defense set in the Project Starlight universe.
+Hold the station against Commander Edisar Starlight's fleet.
+The last wave brings his Level 30 flagship.
+
+Game design, art direction: Juan Carlos Garcia
+Pilots of the Starlight universe: Oakens and Avrill "Supernova".
+Villain: Commander Edisar Starlight.
+
+ART
+---
+Turrets, wave ships and the Edisar flagship are drawn procedurally on the
+canvas as modern metallic sci-fi (shaded hulls, mechanical detail, glow
+used only as an accent). The path, particles and UI follow the gold-and-cyan
+palette of Project Starlight.
+The title screen uses an illustrated station background of Oakens and
+Dr. Nebula with the defense arsenal (assets/title-bg.jpg).
+The opening crawl uses an illustrated scene of Oakens and Dr. Nebula
+facing Edisar's flagship (assets/crawl-bg.jpg).
+App icons are generated from the same palette (cyan, gold, magenta on a
+deep-space field).
+
+SOUND
+-----
+Title music: "Space Dimensions (8bit/Retro Version)" by Matthew Pablo
+  Also listed as "n-Dimensions (Main Theme - Retro Version)".
+Source:  https://opengameart.org/content/space-dimensions-8bitretro-version
+Author:  https://www.matthewpablo.com/
+License: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+File:    assets/space-dimensions-retro.ogg
+  Re-encoded from the official MP3 (used unmodified aside from a smaller
+  Ogg Vorbis encode for phones). Loops on the title screen.
+
+Game music: Space Shooter Music pack by Oblidivm
+  Official credit: Music by Oblidivm - oblidivmmusic.blogspot.com
+  Source:  https://opengameart.org/content/space-shooter-music
+  Author:  https://oblidivmmusic.blogspot.com
+  License: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+  Tracks (re-encoded to a lower-bitrate Ogg Vorbis for phones):
+    SkyFire (Title Screen)     — intro crawl          assets/skyfire.ogg
+    Without Fear               — odd numbered waves   assets/without-fear.ogg
+    Battle in the Stars        — even numbered waves  assets/battle-in-the-stars.ogg
+    DeathMatch (Boss Theme)    — Edisar flagship wave assets/deathmatch.ogg
+    Space Heroes               — post-wave score      assets/space-heroes.ogg
+    Victory Tune               — win screen           assets/victory-tune.ogg
+    Defeated (Game Over Tune)  — lose screen          assets/defeated.ogg
+  Tracks crossfade and respect the mute toggle. Wave music is mixed lower
+  so turret sound effects stay audible.
+
+In-game attribution: title screen credit line and the Credits panel.
+All other sound effects are synthesized at runtime with the Web Audio API.
+
+v0.1
+----
+One map, a single winding path, three turrets (laser, missiles, ice) with
+one upgrade and a sell-back, ten waves, and Edisar's flagship as the
+final boss. Credits from every kill can be spent at any time, including
+during a wave. Playable on desktop and phone.
+
+v0.1.1
+------
+Buildable tiles now show faint cyan pads at all times (not only while placing
+a turret), so the map reads as a grid and it is clearer where a turret can go.
+The three turrets were redrawn as modern metallic sci-fi weapons (shaded
+bodies, mechanical detail, rotating heads, muzzle flashes). Glow is used
+only as an accent on energy cores and shots, not as neon outlines.
+
+v0.1.2
+------
+Wave enemy ships (scouts, fighters, armored) and Edisar's flagship were
+redrawn in the same modern metallic sci-fi style as the v0.1.1 turrets:
+shaded hulls, panel cuts and armor plates, with glow only on engines,
+canopies and the flagship core.
+Title screen uses an illustrated station background (Oakens and Dr. Nebula
+with the defense arsenal). A How to Play panel, sound toggle, and looping
+title music were added. Buttons sit in a sky bar so they do not cover the
+characters.
+An opening crawl, "The Return of Edisar Starlight," plays after Play (skippable; Story on the title screen replays it).
