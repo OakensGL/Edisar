@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.1.3
+STARLIGHT: LAST STATION v0.2
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -43,7 +43,7 @@ Game music: Space Shooter Music pack by Oblidivm
     Without Fear               — odd numbered waves   assets/without-fear.ogg
     Battle in the Stars        — even numbered waves  assets/battle-in-the-stars.ogg
     DeathMatch (Boss Theme)    — Edisar flagship wave assets/deathmatch.ogg
-    Space Heroes               — post-wave score      assets/space-heroes.ogg
+    Space Heroes               — level-complete score assets/space-heroes.ogg
     Victory Tune               — win screen           assets/victory-tune.ogg
     Defeated (Game Over Tune)  — lose screen          assets/defeated.ogg
   Tracks crossfade and respect the mute toggle. Wave music is mixed lower

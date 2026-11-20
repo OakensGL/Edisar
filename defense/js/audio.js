@@ -8,7 +8,7 @@ SD.Audio = (() => {
 
   const TRACKS = {
     title:  { src: 'assets/space-dimensions-retro.ogg', loop: true,  vol: 0.52 },
-    crawl:  { src: 'assets/skyfire.ogg',                 loop: true,  vol: 0.48 },
+    crawl:  { src: 'assets/skyfire.ogg',                 loop: false, vol: 0.48, duration: 53.355 },
     fear:   { src: 'assets/without-fear.ogg',            loop: true,  vol: 0.24 },
     battle: { src: 'assets/battle-in-the-stars.ogg',     loop: true,  vol: 0.24 },
     boss:   { src: 'assets/deathmatch.ogg',              loop: true,  vol: 0.30 },
@@ -79,16 +79,18 @@ SD.Audio = (() => {
     if (!started || muted) return;
     const spec = TRACKS[id];
     const p = ensure(id);
-    const restart = opt.restart !== false && (!spec.loop || p.paused || p.ended || p.currentTime === 0);
-    if (opt.restart === true || (!spec.loop) || p.ended) {
-      try { p.currentTime = 0; } catch (e) {}
-    } else if (restart && p.paused && p.currentTime > 0 && spec.loop) {
-      /* resume in place */
-    } else if (p.paused || p.ended) {
+    p.loop = !!spec.loop;
+    const playing = !p.paused && !p.ended;
+    if (opt.restart === true) {
       try { p.currentTime = 0; } catch (e) {}
     }
-    const playP = p.play();
-    if (playP && playP.catch) playP.catch(() => {});
+    // One-shot tracks (crawl, jingles) must never auto-restart when they end.
+    if (p.ended && !spec.loop && opt.restart !== true) {
+      /* leave it finished */
+    } else if (!playing || opt.restart === true) {
+      const playP = p.play();
+      if (playP && playP.catch) playP.catch(() => {});
+    }
     const dur = opt.dur ?? 1.0;
     for (const k of Object.keys(players)) {
       fadeTo(k, k === id ? spec.vol : 0, dur);
@@ -104,7 +106,7 @@ SD.Audio = (() => {
 
   function playTitle() { playMusic('title'); }
   function stopTitle() { if (want === 'title' || !want) stopMusic(); }
-  function playCrawl() { playMusic('crawl'); }
+  function playCrawl() { playMusic('crawl', { restart: true }); }
   function playWave(index) {
     if (index >= 9) playMusic('boss');
     else playMusic(index % 2 === 0 ? 'fear' : 'battle');
@@ -180,6 +182,7 @@ SD.Audio = (() => {
   return {
     unlock, toggleMute, setMuted,
     playMusic, stopMusic, playTitle, stopTitle, playCrawl, playWave, playScore, playWin, playLose,
+    trackDuration: (id) => (TRACKS[id] && TRACKS[id].duration) || 0,
     get muted() { return muted; },
     get started() { return started; },
     tick,

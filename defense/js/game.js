@@ -2,13 +2,13 @@
 (() => {
 const { W, H, TILE } = SD;
 const C = () => SD.CONFIG;
-const KINDS = ['laser', 'missile', 'ice'];
+const KINDS = ['laser', 'missile', 'ice', 'railgun', 'tesla', 'pulse'];
 
 function tileCenter(tx, ty) { return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }; }
 function tileAt(x, y) { return { tx: Math.floor(x / TILE), ty: Math.floor(y / TILE) }; }
 
-function buildPath() {
-  const tiles = C().path;
+function buildPath(tiles) {
+  tiles = tiles || SD.CONFIG.levels[0].path;
   const pts = tiles.map(([tx, ty]) => tileCenter(tx, ty));
   const seg = [];
   let total = 0;
@@ -113,12 +113,12 @@ SD.Title = class {
       }
       return;
     }
-    if (SD.Input.confirm()) { SD.Audio.click(); SD.start('crawl'); return; }
+    if (SD.Input.confirm()) { SD.Audio.click(); SD.start('levels'); return; }
     if (SD.Input.hit('Escape') || SD.Input.hit('KeyH')) { this.help = true; SD.Audio.click(); }
     if (SD.Input.hit('KeyC')) { this.showCredits = true; SD.Audio.click(); }
     for (const p of SD.Input.takeClicks()) {
       if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
-      else if (SD.inBtn(this.play, p)) { SD.Audio.click(); SD.start('crawl'); }
+      else if (SD.inBtn(this.play, p)) { SD.Audio.click(); SD.start('levels'); }
       else if (SD.inBtn(this.story, p)) { SD.Audio.click(); SD.start('crawl'); }
       else if (SD.inBtn(this.creditsBtn, p)) { this.showCredits = true; SD.Audio.click(); }
       else if (SD.inBtn(this.helpBtn, p)) { this.help = true; SD.Audio.click(); }
@@ -196,7 +196,7 @@ SD.Title = class {
 
   drawHelp(g) {
     g.save(); g.fillStyle = 'rgba(4,2,12,0.62)'; g.fillRect(0, 0, W, H); g.restore();
-    const x = W / 2 - 340, y = 110, w = 680, h = 400;
+    const x = W / 2 - 340, y = 90, w = 680, h = 440;
     g.save();
     SD.roundRect(g, x, y, w, h, 14);
     g.fillStyle = 'rgba(8,10,20,0.92)'; g.fill();
@@ -204,21 +204,23 @@ SD.Title = class {
     g.restore();
     SD.neonText(g, 'HOW TO PLAY', W / 2, 148, 28, '200,230,255', { blur: 12 });
     const lines = [
-      'Place turrets on the pads beside the path.',
-      'Pick a turret type, then a pad, to build.',
-      'Select a built turret to upgrade or sell it.',
-      'Every enemy you destroy grants credits.',
-      'Buy, upgrade and sell at any time — even during a wave.',
-      'Start a wave when you are ready. Hold the station for 10 waves.',
-      "The last wave brings Commander Edisar's flagship.",
+      'Three levels, ten waves each. Credits and turrets reset every level.',
+      'LASER  ·  fast beam.  MISSILES  ·  slow splash.  ICE  ·  slows ships.',
+      'RAILGUN  ·  long-range pierce.  TESLA  ·  chaining arc.  PULSE  ·  shield-breaking shockwave.',
+      'Upgrade twice: MK III adds a special (twin beams, cluster, freeze, full pierce, longer chains, stun).',
+      'Scouts resist missiles and fear lasers. Armored resist lasers and fear missiles and the railgun.',
+      'Shielded ships shrug off most fire until Tesla or Pulse pops the bubble.',
+      'Cryo-engine ships are immune to ice slow and freeze.',
+      'Tap a ship to see its HP, weaknesses and resistances.',
+      'After a wave, a short timer starts. Send the next wave early for bonus credits.',
       '',
       SD.Input.touchMode
-        ? 'PHONE  ·  TAP A TURRET, THEN TAP THE MAP  ·  LANDSCAPE RECOMMENDED'
-        : 'DESKTOP  ·  1 / 2 / 3 SELECT  ·  U UPGRADE  ·  X SELL  ·  P PAUSE  ·  M MUTE',
+        ? 'PHONE  ·  TAP A TURRET, THEN A PAD  ·  LANDSCAPE RECOMMENDED'
+        : 'DESKTOP  ·  1–6 SELECT  ·  U UPGRADE  ·  X SELL  ·  P PAUSE  ·  M MUTE',
     ];
     lines.forEach((ln, i) => {
       const small = i >= lines.length - 1;
-      SD.neonText(g, ln, W / 2, 200 + i * 24, small ? 13 : 16, small ? '180,210,255' : '220,230,245', { blur: 5, alpha: 0.92 });
+      SD.neonText(g, ln, W / 2, 186 + i * 22, small ? 13 : 14, small ? '180,210,255' : '220,230,245', { blur: 5, alpha: 0.92 });
     });
     SD.drawButton(g, this.closeHelp, SD.Input.mouse.over && SD.inBtn(this.closeHelp, SD.Input.mouse), this.T);
   }
@@ -269,20 +271,27 @@ SD.Crawl = class {
     this.bgReady = false;
     this.shot = !!opt.shot;
     this.leaving = null;
-    this.scroll = -60;
-    this.speed = 36;
-    this.ss = 2;
-    this.sheetW = 900;
-    this.k = 3.6;
-    this.vanishY = 72;
-    this.floorY = H - 58;
-    this.sheet = this.buildSheet();
-    this.visibleSrc = this.sourceDepth();
-    this.endScroll = this.sheetH + this.visibleSrc + 80;
+    this.FONT = SD.CONFIG.crawlFont;
+    this.SIZE = 44;
+    this.LH = 60;
+    this.PG = 40;
+    this.MAXW = 880;
+    this.TEXT_X = 512;
+    this.TEXT_Y0 = 520;
+    this.TEXT_TOP = 90;
+    this.TEXT_BOT = 530;
+    this.T_START = 1.6;
+    this.HOLD = 0.35;
+    this.FADE = 2.2;
+    this.items = [];
+    this.S_END = 0;
+    this.DUR = SD.CONFIG.crawlTrack || 53.355;
+    this.SPEED = 34;
+    this.layout();
     this.loadBg();
     if (this.shot) {
-      this.scroll = this.scrollFor(this.titleAnchor, 220);
-      this.T = 2;
+      // mid-crawl still: title + first paragraphs readable
+      this.T = this.T_START + (this.items[3] ? (this.TEXT_Y0 + this.items[3].y - 210) / this.SPEED : 8);
     }
   }
 
@@ -295,6 +304,8 @@ SD.Crawl = class {
     };
     tryLoad('assets/crawl-bg.jpg', () => tryLoad('assets/crawl-bg.webp', () => tryLoad('assets/crawl-bg.png')));
   }
+
+  font(px) { return `bold ${px}px ${this.FONT}`; }
 
   wrap(g, text, maxW) {
     const words = text.split(' ');
@@ -309,15 +320,10 @@ SD.Crawl = class {
     return lines;
   }
 
-  paintText(g, text, x, y, fill = true) {
-    g.strokeText(text, x, y);
-    if (fill) g.fillText(text, x, y);
-  }
-
-  buildSheet() {
-    const ss = this.ss, width = this.sheetW;
+  layout() {
+    const dummy = SD.mkCanvas(16, 16).getContext('2d');
+    dummy.font = this.font(this.SIZE);
     const title = 'THE RETURN OF EDISAR STARLIGHT';
-    const titleLines = ['THE RETURN OF', 'EDISAR STARLIGHT'];
     const paras = [
       "The war was supposed to be over. Avrill's sacrifice broke Edisar's fleet, and his flagship fell at the edge of the solar system.",
       'But Edisar Starlight survived.',
@@ -326,120 +332,57 @@ SD.Crawl = class {
       'Every ship that falls brings them closer to victory. Every ship that passes brings Earth closer to its end.',
       'The defense of humanity begins now...',
     ];
-    // Layout in logical pixels, then paint at ss.
-    const dummy = SD.mkCanvas(16, 16).getContext('2d');
-    dummy.font = `bold 30px ${SD.CONFIG.font}`;
-    const bodyMax = 780;
-    const blocks = paras.map((p, i) => ({
-      kind: 'body',
-      lines: this.wrap(dummy, p, bodyMax),
-      emph: i === 1 || i === paras.length - 1,
-    }));
-
-    const titleSize = 44;
-    const titleLh = 54;
-    const bodySize = 30;
-    const bodyLh = 46;
-    const paraGap = 38;
-    let y = 8;
-    const titleTop = y;
-    y += titleLines.length * titleLh + 18;
-    const ruleY = y;
-    y += 36;
-    const bodyStart = y;
-    const laid = [];
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i];
-      laid.push({ kind: 'body', lines: b.lines, y, emph: b.emph });
-      y += b.lines.length * bodyLh + paraGap;
+    const items = [];
+    let y = 0;
+    dummy.font = this.font(40);
+    for (const ln of this.wrap(dummy, title, this.MAXW)) {
+      items.push({ y, text: ln, font: this.font(40), rgb: '225,250,255', size: 40 });
+      y += 54;
     }
-    this.sheetH = y + 20;
-    this.titleAnchor = titleTop + titleLh; // mid of title block
-
-    const c = SD.mkCanvas(width * ss, Math.ceil(this.sheetH * ss));
-    const g = c.getContext('2d');
-    g.scale(ss, ss);
-    g.textAlign = 'center';
-    g.textBaseline = 'top';
-    g.lineJoin = 'round';
-    g.lineCap = 'round';
-    g.strokeStyle = 'rgba(30,16,0,0.8)';
-    g.fillStyle = '#f4f6ff';
-    g.shadowColor = 'rgba(200,215,255,0.4)';
-    g.shadowBlur = 10 * ss;
-    g.lineWidth = 3.2;
-
-    g.font = `bold ${titleSize}px ${SD.CONFIG.font}`;
-    titleLines.forEach((ln, i) => this.paintText(g, ln, width / 2, titleTop + i * titleLh));
-
-    g.shadowBlur = 0;
-    g.beginPath();
-    g.strokeStyle = 'rgba(230,235,255,0.7)';
-    g.lineWidth = 2;
-    g.moveTo(width / 2 - 210, ruleY);
-    g.lineTo(width / 2 + 210, ruleY);
-    g.stroke();
-
-    g.strokeStyle = 'rgba(30,16,0,0.8)';
-    g.lineWidth = 3;
-    g.shadowColor = 'rgba(200,215,255,0.3)';
-    g.shadowBlur = 8 * ss;
-    laid.forEach(b => {
-      const size = b.emph ? 32 : bodySize;
-      g.font = `bold ${size}px ${SD.CONFIG.font}`;
-      b.lines.forEach((ln, i) => this.paintText(g, ln, width / 2, b.y + i * bodyLh));
+    y += 28;
+    dummy.font = this.font(this.SIZE);
+    paras.forEach((p, i) => {
+      const rgb = i === 1 || i === paras.length - 1 ? '235,252,255' : '225,250,255';
+      for (const ln of this.wrap(dummy, p, this.MAXW)) {
+        items.push({ y, text: ln, font: this.font(this.SIZE), rgb, size: this.SIZE });
+        y += this.LH;
+      }
+      y += this.PG;
     });
-
-    this._title = title; // exact heading kept with the body paragraphs
-    return c;
-  }
-
-  sourceDepth() {
-    const depth = this.floorY - this.vanishY;
-    let acc = 0;
-    for (let i = 0; i < depth; i++) {
-      const t = i / depth;
-      const scale = 1 / (1 + this.k * t);
-      acc += 1 / scale;
-    }
-    return acc;
-  }
-
-  scrollFor(srcY, destY) {
-    const depth = this.floorY - this.vanishY;
-    const iMax = Math.max(0, this.floorY - destY);
-    let acc = 0;
-    for (let i = 0; i < iMax; i++) {
-      const t = i / depth;
-      const scale = 1 / (1 + this.k * t);
-      acc += 1 / scale;
-    }
-    return srcY + acc;
+    this.items = items;
+    this.S_END = this.TEXT_Y0 + y - this.TEXT_TOP;
+    // Sync to SkyFire: last line fades as the track ends. Never loop or restart.
+    const track = SD.CONFIG.crawlTrack || 53.355;
+    const usable = Math.max(8, track - this.T_START - this.HOLD);
+    this.SPEED = this.S_END / usable;
+    this.DUR = track;
   }
 
   finish() {
     if (this.shot || this.leaving != null) return;
     this.leaving = 0.001;
+    if (SD.Audio.stopMusic) SD.Audio.stopMusic({ dur: 0.9 });
   }
 
   update(dt) {
     this.T += dt;
-    this.stars.update(dt);
+    if (!this.bgReady) this.stars.update(dt);
     if (this.shot) return;
     if (this.leaving != null) {
       this.leaving += dt;
-      if (this.leaving >= 0.7) SD.start('play');
+      if (this.leaving >= 0.7) SD.start('levels');
       return;
     }
     if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
-    if (SD.Input.confirm() || SD.Input.hit('Escape') || SD.Input.takeClicks().length) {
+    if (this.T > 0.45 && (SD.Input.confirm() || SD.Input.hit('Escape') || SD.Input.takeClicks().length)) {
       SD.Audio.click();
       this.finish();
       return;
     }
-    if (this.T > 0.85) this.scroll += this.speed * dt;
-    if (this.scroll >= this.endScroll) this.finish();
+    if (this.T >= this.DUR) this.finish();
   }
+
+  fin() { return 1 - Math.max(0, Math.min(1, (this.T - (this.DUR - this.FADE)) / this.FADE)); }
 
   draw(g) {
     if (this.bgReady) {
@@ -454,68 +397,132 @@ SD.Crawl = class {
       SD.drawSpaceBg(g);
       this.stars.draw(g, this.T);
     }
-    this.drawPerspective(g);
-
-    const top = g.createLinearGradient(0, this.vanishY - 8, 0, this.vanishY + 100);
-    top.addColorStop(0, 'rgba(0,0,0,0.75)');
-    top.addColorStop(0.55, 'rgba(0,0,0,0.35)');
-    top.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = top;
-    g.fillRect(0, 0, W, this.vanishY + 100);
-
-    const bot = g.createLinearGradient(0, H - 70, 0, H);
-    bot.addColorStop(0, 'rgba(0,0,0,0)');
-    bot.addColorStop(1, 'rgba(0,0,0,0.45)');
-    g.fillStyle = bot;
-    g.fillRect(0, H - 70, W, 70);
-
+    // Starlight-style soft dark veil for readability
+    const a = Math.min(1, this.T / 0.7) * (this.leaving != null ? 1 : this.fin());
+    if (a > 0) {
+      const grd = g.createLinearGradient(0, 0, 0, H);
+      grd.addColorStop(0, 'rgba(0,0,0,0)');
+      grd.addColorStop(0.10, `rgba(0,0,0,${0.28 * a})`);
+      grd.addColorStop(0.28, `rgba(0,0,0,${0.58 * a})`);
+      grd.addColorStop(0.72, `rgba(0,0,0,${0.58 * a})`);
+      grd.addColorStop(0.90, `rgba(0,0,0,${0.28 * a})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    }
+    this.drawCrawl(g);
     if (!this.shot) {
       const hint = SD.Input.touchMode ? 'TAP ANYWHERE TO SKIP' : 'TAP  ·  SPACE  ·  ESC  TO SKIP';
-      SD.neonText(g, hint, W / 2, H - 20, 13, '230,235,255', { blur: 6, alpha: 0.8 });
+      const hf = this.fin();
+      if (this.T > 0.45 && hf > 0.2) {
+        SD.neonText(g, hint, W / 2, H - 22, 13, '230,235,255', { blur: 6, alpha: 0.55 + 0.2 * Math.sin(this.T * 3) });
+      }
     }
-
     const fadeIn = Math.max(0, 1 - this.T / 0.8);
-    const fadeOut = this.leaving != null ? Math.min(1, this.leaving / 0.7) : 0;
+    const fadeOut = this.leaving != null ? Math.min(1, this.leaving / 0.7) : (1 - this.fin());
     const fade = Math.max(fadeIn, fadeOut);
-    if (fade > 0) {
-      g.fillStyle = `rgba(4,1,12,${fade})`;
-      g.fillRect(0, 0, W, H);
-    }
+    if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade})`; g.fillRect(0, 0, W, H); }
     SD.drawScanlines(g);
   }
 
-  drawPerspective(g) {
-    const sheet = this.sheet;
-    const srcW = sheet.width;
-    const srcH = sheet.height;
-    const ss = this.ss;
-    const depth = this.floorY - this.vanishY;
-    const step = 1;
-    const nearW = W * 0.84;
-    let srcBottom = this.scroll * ss;
-    g.save();
-    g.imageSmoothingEnabled = true;
-    if (g.imageSmoothingQuality) g.imageSmoothingQuality = 'high';
-    for (let i = 0; i < depth; i += step) {
-      const t = i / depth;
-      const scale = 1 / (1 + this.k * t);
-      const destY = this.floorY - i - step;
-      const destW = nearW * scale;
-      const destX = (W - destW) / 2;
-      const srcSlice = (step / scale) * ss;
-      const srcTop = srcBottom - srcSlice;
-      if (srcBottom > 0 && srcTop < srcH) {
-        const sy = Math.max(0, srcTop);
-        const sh = Math.min(srcSlice, srcH - sy, srcBottom - sy);
-        if (sh > 0.4) {
-          const fade = t > 0.78 ? 1 - (t - 0.78) / 0.22 : 1;
-          g.globalAlpha = Math.max(0, fade);
-          g.drawImage(sheet, 0, sy, srcW, sh, destX, destY, destW, step + 0.5);
+  drawCrawl(g) {
+    const s = Math.min(this.SPEED * Math.max(0, this.T - this.T_START), this.S_END);
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    const sc = SD.view ? SD.view.scale : 1;
+    for (const it of this.items) {
+      const y = this.TEXT_Y0 + it.y - s;
+      if (y < -80 || y > H + 10) continue;
+      const cy = y + it.size * 0.55;
+      const e = Math.max(0, Math.min(1, Math.min((cy - this.TEXT_TOP) / 70, (this.TEXT_BOT - cy) / 70)));
+      if (e <= 0) continue;
+      g.font = it.font;
+      g.shadowColor = `rgba(0,0,0,${0.9 * e})`; g.shadowBlur = 22 * sc;
+      g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = `rgba(0,0,0,${0.55 * e})`;
+      g.strokeText(it.text, this.TEXT_X, y);
+      g.shadowColor = `rgba(${it.rgb},${0.85 * e})`; g.shadowBlur = 14 * sc;
+      g.fillStyle = `rgba(${it.rgb},${e})`; g.fillText(it.text, this.TEXT_X, y);
+    }
+    g.shadowBlur = 0; g.lineWidth = 1;
+  }
+};
+
+SD.LevelSelect = class {
+  constructor(opt = {}) {
+    this.T = 0;
+    this.stars = new SD.Starfield(1.1);
+    this.progress = opt.shot ? { unlocked: 3, stars: [3, 2, 1] } : SD.Progress.load();
+    this.back = { x: 70, y: 28, w: 100, h: 32, label: 'MENU', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.cards = SD.CONFIG.levels.map((lv, i) => ({
+      i, lv,
+      x: 190 + i * 322, y: 300, w: 280, h: 340,
+    }));
+  }
+  update(dt) {
+    this.T += dt;
+    this.stars.update(dt);
+    this.mute.label = SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON';
+    if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
+    if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('title'); return; }
+    for (const p of SD.Input.takeClicks()) {
+      if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
+      else if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('title'); }
+      else {
+        for (const c of this.cards) {
+          if (Math.abs(p.x - c.x) <= c.w / 2 && Math.abs(p.y - c.y) <= c.h / 2) {
+            if (c.i < this.progress.unlocked) { SD.Audio.click(); SD.start('level', { index: c.i }); }
+            else SD.Audio.deny();
+            break;
+          }
         }
       }
-      srcBottom = srcTop;
     }
-    g.restore();
+  }
+  draw(g) {
+    SD.drawSpaceBg(g, 'orbital');
+    this.stars.draw(g, this.T);
+    const top = g.createLinearGradient(0, 0, 0, 160);
+    top.addColorStop(0, 'rgba(3,2,12,0.55)'); top.addColorStop(1, 'rgba(3,2,12,0)');
+    g.fillStyle = top; g.fillRect(0, 0, W, 160);
+    SD.neonText(g, 'STARLIGHT', W / 2, 54, 28, '210,230,255', { blur: 12 });
+    SD.neonText(g, 'SELECT LEVEL', W / 2, 92, 22, '255,220,140', { blur: 10 });
+    const mouse = SD.Input.mouse;
+    SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
+    SD.drawButton(g, this.mute, SD.Audio.muted || (mouse.over && SD.inBtn(this.mute, mouse)), this.T);
+    this.cards.forEach((c, i) => {
+      const locked = i >= this.progress.unlocked;
+      const hover = !locked && mouse.over && Math.abs(mouse.x - c.x) <= c.w / 2 && Math.abs(mouse.y - c.y) <= c.h / 2;
+      const x = c.x - c.w / 2, y = c.y - c.h / 2;
+      g.save();
+      SD.roundRect(g, x, y, c.w, c.h, 14);
+      g.fillStyle = hover ? 'rgba(12,16,28,0.92)' : 'rgba(8,10,20,0.88)'; g.fill();
+      g.strokeStyle = hover ? 'rgba(255,220,140,0.7)' : 'rgba(180,200,220,0.35)'; g.lineWidth = hover ? 2 : 1.2; g.stroke();
+      g.restore();
+      // mini map tint
+      g.save();
+      SD.roundRect(g, x + 16, y + 16, c.w - 32, 150, 8); g.clip();
+      SD.drawSpaceBg(g, c.lv.variant);
+      // tiny path
+      const path = c.lv.path;
+      g.beginPath();
+      path.forEach((pt, k) => {
+        const px = x + 16 + (pt[0] / 31) * (c.w - 32);
+        const py = y + 16 + (pt[1] / 17) * 150;
+        k ? g.lineTo(px, py) : g.moveTo(px, py);
+      });
+      g.strokeStyle = 'rgba(80,200,255,0.85)'; g.lineWidth = 2.2; g.stroke();
+      g.restore();
+      SD.neonText(g, 'LEVEL ' + (i + 1), c.x, y + 186, 13, '180,210,255', { blur: 5 });
+      SD.neonText(g, c.lv.name, c.x, y + 214, 16, '230,235,245', { blur: 7 });
+      const stars = this.progress.stars[i] || 0;
+      const starStr = locked ? 'LOCKED' : (stars ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'NO STARS YET');
+      SD.neonText(g, starStr, c.x, y + 250, locked ? 14 : 20, locked ? '160,160,180' : '255,220,120', { blur: 6 });
+      if (locked) {
+        g.save(); g.fillStyle = 'rgba(4,2,12,0.45)';
+        SD.roundRect(g, x, y, c.w, c.h, 14); g.fill(); g.restore();
+        SD.neonText(g, 'LOCKED', c.x, c.y + 20, 18, '200,210,230', { blur: 8 });
+      }
+    });
+    SD.drawScanlines(g);
   }
 };
 
@@ -525,52 +532,75 @@ SD.Defense = class {
     this.T = 0;
     this.stars = new SD.Starfield(1);
     this.fx = new SD.Particles();
-    this.path = buildPath();
+    this.shot = opt.shot || null;
+    this.setLevel(opt.levelIndex || 0);
     this.spr = {
       scout: SD.Sprites.scout(),
       fighter: SD.Sprites.fighter(),
       armored: SD.Sprites.armored(),
       flagship: SD.Sprites.flagship(),
+      shielded: SD.Sprites.shielded(),
+      cryo: SD.Sprites.cryo(),
       station: SD.Sprites.station(),
       gate: SD.Sprites.gate(),
       turret: {},
     };
     for (const k of KINDS) {
-      this.spr.turret[k + 'Base1'] = SD.Sprites.turretBase(k, 1);
-      this.spr.turret[k + 'Base2'] = SD.Sprites.turretBase(k, 2);
-      this.spr.turret[k + 'Head1'] = SD.Sprites.turretHead(k, 1);
-      this.spr.turret[k + 'Head2'] = SD.Sprites.turretHead(k, 2);
+      for (let lv = 1; lv <= 3; lv++) {
+        this.spr.turret[k + 'Base' + lv] = SD.Sprites.turretBase(k, lv);
+        this.spr.turret[k + 'Head' + lv] = SD.Sprites.turretHead(k, lv);
+      }
       this.spr.turret[k + 'Flash'] = SD.Sprites.turretFlash(k);
     }
     this.reset();
     if (opt.shot) this.applyShot(opt.shot);
   }
 
+  setLevel(index) {
+    this.levelIndex = Math.max(0, Math.min(SD.CONFIG.levels.length - 1, index | 0));
+    this.level = SD.CONFIG.levels[this.levelIndex];
+    this.path = buildPath(this.level.path);
+    this.waves = this.level.waves;
+    this.variant = this.level.variant;
+    this.hpMul = this.level.hpMul || 1;
+    this._buildGrid = null;
+  }
+
   reset() {
     this.credits = C().startCredits;
     this.hull = C().startHull;
     this.maxHull = C().startHull;
-    this.waveIndex = 0;          // next wave to start (0..10)
+    this.waveIndex = 0;
     this.waveActive = false;
+    this.waveTimer = 0;
+    this.waveGap = C().waveGap || 22;
     this.groups = [];
     this.spawnT = 0;
     this.turrets = [];
     this.enemies = [];
     this.shots = [];
     this.beams = [];
-    this.shop = null;            // 'laser' | 'missile' | 'ice' | null
-    this.picked = null;          // turret
+    this.arcs = [];
+    this.pulses = [];
+    this.floaters = [];
+    this.shop = null;
+    this.picked = null;
+    this.inspected = null;
     this.paused = false;
-    this.over = null;            // 'win' | 'lose'
+    this.over = null;
     this.banner = null;
     this.flashGold = 0;
     this.flashHull = 0;
-    this.ghost = null;           // forced ghost tile for screenshots
+    this.ghost = null;
     this.showcase = false;
-    this.score = null;           // post-wave summary
+    this.score = null;
     this.waveStats = { kills: 0, earned: 0 };
+    this.levelStats = { kills: 0, earned: 0, early: 0, t0: 0 };
     this.T = 0;
   }
+
+  wavesLen() { return this.waves.length; }
+  earlyBonus(left) { return Math.round(Math.max(0, left) * 2.5); }
 
   pause(on) {
     if (this.over) return;
@@ -597,7 +627,7 @@ SD.Defense = class {
     const p = tileCenter(tx, ty);
     const t = {
       tx, ty, x: p.x, y: p.y, kind, level,
-      spent: conf.cost + (level > 1 ? conf.upCost : 0),
+      spent: conf.cost + (level > 1 ? conf.upCost : 0) + (level > 2 ? (conf.upCost2 || 0) : 0),
       cool: 0, ang: -Math.PI / 2, target: null, flash: 0, kick: 0,
     };
     this.turrets.push(t);
@@ -608,19 +638,26 @@ SD.Defense = class {
     if (!this.shop) return false;
     if (!this.canPlace(tx, ty)) { SD.Audio.deny(); return false; }
     if (!this.canBuild(this.shop)) { SD.Audio.deny(); this.flashGold = 0.4; return false; }
-    this.credits -= this.costOf(this.shop);
-    this.place(tx, ty, this.shop, 1);
-    this.picked = this.turrets[this.turrets.length - 1];
-    this.fx.ring(this.picked.x, this.picked.y, C().turrets[this.shop].rgb, 28, 0.35);
+    const kind = this.shop;
+    this.credits -= this.costOf(kind);
+    const turret = this.place(tx, ty, kind, 1);
+    this.fx.ring(turret.x, turret.y, C().turrets[kind].rgb, 28, 0.35);
+    this.shop = null;
+    this.picked = null;
     SD.Audio.place();
     return true;
   }
 
+  upCostOf(t) {
+    const conf = C().turrets[t.kind];
+    return t.level === 1 ? conf.upCost : conf.upCost2;
+  }
+
   tryUpgrade() {
-    const t = this.picked; if (!t || t.level >= 2) { SD.Audio.deny(); return; }
-    const cost = C().turrets[t.kind].upCost;
+    const t = this.picked; if (!t || t.level >= 3) { SD.Audio.deny(); return; }
+    const cost = this.upCostOf(t);
     if (this.credits < cost) { SD.Audio.deny(); this.flashGold = 0.4; return; }
-    this.credits -= cost; t.level = 2; t.spent += cost;
+    this.credits -= cost; t.level += 1; t.spent += cost;
     this.fx.ring(t.x, t.y, '255,220,90', 36, 0.4);
     this.fx.burst(t.x, t.y, '255,220,90', 14, 80, 0.4, 2);
     SD.Audio.upgrade();
@@ -638,25 +675,46 @@ SD.Defense = class {
 
   /* ---------- waves ---------- */
   startWave() {
-    if (this.waveActive || this.over || this.score || this.waveIndex >= C().waves.length) return;
-    const w = C().waves[this.waveIndex];
+    if (this.waveActive || this.over || this.score || this.waveIndex >= this.wavesLen()) return;
+    const w = this.waves[this.waveIndex];
     this.groups = w.groups.map(g => ({ type: g[0], left: g[1], gap: g[2], wait: 0.15 }));
     this.waveActive = true;
+    this.waveTimer = 0;
     this.spawnT = 0;
     this.waveStats = { kills: 0, earned: 0 };
     const n = this.waveIndex + 1;
-    this.banner = { text: n === 10 ? 'FLAGSHIP DETECTED' : ('WAVE ' + n + '  —  ' + w.name), life: 2.6, rgb: n === 10 ? '255,205,90' : '80,170,255' };
-    if (n === 10) SD.Audio.boss(); else SD.Audio.wave();
-    if (SD.Audio.playWave) SD.Audio.playWave(this.waveIndex);
+    const last = n === this.wavesLen();
+    this.banner = { text: last ? (w.name + ' DETECTED') : ('WAVE ' + n + '  —  ' + w.name), life: 2.6, rgb: last ? '255,205,90' : '80,170,255' };
+    if (last) SD.Audio.boss(); else SD.Audio.wave();
+    if (SD.Audio.playWave) SD.Audio.playWave(last ? 9 : this.waveIndex);
+  }
+
+  sendWaveEarly() {
+    if (this.waveActive || this.over || this.score || this.waveTimer <= 0) {
+      this.startWave();
+      return;
+    }
+    const bonus = this.earlyBonus(this.waveTimer);
+    this.credits += bonus;
+    this.levelStats.early += bonus;
+    this.waveTimer = 0;
+    if (bonus > 0) this.banner = { text: 'WAVE SENT  +' + bonus + ' CR', life: 1.8, rgb: '255,220,90' };
+    this.startWave();
   }
 
   spawn(type, dist = 0) {
     const def = C().enemies[type];
     const p = posOnPath(this.path, dist);
+    const hp = Math.round(def.hp * this.hpMul);
+    const sh = def.shield ? Math.round(def.shield * this.hpMul) : 0;
     const e = {
-      type, name: def.name, hp: def.hp, max: def.hp, speed: def.speed, reward: def.reward,
+      type, name: def.name, hp, max: hp, shield: sh, maxShield: sh,
+      speed: def.speed, reward: def.reward,
       hull: def.hull, r: def.r, rgb: def.rgb, boss: !!def.boss,
-      dist, x: p.x, y: p.y, ang: p.ang, slow: 1, slowT: 0, hitFlash: 0,
+      resist: def.resist || {}, weak: def.weak || [], resists: def.resists || [],
+      iceImmune: !!def.iceImmune, notes: def.notes || '',
+      scale: def.scale || 1, sprite: def.sprite || type,
+      dist, x: p.x, y: p.y, ang: p.ang, slow: 1, slowT: 0, stunT: 0, freezeT: 0, hitFlash: 0,
     };
     this.enemies.push(e);
     return e;
@@ -671,6 +729,8 @@ SD.Defense = class {
       this.credits += e.reward;
       this.waveStats.kills++;
       this.waveStats.earned += e.reward;
+      this.levelStats.kills++;
+      this.levelStats.earned += e.reward;
       this.fx.float(e.x, e.y - 10, '+' + e.reward, '255,220,90');
       SD.Audio.coin();
     }
@@ -697,39 +757,58 @@ SD.Defense = class {
     }
   }
 
-  openScore() {
-    if (this.over || this.score) return;
+  onWaveCleared() {
     const n = this.waveIndex + 1;
-    const bonus = 10 * n + 2 * this.hull;
-    const w = C().waves[this.waveIndex];
+    const last = n >= this.wavesLen();
+    this.waveIndex = n;
+    this.shop = null;
+    this.picked = null;
+    if (last) {
+      this.openLevelScore();
+      return;
+    }
+    this.waveTimer = this.waveGap;
+    this.banner = { text: 'WAVE ' + (n) + '  CLEARED', life: 2.4, rgb: '80,255,180' };
+    if (SD.Audio.stopMusic) SD.Audio.stopMusic({ dur: 0.8 });
+  }
+
+  openLevelScore() {
+    if (this.over || this.score) return;
+    const ratio = this.hull / this.maxHull;
+    const stars = ratio >= 0.75 ? 3 : ratio >= 0.4 ? 2 : 1;
+    const time = Math.max(0, this.T - (this.levelStats.t0 || 0));
     this.score = {
-      wave: n,
-      name: w ? w.name : '',
-      kills: this.waveStats.kills,
-      earned: this.waveStats.earned,
+      level: true,
+      name: this.level.name,
+      last: this.levelIndex >= SD.CONFIG.levels.length - 1,
+      kills: this.levelStats.kills,
+      earned: this.levelStats.earned,
       hull: this.hull,
       maxHull: this.maxHull,
-      bonus,
+      early: this.levelStats.early,
+      time,
+      stars,
     };
     this.shop = null;
     this.picked = null;
-    this.continueBtn = { x: W / 2, y: 470, w: 240, h: 50, label: 'CONTINUE', rgb: '80,170,255', size: 22 };
+    this.nextBtn = { x: W / 2, y: 456, w: 260, h: 48, label: this.score.last ? 'SECTOR HELD' : 'NEXT LEVEL', rgb: '80,170,255', size: 20 };
+    this.menuBtn = { x: W / 2, y: 512, w: 240, h: 44, label: 'MENU', rgb: '255,80,220', size: 18 };
+    if (!this.shot) SD.Progress.record(this.levelIndex, stars);
     if (SD.Audio.playScore) SD.Audio.playScore();
   }
 
-  closeScore() {
+  closeLevelScore(toNext) {
     if (!this.score) return;
-    this.credits += this.score.bonus;
-    const last = this.waveIndex + 1 >= C().waves.length;
-    this.waveIndex++;
+    const next = toNext && !this.score.last;
+    const idx = this.levelIndex;
     this.score = null;
-    if (last) this.end('win');
-    else if (SD.Audio.stopMusic) SD.Audio.stopMusic();
+    if (next) SD.start('level', { index: idx + 1 });
+    else SD.start('levels');
   }
 
   maybeWin() {
     if (this.over) return;
-    if (this.waveIndex >= C().waves.length && !this.waveActive && this.enemies.length === 0) this.end('win');
+    if (this.waveIndex >= this.wavesLen() && !this.waveActive && this.enemies.length === 0 && !this.score) this.openLevelScore();
   }
 
   /* ---------- combat ---------- */
@@ -746,60 +825,198 @@ SD.Defense = class {
   }
 
   muzzleTip(t) {
-    if (t.kind === 'laser') return t.level >= 2 ? 28 : 22;
-    if (t.kind === 'missile') return 22;
+    if (t.kind === 'laser') return t.level >= 3 ? 30 : t.level >= 2 ? 28 : 22;
+    if (t.kind === 'missile') return t.level >= 3 ? 24 : 22;
+    if (t.kind === 'railgun') return t.level >= 3 ? 34 : 30;
+    if (t.kind === 'tesla' || t.kind === 'pulse') return 16;
     return t.level >= 2 ? 16 : 14;
+  }
+
+  distToSeg(px, py, x0, y0, x1, y1) {
+    const vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1;
+    let t = ((px - x0) * vx + (py - y0) * vy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x0 + t * vx), py - (y0 + t * vy));
   }
 
   fire(t, e) {
     t.cool = this.stat(t, 'rate');
-    t.ang = Math.atan2(e.y - t.y, e.x - t.x);
-    t.flash = t.kind === 'missile' ? 0.16 : t.kind === 'ice' ? 0.14 : 0.10;
-    t.kick = t.kind === 'missile' ? 3.2 : t.kind === 'laser' ? 1.6 : 1.2;
+    if (e) t.ang = Math.atan2(e.y - t.y, e.x - t.x);
+    t.flash = t.kind === 'railgun' ? 0.18 : t.kind === 'missile' ? 0.16 : t.kind === 'tesla' ? 0.16 : t.kind === 'pulse' ? 0.22 : t.kind === 'ice' ? 0.14 : 0.10;
+    t.kick = t.kind === 'railgun' ? 5 : t.kind === 'missile' ? 3.2 : t.kind === 'laser' ? 1.6 : 1.2;
     const tip = this.muzzleTip(t);
     const ox = t.x + Math.cos(t.ang) * tip, oy = t.y + Math.sin(t.ang) * tip;
     const dmg = this.stat(t, 'damage');
-    if (t.kind === 'laser') {
-      this.beams.push({ x0: ox, y0: oy, x1: e.x, y1: e.y, rgb: C().turrets.laser.rgb, life: 0.1, max: 0.1 });
-      this.hurt(e, dmg);
-      SD.Audio.laser();
-    } else if (t.kind === 'missile') {
-      const conf = C().turrets.missile;
-      this.shots.push({
-        kind: 'missile', x: ox, y: oy, tx: e.x, ty: e.y, target: e,
-        ang: t.ang, speed: conf.speed[t.level - 1], dmg, splash: conf.splash[t.level - 1],
-        splashMul: conf.splashMul[t.level - 1], rgb: conf.rgb, life: 2.4, r: 5,
-      });
-      SD.Audio.missile();
-    } else {
+    if (t.kind === 'laser') this.fireLaser(t, e, ox, oy, dmg);
+    else if (t.kind === 'missile') this.launchMissile(t, e, ox, oy, dmg);
+    else if (t.kind === 'ice') {
       this.shots.push({
         kind: 'ice', x: ox, y: oy, tx: e.x, ty: e.y, target: e, ang: t.ang, speed: 420,
         dmg, slow: this.stat(t, 'slow'), slowTime: this.stat(t, 'slowTime'),
+        freeze: this.stat(t, 'freeze') || 0,
         rgb: C().turrets.ice.rgb, life: 1.6, r: 4,
       });
       SD.Audio.ice();
-    }
+    } else if (t.kind === 'railgun') this.fireRail(t, ox, oy, dmg);
+    else if (t.kind === 'tesla') this.fireTesla(t, e, dmg);
+    else if (t.kind === 'pulse') this.firePulse(t, dmg);
   }
 
-  hurt(e, dmg) {
+  fireLaser(t, e, ox, oy, dmg) {
+    const rgb = C().turrets.laser.rgb;
+    this.beams.push({ x0: ox, y0: oy, x1: e.x, y1: e.y, rgb, life: 0.1, max: 0.1 });
+    this.hurt(e, dmg, 'laser');
+    if (t.level >= 3) {
+      const r = this.stat(t, 'range');
+      const other = this.enemies.find(x => x !== e && x.hp > 0 && Math.hypot(x.x - t.x, x.y - t.y) <= r + x.r);
+      const tgt = other || e;
+      const ox2 = t.x + Math.cos(t.ang + 0.2) * this.muzzleTip(t);
+      const oy2 = t.y + Math.sin(t.ang + 0.2) * this.muzzleTip(t);
+      this.beams.push({ x0: ox2, y0: oy2, x1: tgt.x, y1: tgt.y, rgb, life: 0.1, max: 0.1 });
+      this.hurt(tgt, dmg, 'laser');
+    }
+    SD.Audio.laser();
+  }
+
+  launchMissile(t, e, ox, oy, dmg) {
+    const conf = C().turrets.missile;
+    this.shots.push({
+      kind: 'missile', x: ox, y: oy, tx: e.x, ty: e.y, target: e,
+      ang: t.ang, speed: conf.speed[t.level - 1], dmg, splash: conf.splash[t.level - 1],
+      splashMul: conf.splashMul[t.level - 1], cluster: this.stat(t, 'cluster') || 0,
+      rgb: conf.rgb, life: 2.4, r: 5,
+    });
+    SD.Audio.missile();
+  }
+
+  fireRail(t, ox, oy, dmg) {
+    const pierce = this.stat(t, 'pierce') || 3;
+    const range = this.stat(t, 'range');
+    const ang = t.ang;
+    const x1 = t.x + Math.cos(ang) * range, y1 = t.y + Math.sin(ang) * range;
+    const hits = [];
+    for (const e of this.enemies) {
+      if (e.hp <= 0) continue;
+      if (this.distToSeg(e.x, e.y, ox, oy, x1, y1) > e.r + 7) continue;
+      const along = (e.x - t.x) * Math.cos(ang) + (e.y - t.y) * Math.sin(ang);
+      if (along > 0 && along <= range + e.r) hits.push({ e, along });
+    }
+    hits.sort((a, b) => a.along - b.along);
+    const n = pierce >= 90 ? hits.length : pierce;
+    hits.slice(0, n).forEach(h => this.hurt(h.e, dmg, 'railgun'));
+    this.beams.push({ x0: ox, y0: oy, x1, y1, rgb: C().turrets.railgun.rgb, life: 0.14, max: 0.14, thick: 3.2 });
+    SD.Audio.laser();
+  }
+
+  fireTesla(t, e, dmg) {
+    const chain = this.stat(t, 'chain') || 3;
+    const jump = this.stat(t, 'jump') || 70;
+    const seen = new Set();
+    const nodes = [];
+    let cur = e;
+    for (let i = 0; i < chain && cur; i++) {
+      seen.add(cur);
+      nodes.push({ x: cur.x, y: cur.y });
+      this.hurt(cur, dmg, 'tesla');
+      let best = null, bestD = jump;
+      for (const o of this.enemies) {
+        if (seen.has(o) || o.hp <= 0) continue;
+        const d = Math.hypot(o.x - cur.x, o.y - cur.y);
+        if (d < bestD) { best = o; bestD = d; }
+      }
+      cur = best;
+    }
+    this.arcs.push({ pts: nodes, ox: t.x, oy: t.y, life: 0.16, max: 0.16, rgb: C().turrets.tesla.rgb });
+    SD.Audio.laser();
+  }
+
+  firePulse(t, dmg) {
+    const r = this.stat(t, 'range');
+    const stun = this.stat(t, 'stun') || 0;
+    this.pulses.push({ x: t.x, y: t.y, r: 8, maxR: r, life: 0.28, max: 0.28, rgb: C().turrets.pulse.rgb });
+    for (const e of [...this.enemies]) {
+      if (Math.hypot(e.x - t.x, e.y - t.y) <= r + e.r) {
+        this.hurt(e, dmg, 'pulse');
+        if (stun > 0) e.stunT = Math.max(e.stunT || 0, stun);
+      }
+    }
+    SD.Audio.explode(0.7);
+  }
+
+  floater(e, text, rgb) {
+    if (!e || !this.floaters) return;
+    this.floaters.push({ x: e.x, y: e.y - (e.r || 12) - 8, text, rgb, life: 0.7, max: 0.7 });
+    if (this.floaters.length > 24) this.floaters.shift();
+  }
+
+  hurt(e, dmg, kind) {
     if (!e || e.hp <= 0) return;
-    e.hp -= dmg; e.hitFlash = 0.12;
+    let mul = 1;
+    if (kind && e.resist && e.resist[kind] != null) mul = e.resist[kind];
+    let applied = dmg * mul;
+    if (e.shield > 0) {
+      if (kind === 'tesla' || kind === 'pulse') {
+        if (applied >= e.shield) {
+          applied -= e.shield;
+          e.shield = 0;
+          this.fx.ring(e.x, e.y, '80,220,255', e.r + 16, 0.3);
+        } else {
+          e.shield -= applied;
+          applied = 0;
+        }
+      } else {
+        let sDmg = applied * 0.06;
+        if (sDmg >= e.shield) {
+          applied = sDmg - e.shield;
+          e.shield = 0;
+          this.fx.ring(e.x, e.y, '80,220,255', e.r + 16, 0.3);
+        } else {
+          e.shield -= sDmg;
+          applied = 0;
+        }
+      }
+    }
+    if (mul < 0.9) this.floater(e, 'RESIST', '255,120,90');
+    else if (mul > 1.15) this.floater(e, 'WEAK', '80,255,140');
+    else if (applied > 0) this.floater(e, String(Math.max(1, Math.round(applied))), '230,235,255');
+    e.hitFlash = 0.12;
+    if (applied > 0) e.hp -= applied;
     if (e.hp <= 0) this.kill(e, true);
   }
 
-  boom(x, y, dmg, radius, mul, rgb) {
+  boom(x, y, dmg, radius, mul, rgb, cluster) {
     this.fx.ring(x, y, rgb, radius, 0.35);
     this.fx.burst(x, y, rgb, 16, 140, 0.4, 2);
     SD.Audio.explode(1.1);
     for (const e of [...this.enemies]) {
       const d = Math.hypot(e.x - x, e.y - y);
-      if (d <= radius + e.r) this.hurt(e, dmg * (d < 12 ? 1 : mul));
+      if (d <= radius + e.r) this.hurt(e, dmg * (d < 12 ? 1 : mul), 'missile');
+    }
+    if (cluster) {
+      for (let i = 0; i < cluster; i++) {
+        const a = (i / cluster) * Math.PI * 2 + 0.2;
+        const r = 26 + (i % 2) * 12;
+        const bx = x + Math.cos(a) * r, by = y + Math.sin(a) * r;
+        this.fx.burst(bx, by, rgb, 10, 90, 0.28, 1.6);
+        for (const e of [...this.enemies]) {
+          const d = Math.hypot(e.x - bx, e.y - by);
+          if (d <= 28 + e.r) this.hurt(e, dmg * 0.4, 'missile');
+        }
+      }
     }
   }
 
   applySlow(e, factor, time) {
+    if (!e) return;
+    if (e.iceImmune) { this.floater(e, 'IMMUNE', '120,220,255'); return; }
     if (factor < e.slow) e.slow = factor;
     e.slowT = Math.max(e.slowT, time);
+  }
+
+  applyFreeze(e, time) {
+    if (!e || time <= 0) return;
+    if (e.iceImmune) { this.floater(e, 'IMMUNE', '120,220,255'); return; }
+    e.freezeT = Math.max(e.freezeT || 0, time);
   }
 
   /* ---------- update ---------- */
@@ -815,7 +1032,14 @@ SD.Defense = class {
 
     this.fx.update(dt);
 
-    // spawn
+    if (!this.waveActive && this.waveTimer > 0 && !this.over) {
+      this.waveTimer -= dt;
+      if (this.waveTimer <= 0) {
+        this.waveTimer = 0;
+        this.startWave();
+      }
+    }
+
     if (this.waveActive) {
       const g = this.groups.find(x => x.left > 0);
       if (g) {
@@ -827,21 +1051,22 @@ SD.Defense = class {
         }
       } else if (this.enemies.length === 0) {
         this.waveActive = false;
-        this.openScore();
+        this.onWaveCleared();
       }
     }
 
-    // enemies
     for (const e of [...this.enemies]) {
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 1; }
+      if (e.freezeT > 0) e.freezeT -= dt;
+      if (e.stunT > 0) e.stunT -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
-      e.dist += e.speed * e.slow * dt;
+      if (!(e.freezeT > 0 || e.stunT > 0)) e.dist += e.speed * e.slow * dt;
       const p = posOnPath(this.path, e.dist);
       e.x = p.x; e.y = p.y; e.ang = p.ang;
       if (e.dist >= this.path.total) this.leak(e);
     }
+    if (this.inspected && this.inspected.hp <= 0) this.inspected = null;
 
-    // turrets
     for (const t of this.turrets) {
       if (t.cool > 0) t.cool -= dt;
       if (t.flash > 0) t.flash -= dt;
@@ -852,15 +1077,16 @@ SD.Defense = class {
         const want = Math.atan2(e.y - t.y, e.x - t.x);
         let d = want - t.ang; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
         t.ang += Math.max(-8 * dt, Math.min(8 * dt, d));
-        if (t.cool <= 0 && Math.abs(d) < 0.45) this.fire(t, e);
+        if (t.cool <= 0) {
+          if (t.kind === 'pulse') this.fire(t, e);
+          else if (Math.abs(d) < (t.kind === 'railgun' ? 0.16 : 0.45)) this.fire(t, e);
+        }
       }
     }
 
-    // shots
     for (const s of this.shots) {
       if (s.target && s.target.hp > 0) { s.tx = s.target.x; s.ty = s.target.y; }
       const ang = Math.atan2(s.ty - s.y, s.tx - s.x);
-      // gentle home
       let d = ang - s.ang; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       s.ang += Math.max(-7 * dt, Math.min(7 * dt, d));
       s.x += Math.cos(s.ang) * s.speed * dt;
@@ -869,10 +1095,11 @@ SD.Defense = class {
       const hitR = (s.target && s.target.hp > 0 ? s.target.r : 8) + s.r;
       if (Math.hypot(s.tx - s.x, s.ty - s.y) < hitR || s.life <= 0) {
         s.dead = true;
-        if (s.kind === 'missile') this.boom(s.x, s.y, s.dmg, s.splash, s.splashMul, s.rgb);
+        if (s.kind === 'missile') this.boom(s.x, s.y, s.dmg, s.splash, s.splashMul, s.rgb, s.cluster);
         else if (s.target && s.target.hp > 0 && Math.hypot(s.target.x - s.x, s.target.y - s.y) < hitR + 8) {
-          this.hurt(s.target, s.dmg);
+          this.hurt(s.target, s.dmg, 'ice');
           this.applySlow(s.target, s.slow, s.slowTime);
+          this.applyFreeze(s.target, s.freeze);
           this.fx.burst(s.x, s.y, s.rgb, 8, 70, 0.3, 1.6);
         }
       }
@@ -881,18 +1108,28 @@ SD.Defense = class {
 
     for (const b of this.beams) b.life -= dt;
     this.beams = this.beams.filter(b => b.life > 0);
+    for (const a of this.arcs) a.life -= dt;
+    this.arcs = this.arcs.filter(a => a.life > 0);
+    for (const p of this.pulses) p.life -= dt;
+    this.pulses = this.pulses.filter(p => p.life > 0);
+    for (const f of this.floaters) { f.life -= dt; f.y -= 28 * dt; }
+    this.floaters = this.floaters.filter(f => f.life > 0);
   }
 
   handleInput() {
     if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
     if (this.score) {
-      if (SD.Input.confirm()) { SD.Audio.click(); this.closeScore(); return; }
-      if (SD.Input.takeClicks().length) { SD.Audio.click(); this.closeScore(); }
+      if (SD.Input.confirm()) { SD.Audio.click(); this.closeLevelScore(true); return; }
+      if (SD.Input.hit('Escape')) { SD.Audio.click(); this.closeLevelScore(false); return; }
+      for (const p of SD.Input.takeClicks()) {
+        if (this.nextBtn && SD.inBtn(this.nextBtn, p)) { SD.Audio.click(); this.closeLevelScore(true); }
+        else if (this.menuBtn && SD.inBtn(this.menuBtn, p)) { SD.Audio.click(); this.closeLevelScore(false); }
+      }
       return;
     }
     if (this.over) {
       for (const p of SD.Input.takeClicks()) this.clickOverlay(p);
-      if (SD.Input.confirm()) { SD.Audio.click(); SD.start('play'); }
+      if (SD.Input.confirm()) { SD.Audio.click(); SD.start('level', { index: this.levelIndex }); }
       if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('title'); }
       return;
     }
@@ -901,12 +1138,12 @@ SD.Defense = class {
       for (const p of SD.Input.takeClicks()) this.clickPause(p);
       return;
     }
-    if (SD.Input.hit('Digit1') || SD.Input.hit('Numpad1')) this.toggleShop('laser');
-    if (SD.Input.hit('Digit2') || SD.Input.hit('Numpad2')) this.toggleShop('missile');
-    if (SD.Input.hit('Digit3') || SD.Input.hit('Numpad3')) this.toggleShop('ice');
+    KINDS.forEach((k, i) => {
+      if (SD.Input.hit('Digit' + (i + 1)) || SD.Input.hit('Numpad' + (i + 1))) this.toggleShop(k);
+    });
     if (SD.Input.hit('KeyU')) this.tryUpgrade();
     if (SD.Input.hit('KeyX') || SD.Input.hit('Backspace') || SD.Input.hit('Delete')) this.trySell();
-    if (SD.Input.hit('Space') || SD.Input.hit('KeyG')) this.startWave();
+    if (SD.Input.hit('Space') || SD.Input.hit('KeyG')) this.sendWaveEarly();
 
     const ui = this.uiButtons();
     for (const p of SD.Input.takeClicks()) {
@@ -916,14 +1153,21 @@ SD.Defense = class {
       if (inHud(p)) continue;
       const { tx, ty } = tileAt(p.x, p.y);
       const existing = this.turrets.find(t => t.tx === tx && t.ty === ty);
+      const ship = this.enemies.find(en => Math.hypot(en.x - p.x, en.y - p.y) <= en.r + 12);
       if (existing) {
         this.picked = existing;
         this.shop = null;
+        this.inspected = null;
+        SD.Audio.click();
+      } else if (ship) {
+        this.inspected = ship;
+        this.picked = null;
         SD.Audio.click();
       } else if (this.shop) {
         this.tryPlace(tx, ty);
       } else {
         this.picked = null;
+        this.inspected = null;
       }
     }
   }
@@ -943,27 +1187,31 @@ SD.Defense = class {
     for (const [i, k] of KINDS.entries()) {
       const conf = C().turrets[k];
       const disabled = this.credits < conf.cost;
-      mk(78 + i * 132, 124, conf.name, conf.cost + ' CR', conf.rgb, () => this.toggleShop(k), disabled, k);
+      mk(50 + i * 94, 90, conf.short, conf.cost + ' CR', conf.rgb, () => this.toggleShop(k), disabled, k);
     }
     if (this.picked) {
       const t = this.picked, conf = C().turrets[t.kind];
-      if (t.level < 2) {
-        const no = this.credits < conf.upCost;
-        mk(500, 150, 'UPGRADE', conf.upCost + ' CR', '255,220,90', () => this.tryUpgrade(), no, 'up');
+      if (t.level < 3) {
+        const cost = this.upCostOf(t);
+        const no = this.credits < cost;
+        mk(650, 118, 'UPGRADE', cost + ' CR', '255,220,90', () => this.tryUpgrade(), no, 'up');
       } else {
-        mk(500, 150, 'MAXED', 'LVL II', '255,220,90', () => SD.Audio.deny(), true, 'up');
+        mk(650, 118, 'MAXED', 'MK III', '255,220,90', () => SD.Audio.deny(), true, 'up');
       }
       const back = Math.round(t.spent * C().sellRefund);
-      mk(660, 124, 'SELL', '+' + back + ' CR', '255,110,140', () => this.trySell(), false, 'sell');
+      mk(760, 100, 'SELL', '+' + back + ' CR', '255,110,140', () => this.trySell(), false, 'sell');
     }
-    const last = this.waveIndex >= C().waves.length;
-    const waveLbl = this.waveActive ? 'INCOMING' : (last || this.score) ? 'CLEARED' : 'START WAVE';
+    const last = this.waveIndex >= this.wavesLen();
+    const waiting = !this.waveActive && this.waveTimer > 0;
+    const waveLbl = this.waveActive ? 'INCOMING' : waiting ? 'SEND WAVE' : (last || this.score) ? 'CLEARED' : 'START WAVE';
+    const left = this.enemies.length + this.groups.reduce((n, g) => n + g.left, 0);
     const waveSub = this.waveActive
-      ? (this.enemies.length + this.groups.reduce((n, g) => n + g.left, 0)) + ' LEFT'
-      : this.score ? ('WAVE ' + this.score.wave + ' / ' + C().waves.length)
-      : last ? 'EDISAR DOWN' : ('WAVE ' + (this.waveIndex + 1) + ' / ' + C().waves.length);
-    mk(900, 168, waveLbl, waveSub, this.waveActive ? '255,80,220' : '80,255,160', () => {
-      if (this.waveActive || last) SD.Audio.deny(); else this.startWave();
+      ? left + ' LEFT'
+      : waiting ? ('+' + this.earlyBonus(this.waveTimer) + ' CR')
+      : this.score ? this.level.name
+      : last ? 'CLEAR' : ('WAVE ' + (this.waveIndex + 1) + ' / ' + this.wavesLen());
+    mk(900, 148, waveLbl, waveSub, this.waveActive ? '255,80,220' : '80,255,160', () => {
+      if (this.waveActive || last) SD.Audio.deny(); else this.sendWaveEarly();
     }, this.waveActive || last, 'wave');
 
     btns.push({ x: W - 96, y: 24, w: 64, h: 28, label: 'PAUSE', rgb: '180,200,255', size: 12, click: () => { this.pause(); SD.Audio.click(); }, id: 'pause' });
@@ -981,7 +1229,7 @@ SD.Defense = class {
   clickOverlay(p) {
     const again = { x: W / 2, y: 340, w: 260, h: 52 };
     const menu = { x: W / 2, y: 406, w: 260, h: 52 };
-    if (SD.inBtn(again, p)) { SD.Audio.click(); SD.start('play'); }
+    if (SD.inBtn(again, p)) { SD.Audio.click(); SD.start('level', { index: this.levelIndex }); }
     else if (SD.inBtn(menu, p)) { SD.Audio.click(); SD.start('title'); }
   }
 
@@ -989,7 +1237,7 @@ SD.Defense = class {
   draw(g) {
     if (this.showcase === 'ships') { this.drawShipShowcase(g); return; }
     if (this.showcase) { this.drawShowcase(g); return; }
-    SD.drawSpaceBg(g);
+    SD.drawSpaceBg(g, this.variant);
     this.stars.draw(g, this.T);
     this.drawPath(g);
     this.drawBuildGrid(g);
@@ -1005,14 +1253,18 @@ SD.Defense = class {
     for (const b of this.beams) {
       g.save(); g.globalCompositeOperation = 'lighter';
       const a = b.life / b.max;
-      g.strokeStyle = `rgba(${b.rgb},${0.25 + 0.75 * a})`; g.lineWidth = 1.6 + 1.4 * a;
+      g.strokeStyle = `rgba(${b.rgb},${0.25 + 0.75 * a})`; g.lineWidth = (b.thick || 1.6) + 1.4 * a;
       g.shadowColor = `rgba(${b.rgb},1)`; g.shadowBlur = 10 * SD.view.scale;
       g.beginPath(); g.moveTo(b.x0, b.y0); g.lineTo(b.x1, b.y1); g.stroke();
       g.restore();
     }
+    for (const a of this.arcs) this.drawArc(g, a);
+    for (const p of this.pulses) this.drawPulseRing(g, p);
     for (const s of this.shots) this.drawShot(g, s);
     for (const e of this.enemies) this.drawEnemy(g, e);
     this.fx.draw(g);
+    this.drawFloaters(g);
+    this.drawEnemyInfo(g);
 
     this.drawHud(g);
     if (this.banner) {
@@ -1142,21 +1394,102 @@ SD.Defense = class {
     g.restore();
   }
 
+  drawArc(g, a) {
+    const al = a.life / a.max;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = `rgba(${a.rgb},${0.35 + 0.65 * al})`; g.lineWidth = 2;
+    g.shadowColor = `rgba(${a.rgb},1)`; g.shadowBlur = 8 * SD.view.scale;
+    g.beginPath();
+    let ax = a.ox, ay = a.oy;
+    g.moveTo(ax, ay);
+    for (const pt of a.pts) {
+      const jx = (pt.x + ax) / 2 + (Math.random() - 0.5) * 10;
+      const jy = (pt.y + ay) / 2 + (Math.random() - 0.5) * 10;
+      g.lineTo(jx, jy); g.lineTo(pt.x, pt.y);
+      ax = pt.x; ay = pt.y;
+    }
+    g.stroke();
+    g.restore();
+  }
+
+  drawPulseRing(g, p) {
+    const k = 1 - p.life / p.max;
+    const r = p.r + (p.maxR - p.r) * k;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = `rgba(${p.rgb},${0.7 * (1 - k)})`; g.lineWidth = 3;
+    g.shadowColor = `rgba(${p.rgb},1)`; g.shadowBlur = 12 * SD.view.scale;
+    g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+
+  drawFloaters(g) {
+    for (const f of this.floaters) {
+      const a = Math.min(1, f.life / 0.2, f.life);
+      SD.neonText(g, f.text, f.x, f.y, 11, f.rgb, { blur: 6, alpha: a });
+    }
+  }
+
   drawEnemy(g, e) {
-    const spr = this.spr[e.type] || this.spr.fighter;
-    const scale = e.boss ? 1 : 1;
-    if (e.slow < 0.99) SD.glow(g, e.x, e.y, e.r + 10, e.r + 10, '140,230,255', 0.28);
+    const spr = this.spr[e.sprite || e.type] || this.spr.fighter;
+    const scale = e.scale || 1;
+    if (e.slow < 0.99 || e.freezeT > 0) SD.glow(g, e.x, e.y, e.r + 10, e.r + 10, '140,230,255', 0.28);
+    if (e.stunT > 0) SD.glow(g, e.x, e.y, e.r + 12, e.r + 12, '80,255,180', 0.22);
+    if (e.shield > 0) {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      const pulse = 0.35 + 0.15 * Math.sin(this.T * 4);
+      g.strokeStyle = `rgba(100,220,255,${pulse})`; g.lineWidth = 2;
+      g.beginPath(); g.arc(e.x, e.y, e.r + 8, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = `rgba(80,180,255,${0.08 + 0.04 * Math.sin(this.T * 3)})`;
+      g.beginPath(); g.arc(e.x, e.y, e.r + 8, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
     if (e.hitFlash > 0) { g.save(); g.globalCompositeOperation = 'lighter'; }
     SD.blit(g, spr, e.x, e.y, e.ang, scale);
     if (e.hitFlash > 0) g.restore();
-    // hp bar
     const bw = e.boss ? 86 : Math.max(18, e.r * 2.2), bh = e.boss ? 5 : 3;
-    const bx = e.x - bw / 2, by = e.y - (e.boss ? 40 : e.r + 10);
+    const bx = e.x - bw / 2, by = e.y - (e.boss ? 44 * (e.scale || 1) : e.r + 12);
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
     const pct = Math.max(0, e.hp / e.max);
     g.fillStyle = pct > 0.5 ? '#5cff9a' : pct > 0.25 ? '#ffd25a' : '#ff5a6a';
     g.fillRect(bx, by, bw * pct, bh);
-    if (e.boss) SD.neonText(g, 'EDISAR FLAGSHIP', e.x, by - 12, 11, '255,205,90', { blur: 8 });
+    if (e.maxShield) {
+      const sy = by - 5;
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(bx - 1, sy - 1, bw + 2, 4);
+      g.fillStyle = '#6ad8ff';
+      g.fillRect(bx, sy, bw * Math.max(0, e.shield / e.maxShield), 3);
+    }
+    if (e.boss) SD.neonText(g, e.name.toUpperCase(), e.x, by - 12, 11, '255,205,90', { blur: 8 });
+    if (this.inspected === e) {
+      g.save();
+      g.strokeStyle = 'rgba(255,240,180,0.85)'; g.lineWidth = 1.4;
+      g.beginPath(); g.arc(e.x, e.y, e.r + 14, 0, Math.PI * 2); g.stroke();
+      g.restore();
+    }
+  }
+
+  drawEnemyInfo(g) {
+    const e = this.inspected;
+    if (!e || e.hp <= 0) return;
+    const lines = [];
+    lines.push(e.name.toUpperCase());
+    lines.push('HP  ' + Math.max(0, Math.ceil(e.hp)) + ' / ' + e.max);
+    if (e.maxShield) lines.push('SHIELD  ' + Math.max(0, Math.ceil(e.shield)) + ' / ' + e.maxShield);
+    if (e.weak && e.weak.length) lines.push('WEAK  ' + e.weak.join(', '));
+    if (e.resists && e.resists.length) lines.push('RESISTS  ' + e.resists.join(', '));
+    if (e.iceImmune) lines.push('IMMUNE TO ICE');
+    if (e.notes) lines.push(e.notes);
+    const w = 268, h = 28 + lines.length * 18;
+    let x = Math.min(W - 16 - w, Math.max(16, e.x + 24));
+    let y = Math.min(H - C().hud.bottom - 16 - h, Math.max(56, e.y - h / 2));
+    g.save();
+    SD.roundRect(g, x, y, w, h, 8);
+    g.fillStyle = 'rgba(8,10,20,0.92)'; g.fill();
+    g.strokeStyle = 'rgba(200,220,255,0.45)'; g.lineWidth = 1.2; g.stroke();
+    g.restore();
+    lines.forEach((ln, i) => {
+      const rgb = i === 0 ? '255,230,140' : (ln.startsWith('WEAK') ? '80,255,160' : ln.startsWith('RESIST') || ln.startsWith('IMMUNE') ? '255,140,110' : '220,230,245');
+      SD.neonText(g, ln, x + 14, y + 18 + i * 18, i === 0 ? 13 : 12, rgb, { blur: 5, align: 'left' });
+    });
   }
 
   drawHud(g) {
@@ -1172,13 +1505,16 @@ SD.Defense = class {
     SD.neonText(g, 'HULL  ' + this.hull + ' / ' + this.maxHull, 110, 24, 16, hullRgb, { blur: 8 });
     const goldRgb = this.flashGold > 0 ? '255,80,100' : '255,220,90';
     SD.neonText(g, 'CR  ' + this.credits, 340, 24, 16, goldRgb, { blur: 8 });
+    const nW = this.wavesLen();
     let waveTxt;
-    if (this.waveActive) waveTxt = 'WAVE  ' + (this.waveIndex + 1) + ' / ' + C().waves.length;
-    else if (this.score) waveTxt = 'WAVE  ' + this.score.wave + ' / ' + C().waves.length + '  CLEARED';
-    else if (this.waveIndex >= C().waves.length) waveTxt = 'WAVE  10 / 10';
-    else waveTxt = 'WAVE  ' + this.waveIndex + ' / ' + C().waves.length + '  CLEARED';
-    if (!this.waveActive && this.waveIndex === 0 && !this.score) waveTxt = 'WAVE  1 / 10  READY';
-    SD.neonText(g, waveTxt, 620, 24, 16, '200,210,255', { blur: 8 });
+    if (this.waveActive) waveTxt = 'WAVE  ' + (this.waveIndex + 1) + ' / ' + nW;
+    else if (this.score) waveTxt = this.level.name;
+    else if (this.waveIndex >= nW) waveTxt = 'WAVE  ' + nW + ' / ' + nW;
+    else if (this.waveTimer > 0) waveTxt = 'NEXT  ' + Math.ceil(this.waveTimer) + 's  +' + this.earlyBonus(this.waveTimer) + ' CR';
+    else if (this.waveIndex === 0) waveTxt = 'WAVE  1 / ' + nW + '  READY';
+    else waveTxt = 'WAVE  ' + this.waveIndex + ' / ' + nW + '  CLEARED';
+    SD.neonText(g, waveTxt, 700, 24, 16, this.waveTimer > 0 ? '255,220,120' : '200,210,255', { blur: 8 });
+    SD.neonText(g, this.level.short || this.level.name, 470, 24, 13, '180,200,220', { blur: 6, alpha: 0.85 });
 
     // bottom bar
     g.save();
@@ -1190,40 +1526,47 @@ SD.Defense = class {
 
     const mouse = SD.Input.mouse;
     for (const b of this.uiButtons()) {
-      const selected = (b.id && b.id === this.shop) || (b.id === 'up' && this.picked && this.picked.level < 2 && SD.inBtn(b, mouse));
+      const selected = (b.id && b.id === this.shop) || (b.id === 'up' && this.picked && this.picked.level < 3 && SD.inBtn(b, mouse));
       const hover = mouse.over && SD.inBtn(b, mouse);
       SD.drawButton(g, b, selected || hover, this.T);
     }
     if (this.picked && !this.shop) {
       const t = this.picked, conf = C().turrets[t.kind];
-      SD.neonText(g, conf.name + '  L' + (t.level === 2 ? 'II' : 'I'), 500, H - 78, 11, conf.rgb, { blur: 4, alpha: 0.8 });
+      SD.neonText(g, conf.name + '  MK ' + (t.level === 3 ? 'III' : t.level === 2 ? 'II' : 'I'), 650, H - 78, 11, conf.rgb, { blur: 4, alpha: 0.8 });
     }
   }
 
   drawScore(g) {
     const s = this.score;
     g.save(); g.fillStyle = 'rgba(4,2,12,0.72)'; g.fillRect(0, 0, W, H); g.restore();
-    const x = W / 2 - 300, y = 70, w = 600, h = 430;
+    const x = W / 2 - 300, y = 48, w = 600, h = 500;
     g.save();
     SD.roundRect(g, x, y, w, h, 14);
     g.fillStyle = 'rgba(8,10,20,0.94)'; g.fill();
     g.strokeStyle = 'rgba(180,200,220,0.4)'; g.lineWidth = 1.4; g.stroke();
     g.restore();
-    SD.neonText(g, 'WAVE ' + s.wave + '  CLEARED', W / 2, 114, 32, '80,255,180', { blur: 16 });
-    if (s.name) SD.neonText(g, s.name, W / 2, 156, 16, '200,210,230', { blur: 7, alpha: 0.9 });
+    const heading = s.last ? 'SECTOR HELD' : 'LEVEL COMPLETE';
+    SD.neonText(g, heading, W / 2, 88, 32, '80,255,180', { blur: 16 });
+    if (s.name) SD.neonText(g, s.name, W / 2, 126, 16, '200,210,230', { blur: 7, alpha: 0.9 });
+    SD.neonText(g, '★'.repeat(s.stars) + '☆'.repeat(3 - s.stars), W / 2, 164, 28, '255,220,120', { blur: 10 });
+    const mm = SD.pad(Math.floor(s.time / 60)), ss = SD.pad(Math.floor(s.time % 60));
     const rows = [
       ['KILLS', String(s.kills)],
       ['CREDITS EARNED', '+' + s.earned],
       ['HULL LEFT', s.hull + ' / ' + s.maxHull],
-      ['WAVE BONUS', '+' + s.bonus],
+      ['EARLY-SEND BONUS', '+' + (s.early || 0)],
+      ['TIME', mm + ':' + ss],
     ];
     rows.forEach((row, i) => {
-      const yy = 210 + i * 42;
-      SD.neonText(g, row[0], W / 2 - 220, yy, 18, '180,200,220', { blur: 6, align: 'left' });
-      SD.neonText(g, row[1], W / 2 + 220, yy, 20, '255,220,120', { blur: 8, align: 'right' });
+      const yy = 210 + i * 36;
+      SD.neonText(g, row[0], W / 2 - 220, yy, 16, '180,200,220', { blur: 6, align: 'left' });
+      SD.neonText(g, row[1], W / 2 + 220, yy, 18, '255,220,120', { blur: 8, align: 'right' });
     });
-    const btn = this.continueBtn || { x: W / 2, y: 470, w: 240, h: 50, label: 'CONTINUE', rgb: '80,170,255', size: 22 };
-    SD.drawButton(g, btn, SD.Input.mouse.over && SD.inBtn(btn, SD.Input.mouse), this.T);
+    const next = this.nextBtn || { x: W / 2, y: 456, w: 260, h: 48, label: s.last ? 'SECTOR HELD' : 'NEXT LEVEL', rgb: '80,170,255', size: 20 };
+    const menu = this.menuBtn || { x: W / 2, y: 512, w: 240, h: 44, label: 'MENU', rgb: '255,80,220', size: 18 };
+    const mouse = SD.Input.mouse;
+    SD.drawButton(g, next, mouse.over && SD.inBtn(next, mouse), this.T);
+    SD.drawButton(g, menu, mouse.over && SD.inBtn(menu, mouse), this.T);
   }
 
   drawPause(g) {
@@ -1247,66 +1590,113 @@ SD.Defense = class {
     SD.drawButton(g, { x: W / 2, y: 406, w: 260, h: 52, label: 'MENU', rgb: '255,80,220', size: 22 }, false, this.T);
   }
 
-  /* Close-up of all six turrets (3 kinds x MK I / MK II) for screenshots. */
+  /* Close-up of all six turrets at MK I / II / III for screenshots. */
   drawShowcase(g) {
     SD.drawSpaceBg(g);
     this.stars.draw(g, this.T);
-    SD.neonText(g, 'TURRETS', W / 2, 46, 36, '200,220,255', { blur: 14 });
-    const kinds = ['laser', 'missile', 'ice'];
-    const names = ['LASER', 'MISSILES', 'ICE'];
-    const rgb = ['80,170,255', '255,170,70', '140,230,255'];
-    const xs = [210, 512, 814];
-    const ys = [250, 450];
-    for (let lv = 1; lv <= 2; lv++) {
-      SD.neonText(g, lv === 1 ? 'MK I' : 'MK II', 64, ys[lv - 1], 18, '255,210,120', { blur: 8 });
-      for (let i = 0; i < 3; i++) {
-        const pulse = 0.5 + 0.5 * Math.sin(this.T * (lv === 2 ? 8 : 6) + i * 1.7);
+    SD.neonText(g, 'TURRETS', W / 2, 28, 28, '200,220,255', { blur: 14 });
+    const kinds = KINDS;
+    const xs = kinds.map((_, i) => 110 + i * 155);
+    const ys = [150, 330, 500];
+    const labels = ['MK I', 'MK II', 'MK III'];
+    for (let lv = 1; lv <= 3; lv++) {
+      SD.neonText(g, labels[lv - 1], 48, ys[lv - 1], 14, '255,210,120', { blur: 8 });
+      for (let i = 0; i < kinds.length; i++) {
+        const conf = C().turrets[kinds[i]];
+        const pulse = 0.5 + 0.5 * Math.sin(this.T * (4 + lv) + i * 1.3);
         const t = {
           kind: kinds[i], level: lv, x: xs[i], y: ys[lv - 1],
-          ang: -0.72 + i * 0.18 + 0.06 * Math.sin(this.T * 0.7 + i),
+          ang: -0.72 + i * 0.12 + 0.06 * Math.sin(this.T * 0.7 + i),
           flash: pulse > 0.55 ? 0.09 * (pulse - 0.2) : 0,
           kick: pulse > 0.55 ? 1.2 : 0,
         };
-        this.drawTurretAt(g, t, 2.35);
-        if (lv === 1) SD.neonText(g, names[i], xs[i], 130, 18, rgb[i], { blur: 8 });
+        this.drawTurretAt(g, t, 1.55);
+        if (lv === 1) SD.neonText(g, conf.short, xs[i], 64, 13, conf.rgb, { blur: 7 });
       }
     }
     SD.drawScanlines(g);
   }
 
-  /* Close-up of the four enemy hulls for screenshots. */
+  /* All enemy types with weakness / resistance labels. */
   drawShipShowcase(g) {
     SD.drawSpaceBg(g);
     this.stars.draw(g, this.T);
-    SD.neonText(g, "EDISAR'S FLEET", W / 2, 42, 32, '200,220,255', { blur: 14 });
+    SD.neonText(g, "EDISAR'S FLEET", W / 2, 28, 26, '200,220,255', { blur: 14 });
     const row = [
-      ['scout', 'SCOUT', 200, 195, 2.55, '210,130,170'],
-      ['fighter', 'FIGHTER', 512, 195, 2.25, '140,190,220'],
-      ['armored', 'ARMORED', 824, 195, 2.05, '220,190,120'],
+      ['scout', 'SCOUT', 120, 150, 2.1],
+      ['fighter', 'FIGHTER', 320, 150, 1.85],
+      ['armored', 'ARMORED', 520, 150, 1.65],
+      ['shielded', 'SHIELDED', 720, 150, 1.75],
+      ['cryo', 'CRYO ENGINE', 900, 150, 1.75],
     ];
-    for (const [type, name, x, y, sc, rgb] of row) {
-      SD.blit(g, this.spr[type], x, y, -0.10, sc);
-      SD.neonText(g, name, x, 88, 16, rgb, { blur: 8 });
+    for (const [type, name, x, y, sc] of row) {
+      const def = C().enemies[type];
+      const spr = this.spr[type];
+      if (type === 'shielded') {
+        g.save(); g.strokeStyle = 'rgba(100,220,255,0.5)'; g.lineWidth = 2;
+        g.beginPath(); g.arc(x, y, 36, 0, Math.PI * 2); g.stroke(); g.restore();
+      }
+      SD.blit(g, spr, x, y, -0.10, sc);
+      SD.neonText(g, name, x, 64, 13, def.rgb, { blur: 7 });
+      if (def.weak && def.weak.length) SD.neonText(g, 'WEAK ' + def.weak.join('/'), x, 230, 11, '80,255,160', { blur: 5 });
+      if (def.resists && def.resists.length) SD.neonText(g, 'RESIST ' + def.resists.join('/'), x, 248, 11, '255,140,110', { blur: 5 });
     }
-    SD.blit(g, this.spr.flagship, W / 2, 415, -0.06, 1.32);
-    SD.neonText(g, "EDISAR'S FLAGSHIP", W / 2, 548, 18, '255,210,120', { blur: 8 });
+    const bosses = [
+      ['flagship1', 200, 400, 0.85],
+      ['flagship2', 512, 400, 0.95],
+      ['flagship', 824, 400, 1.05],
+    ];
+    for (const [type, x, y, sc] of bosses) {
+      const def = C().enemies[type];
+      SD.blit(g, this.spr.flagship, x, y, -0.06, sc);
+      if (def.shield) {
+        g.save(); g.strokeStyle = 'rgba(100,220,255,0.4)'; g.lineWidth = 2;
+        g.beginPath(); g.arc(x, y, 58 * sc, 0, Math.PI * 2); g.stroke(); g.restore();
+      }
+      SD.neonText(g, def.name.toUpperCase(), x, 520, 13, '255,210,120', { blur: 7 });
+    }
     SD.drawScanlines(g);
   }
 
   /* ---------- screenshot setups ---------- */
+  nearPads(n) {
+    const pads = [];
+    for (let ty = 2; ty <= 14; ty++) for (let tx = 1; tx < 31; tx++) {
+      if (!this.canPlace(tx, ty)) continue;
+      const p = tileCenter(tx, ty);
+      let best = 1e9;
+      for (const pt of this.path.pts) best = Math.min(best, Math.hypot(pt.x - p.x, pt.y - p.y));
+      if (best < 86) pads.push({ tx, ty, best });
+    }
+    pads.sort((a, b) => a.best - b.best);
+    const picked = [];
+    for (const p of pads) {
+      if (picked.some(q => Math.abs(q.tx - p.tx) + Math.abs(q.ty - p.ty) < 3)) continue;
+      picked.push(p);
+      if (picked.length >= n) break;
+    }
+    return picked;
+  }
+
   applyShot(id) {
     const layout = [
-      [4, 6, 'laser', 2], [8, 6, 'laser', 1], [8, 9, 'ice', 2], [11, 9, 'missile', 1],
-      [15, 6, 'laser', 2], [17, 6, 'ice', 1], [18, 8, 'missile', 2], [22, 10, 'laser', 2],
-      [25, 10, 'missile', 1], [25, 14, 'ice', 2], [22, 14, 'laser', 1], [4, 9, 'missile', 1],
+      [4, 6, 'laser', 3], [8, 6, 'railgun', 2], [8, 9, 'ice', 3], [11, 9, 'tesla', 2],
+      [15, 6, 'pulse', 2], [17, 6, 'ice', 2], [18, 8, 'missile', 3], [22, 10, 'laser', 2],
+      [25, 10, 'railgun', 1], [25, 14, 'pulse', 3], [22, 14, 'tesla', 1], [4, 9, 'missile', 2],
     ];
     const plant = (list) => {
       this.turrets = [];
-      for (const [tx, ty, k, lv] of list) this.place(tx, ty, k, lv);
+      for (const [tx, ty, k, lv] of list) if (this.canPlace(tx, ty) || this.occupied(tx, ty)) this.place(tx, ty, k, lv);
+    };
+    const mixKinds = ['laser', 'missile', 'ice', 'railgun', 'tesla', 'pulse'];
+    const plantNear = (n) => {
+      const pads = this.nearPads(n);
+      this.turrets = [];
+      pads.forEach((p, i) => this.place(p.tx, p.ty, mixKinds[i % 6], 1 + (i % 3)));
     };
 
     if (id === 'build') {
-      plant([[4, 6, 'laser', 1], [8, 9, 'ice', 1], [11, 9, 'missile', 1], [15, 6, 'laser', 2], [18, 8, 'ice', 1]]);
+      plant([[4, 6, 'laser', 1], [8, 9, 'ice', 1], [11, 9, 'tesla', 1], [15, 6, 'railgun', 2], [18, 8, 'pulse', 1]]);
       this.credits = 210;
       this.waveIndex = 2;
       this.shop = 'laser';
@@ -1314,46 +1704,88 @@ SD.Defense = class {
       this.ghost = { tx: 8, ty: 6 };
     } else if (id === 'midwave') {
       plant(layout);
-      this.credits = 240;
-      this.waveIndex = 4;
+      this.credits = 260;
+      this.waveIndex = 3;
       this.startWave();
-      // seed enemies along the path and run a short sim so beams / missiles exist
-      const types = ['scout', 'fighter', 'armored', 'fighter', 'scout', 'armored', 'fighter', 'scout', 'fighter'];
+      const types = ['scout', 'fighter', 'armored', 'shielded', 'cryo', 'fighter', 'scout', 'armored', 'shielded'];
       const dists = [80, 220, 380, 520, 700, 880, 1080, 1280, 1500];
       this.enemies = [];
-      types.forEach((t, i) => this.spawn(t, dists[i]));
-      this.groups = [{ type: 'fighter', left: 3, gap: 0.7, wait: 0.4 }];
-      this.sim(1.6);
-    } else if (id === 'boss') {
+      types.forEach((tp, i) => this.spawn(tp, dists[i]));
+      this.groups = [{ type: 'fighter', left: 2, gap: 0.7, wait: 0.4 }];
+      this.sim(1.55);
+      this.waveActive = false;
+      this.groups = [];
+      this.waveIndex = 4;
+      this.waveTimer = 16.4;
+      this.banner = { text: 'WAVE 4  CLEARED', life: 2.2, rgb: '80,255,180' };
+      for (const e of this.enemies) e.stunT = 8;
+    } else if (id === 'boss' || id === 'map1') {
       plant(layout);
       this.credits = 180;
       this.waveIndex = 9;
       this.startWave();
       this.enemies = [];
-      this.spawn('flagship', 980);
+      this.spawn('flagship1', 980);
       this.spawn('armored', 760);
-      this.spawn('armored', 680);
+      this.spawn('shielded', 680);
       this.spawn('fighter', 560);
-      this.spawn('fighter', 500);
+      this.spawn('cryo', 500);
       this.spawn('fighter', 1180);
       this.groups = [{ type: 'fighter', left: 2, gap: 0.8, wait: 0.5 }];
-      this.sim(3.05);
+      this.sim(2.4);
+    } else if (id === 'map2') {
+      this.setLevel(1);
+      this.reset();
+      plantNear(10);
+      this.credits = 200;
+      this.waveIndex = 4;
+      this.startWave();
+      this.enemies = [];
+      ['scout', 'fighter', 'armored', 'shielded', 'cryo', 'fighter'].forEach((tp, i) => this.spawn(tp, 160 + i * 180));
+      this.groups = [{ type: 'fighter', left: 2, gap: 0.7, wait: 0.4 }];
+      this.sim(1.4);
+    } else if (id === 'map3') {
+      this.setLevel(2);
+      this.reset();
+      plantNear(10);
+      this.credits = 200;
+      this.waveIndex = 9;
+      this.startWave();
+      this.enemies = [];
+      this.spawn('flagship', 860);
+      this.spawn('shielded', 620);
+      this.spawn('armored', 480);
+      this.spawn('cryo', 340);
+      this.spawn('fighter', 1100);
+      this.groups = [{ type: 'shielded', left: 2, gap: 0.8, wait: 0.4 }];
+      this.sim(2.0);
     } else if (id === 'score') {
       plant(layout);
       this.credits = 240;
       this.hull = 16;
-      this.waveIndex = 4;
+      this.waveIndex = 10;
       this.waveActive = false;
-      this.waveStats = { kills: 14, earned: 186 };
-      this.openScore();
+      this.levelStats = { kills: 86, earned: 1640, early: 120, t0: this.T - 312 };
+      this.openLevelScore();
     } else if (id === 'turrets') {
       this.showcase = true;
       this.credits = 0;
-    } else if (id === 'ships') {
+    } else if (id === 'ships' || id === 'enemies') {
       this.showcase = 'ships';
       this.credits = 0;
+    } else if (id === 'enemyinfo') {
+      plant(layout);
+      this.credits = 220;
+      this.waveIndex = 5;
+      this.waveActive = false;
+      this.enemies = [];
+      const e = this.spawn('shielded', 640);
+      this.spawn('armored', 420);
+      this.spawn('cryo', 980);
+      this.inspected = e;
+      for (const en of this.enemies) en.stunT = 30;
     } else if (id === 'title') {
-      // unused here; main.js only routes shots into Defense. Kept for completeness.
+      // unused here
     }
   }
 
@@ -1362,4 +1794,57 @@ SD.Defense = class {
     for (let t = 0; t < seconds; t += step) this.update(step);
   }
 };
+
+SD.runBalance = function (mode, levelIndex) {
+  const d = new SD.Defense({ levelIndex: levelIndex || 0 });
+  const kinds = mode === 'mixed' ? ['pulse', 'laser', 'tesla', 'missile', 'railgun', 'ice'] : [mode];
+  const cap = (levelIndex || 0) === 0 ? 8 : 10;
+  const spend = () => {
+    // Place a core first; upgrading too early is a weak opening on later levels.
+    const minT = Math.min(cap, 5);
+    if (d.turrets.length >= minT) {
+      for (const t of d.turrets) {
+        if (t.level < 3) {
+          d.picked = t;
+          if (d.credits >= d.upCostOf(t)) d.tryUpgrade();
+        }
+      }
+      d.picked = null;
+    }
+    if (d.turrets.length >= cap) return;
+    const pads = d.nearPads(cap);
+    for (const p of pads) {
+      if (d.occupied(p.tx, p.ty)) continue;
+      const kind = kinds[d.turrets.length % kinds.length];
+      if (d.canBuild(kind) && d.canPlace(p.tx, p.ty)) {
+        d.shop = kind;
+        d.tryPlace(p.tx, p.ty);
+      }
+    }
+  };
+  spend();
+  let acc = 0, guard = 0;
+  const step = 1 / 30;
+  const limit = 30 * 60 * 18;
+  while (!d.score && !d.over && guard < limit) {
+    acc += step;
+    if (acc >= 0.45) { spend(); acc = 0; }
+    if (!d.waveActive && !d.score && !d.over) d.sendWaveEarly();
+    d.update(step);
+    guard++;
+  }
+  return {
+    mode,
+    level: (d.level && d.level.name) || String(levelIndex || 0),
+    result: d.score ? 'win' : (d.over || 'timeout'),
+    hull: d.hull,
+    credits: d.credits,
+    waves: d.waveIndex,
+    stars: d.score ? d.score.stars : 0,
+    turrets: d.turrets.map(t => t.kind + t.level),
+    time: Math.round(d.T),
+  };
+};
+
 })();
+

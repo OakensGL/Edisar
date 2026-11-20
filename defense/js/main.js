@@ -30,6 +30,11 @@
     SD.state = 'crawl';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.playCrawl) SD.Audio.playCrawl();
+  } else if (shot && shot[1] === 'levelselect') {
+    SD.game = new SD.LevelSelect({ shot: true });
+    SD.state = 'levels';
+    if (credit) credit.style.display = 'none';
+    if (SD.Audio.playTitle) SD.Audio.playTitle();
   } else if (shot && shot[1] !== 'title') {
     SD.game = new SD.Defense({ shot: shot[1] });
     SD.state = 'play';
@@ -39,12 +44,17 @@
     SD.Audio.playTitle();
   }
 
-  SD.start = (s) => {
-    if (s === 'play') {
+  SD.start = (s, opt = {}) => {
+    if (s === 'play' || s === 'level') {
       SD.state = 'play';
-      SD.game = new SD.Defense();
+      SD.game = new SD.Defense({ levelIndex: opt.index || 0 });
       if (credit) credit.style.display = 'none';
       if (SD.Audio.stopMusic) SD.Audio.stopMusic();
+    } else if (s === 'levels') {
+      SD.state = 'levels';
+      SD.game = new SD.LevelSelect();
+      if (credit) credit.style.display = 'none';
+      if (SD.Audio.playTitle) SD.Audio.playTitle();
     } else if (s === 'crawl') {
       SD.state = 'crawl';
       SD.game = new SD.Crawl();
