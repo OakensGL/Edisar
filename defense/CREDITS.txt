@@ -1,5 +1,5 @@
-STARLIGHT DEFENSE v0.1.2
-======================
+STARLIGHT: LAST STATION v0.1.3
+=============================
 
 A tower defense set in the Project Starlight universe.
 Hold the station against Commander Edisar Starlight's fleet.
@@ -78,3 +78,8 @@ with the defense arsenal). A How to Play panel, sound toggle, and looping
 title music were added. Buttons sit in a sky bar so they do not cover the
 characters.
 An opening crawl, "The Return of Edisar Starlight," plays after Play (skippable; Story on the title screen replays it).
+
+v0.1.3
+------
+The game was renamed Starlight: Last Station. The title screen logo now
+reads STARLIGHT over LAST STATION. The PWA short name is Last Station.

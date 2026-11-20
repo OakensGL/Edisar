@@ -55,8 +55,15 @@ SD.drawButton = (g, b, selected, t = 0) => {
   const rgb = b.disabled ? '120,110,150' : (b.rgb || '255,80,220');
   const pulse = selected ? 0.75 + 0.25 * Math.sin(t * 6) : 0.45;
   g.save();
-  SD.roundRect(g, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, b.radius ?? 8);
-  g.fillStyle = selected ? `rgba(${rgb},0.18)` : (b.fill || 'rgba(8,4,20,0.72)'); g.fill();
+  const x = b.x - b.w / 2, y = b.y - b.h / 2, r = b.radius ?? 8;
+  if (b.drop) {
+    g.shadowColor = 'rgba(0,0,0,0.7)';
+    g.shadowBlur = 16 * (SD.view ? SD.view.scale : 1);
+    g.shadowOffsetY = 3;
+  }
+  SD.roundRect(g, x, y, b.w, b.h, r);
+  g.fillStyle = b.fill || (selected ? `rgba(${rgb},0.18)` : 'rgba(8,4,20,0.72)'); g.fill();
+  g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetY = 0;
   g.lineWidth = selected ? 2.5 : 1.5; g.strokeStyle = `rgba(${rgb},${pulse})`;
   g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = (selected ? 16 : 6) * (SD.view ? SD.view.scale : 1); g.stroke();
   g.restore();

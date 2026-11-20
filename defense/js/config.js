@@ -1,6 +1,6 @@
-/* Starlight Defense — global namespace + tunables. */
+/* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.1.2';
+SD.VERSION = '0.1.3';
 SD.W = 1024; SD.H = 576;            // logical design resolution (16:9)
 SD.TILE = 32;
 

@@ -1,4 +1,4 @@
-# Starlight Defense v0.1.2
+# Starlight: Last Station v0.1.3
 
 A tower defense set in the Project Starlight universe.
 Hold the station against Commander Edisar Starlight's fleet.

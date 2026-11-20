@@ -1,6 +1,6 @@
 {
-  "name": "Starlight Defense",
-  "short_name": "Defense",
+  "name": "Starlight: Last Station",
+  "short_name": "Last Station",
   "description": "Hold the line against Commander Edisar's fleet. A Project Starlight tower defense.",
   "start_url": "./index.html",
   "display": "standalone",

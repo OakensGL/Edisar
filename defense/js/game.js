@@ -60,10 +60,10 @@ SD.Title = class {
     this.bg = null;
     this.bgReady = false;
     this.help = false;
-    this.play = { x: W / 2 - 132, y: 172, w: 200, h: 48, label: 'PLAY', rgb: '80,170,255', size: 22 };
-    this.helpBtn = { x: W / 2 + 132, y: 172, w: 220, h: 48, label: 'HOW TO PLAY', rgb: '180,210,255', size: 18 };
-    this.story = { x: W / 2 - 90, y: 226, w: 150, h: 28, label: 'STORY', rgb: '255,210,90', size: 14 };
-    this.creditsBtn = { x: W / 2 + 90, y: 226, w: 150, h: 28, label: 'CREDITS', rgb: '200,210,230', size: 14 };
+    this.play = { x: W / 2 - 132, y: 182, w: 200, h: 48, label: 'PLAY', rgb: '80,170,255', size: 22, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.helpBtn = { x: W / 2 + 132, y: 182, w: 220, h: 48, label: 'HOW TO PLAY', rgb: '180,210,255', size: 18, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.story = { x: W / 2 - 90, y: 236, w: 150, h: 28, label: 'STORY', rgb: '255,210,90', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.creditsBtn = { x: W / 2 + 90, y: 236, w: 150, h: 28, label: 'CREDITS', rgb: '200,210,230', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13 };
     this.closeHelp = { x: W / 2, y: 500, w: 180, h: 42, label: 'CLOSE', rgb: '80,170,255', size: 18 };
     this.showCredits = false;
@@ -149,15 +149,16 @@ SD.Title = class {
       this.drawAmbient(g);
     }
 
-    SD.neonText(g, 'STARLIGHT DEFENSE', W / 2, 86, 46, '200,230,255', { blur: 18 });
-
-    // button bar sits in the upper sky, clear of the characters
-    const barX = W / 2 - 268, barY = 146, barW = 536, barH = 54;
+    SD.neonText(g, 'STARLIGHT', W / 2, 62, 44, '210,230,255', { blur: 18 });
     g.save();
-    SD.roundRect(g, barX, barY, barW, barH, 12);
-    g.fillStyle = 'rgba(6,8,16,0.58)'; g.fill();
-    g.strokeStyle = 'rgba(180,200,220,0.35)'; g.lineWidth = 1.2; g.stroke();
+    g.strokeStyle = 'rgba(220,230,255,0.45)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(W / 2 - 168, 86);
+    g.lineTo(W / 2 + 168, 86);
+    g.stroke();
     g.restore();
+    SD.neonText(g, 'LAST STATION', W / 2, 114, 30, '255,220,140', { blur: 14 });
 
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.play, mouse.over && SD.inBtn(this.play, mouse), this.T);
