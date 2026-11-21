@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.2
+STARLIGHT: LAST STATION v0.2.1
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -83,3 +83,22 @@ v0.1.3
 ------
 The game was renamed Starlight: Last Station. The title screen logo now
 reads STARLIGHT over LAST STATION. The PWA short name is Last Station.
+
+v0.2.1
+------
+Waves are denser: about twice as many ships on Level 1, and up to three
+times as many on Levels 2 and 3. Per-ship hull and kill rewards were
+lowered so a mixed defense still wins the first two levels, and Level 3
+stays hard but winnable. Wave groups spawn together as a swarm.
+Pulse MK I and MK II only deal damage (they never slow or stun). The
+MK III stun is shorter (0.4s), the same ship cannot be stunned again
+for 3 seconds, and bosses are immune.
+Two new hulls join the fleet: Interceptors (very fast, low HP, weak to
+lasers and Tesla; ice slows them hard) and Juggernauts (slow, heavy
+tanks, weak to railguns and missiles; ice only slows them partially).
+A HUD speed button cycles x1 / x2 / x3 for the simulation only; music is
+unchanged. Players can call the next wave about 3 seconds after the current
+one starts spawning, fighting several waves at once, with an early-send
+bonus proportional to time saved. The auto timer still starts when the
+field is clear. Level 3 unlocks the unique Nebula turret, a heavy
+dark-energy piercing beam that ignores shields and resistances.

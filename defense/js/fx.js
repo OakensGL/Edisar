@@ -76,13 +76,21 @@ SD.inBtn = (b, p) => Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.y - b.y) <= b.
 SD.Particles = class {
   constructor() { this.list = []; this.rings = []; this.floats = []; }
   burst(x, y, rgb, n = 20, speed = 180, life = 0.7, size = 2) {
+    const room = Math.max(0, 220 - this.list.length);
+    n = Math.min(n, room);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = speed * (0.25 + Math.random() * 0.9);
       this.list.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (0.5 + Math.random() * 0.6), max: life, c: Math.random() < .25 ? '255,255,255' : rgb, s: size * (0.6 + Math.random() * 0.8) });
     }
   }
-  ring(x, y, rgb, r = 40, life = 0.4) { this.rings.push({ x, y, rgb, r, life, max: life }); }
-  float(x, y, text, rgb = '255,220,90') { this.floats.push({ x, y, text, rgb, life: 0.85, max: 0.85 }); }
+  ring(x, y, rgb, r = 40, life = 0.4) {
+    if (this.rings.length > 18) this.rings.shift();
+    this.rings.push({ x, y, rgb, r, life, max: life });
+  }
+  float(x, y, text, rgb = '255,220,90') {
+    if (this.floats.length > 28) this.floats.shift();
+    this.floats.push({ x, y, text, rgb, life: 0.85, max: 0.85 });
+  }
   update(dt) {
     for (const p of this.list) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 1 - 1.8 * dt; p.vy *= 1 - 1.8 * dt; p.life -= dt; }
     this.list = this.list.filter(p => p.life > 0);
@@ -344,6 +352,34 @@ function drawTeslaHead(g, level) {
     g.beginPath(); g.moveTo(-12, -18); g.lineTo(0, -28); g.lineTo(12, -18); g.stroke();
   }
 }
+function drawNebulaHead(g, level) {
+  // Heavy dark-energy projector: long void barrel, purple core, shrouded coils.
+  metalBox(g, -10, 6, 20, 12, 3, ['#8a8498', '#2e2838', '#121018']);
+  bolt(g, -6, 14, 1.2); bolt(g, 6, 14, 1.2);
+  // rear reactor
+  g.beginPath(); g.arc(0, 12, 7, 0, Math.PI * 2);
+  const rx = g.createRadialGradient(-2, 10, 0, 0, 12, 7);
+  rx.addColorStop(0, '#e0c8ff'); rx.addColorStop(0.45, '#5a20a0'); rx.addColorStop(1, '#120818');
+  g.fillStyle = rx; g.fill();
+  g.strokeStyle = '#0a0810'; g.lineWidth = 1; g.stroke();
+  coreGlow(g, 0, 12, 7, '180,80,255');
+  // long shrouded barrel
+  metalBox(g, -7, -34, 14, 40, 3, ['#6a6680', '#2a2434', '#0e0c14']);
+  metalBox(g, -5, -38, 10, 10, 2, ['#9a90b0', '#3a3450', '#14101c']);
+  // coil rings
+  g.strokeStyle = '#3a2060'; g.lineWidth = 1.4;
+  for (const y of [-8, -16, -24]) {
+    g.beginPath(); g.ellipse(0, y, 8, 2.4, 0, 0, Math.PI * 2); g.stroke();
+  }
+  // core slit
+  g.fillStyle = '#1a1028';
+  g.fillRect(-1.8, -36, 3.6, 30);
+  g.fillStyle = '#d8b8ff';
+  g.fillRect(-0.8, -35, 1.6, 28);
+  coreGlow(g, 0, -30, 6, '200,100,255');
+  coreGlow(g, 0, -38, 7, '180,80,255');
+}
+
 function drawPulseHead(g, level) {
   const mk = level || 1;
   const R = mk >= 3 ? 18 : mk >= 2 ? 15 : 12;
@@ -636,6 +672,68 @@ function drawShieldedBody(g) {
   engineNozzle(g, -23, -4, 2.2, 2.0, '80,200,255');
   engineNozzle(g, -23, 4, 2.2, 2.0, '80,200,255');
 }
+
+function drawInterceptorBody(g) {
+  // Needle-thin dart: long nose, forward-swept blades, one fat afterburner.
+  const hull = [[34, 0], [18, -3.2], [4, -3.6], [-12, -2.8], [-22, -2.2], [-22, 2.2], [-12, 2.8], [4, 3.6], [18, 3.2]];
+  const finL = [[10, -3], [-2, -16], [-12, -15], [-6, -3]];
+  const finR = [[10, 3], [-2, 16], [-12, 15], [-6, 3]];
+  dropShadow(g, hull, -1, 3, 0.32);
+  dropShadow(g, finL, -1, 2, 0.25);
+  dropShadow(g, finR, -1, 2, 0.25);
+  const ember = [[0, '#f0d8a8'], [0.4, '#8a5a28'], [1, '#24180c']];
+  metalPoly(g, finL, 0, -16, 0, -2, ember);
+  metalPoly(g, finR, 0, 2, 0, 16, ember);
+  metalPoly(g, hull, 0, -5, 0, 5, [[0, '#f2e6c8'], [0.35, '#7a6a4a'], [1, '#1c1810']]);
+  clipPoly(g, hull, g => {
+    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.5;
+    g.beginPath(); g.moveTo(22, -1.4); g.lineTo(-14, -1.4); g.stroke();
+    g.beginPath(); g.moveTo(22, 1.4); g.lineTo(-14, 1.4); g.stroke();
+  });
+  // hot livery slash
+  const slash = [[26, 0], [8, -1.2], [-10, -0.9], [-10, 0.9], [8, 1.2]];
+  metalPoly(g, slash, 0, -1.5, 0, 1.5, [[0, '#ffb070'], [0.5, '#c05020'], [1, '#4a1808']]);
+  canopy(g, 14, 0, 3.6, 2.0, '255,160,70');
+  // tail engine block + afterburner
+  metalBox(g, -26, -5, 10, 10, 1.6, ['#d0c4a8', '#5a4c34', '#1a1610']);
+  engineNozzle(g, -26, 0, 3.4, 2.8, '255,140,50');
+  coreGlow(g, -26, 0, 4.2, '255,160,60');
+}
+
+function drawJuggernautBody(g) {
+  // Squat iron brick: layered slabs, battering prow, furnace core. Bigger and slower-looking than Armored.
+  const hull = [[30, 0], [18, -14], [2, -20], [-16, -18], [-30, -12], [-36, -6], [-36, 6], [-30, 12], [-16, 18], [2, 20], [18, 14]];
+  const prow = [[30, 0], [18, -14], [10, -8], [10, 8], [18, 14]];
+  const slabL = [[8, -12], [-4, -26], [-22, -24], [-16, -14]];
+  const slabR = [[8, 12], [-4, 26], [-22, 24], [-16, 14]];
+  dropShadow(g, hull, -2, 5, 0.45);
+  dropShadow(g, slabL, -1, 3, 0.3);
+  dropShadow(g, slabR, -1, 3, 0.3);
+  const iron = [[0, '#c8c2b8'], [0.4, '#4a4e48'], [1, '#161812']];
+  metalPoly(g, slabL, 0, -26, 0, -10, iron);
+  metalPoly(g, slabR, 0, 10, 0, 26, iron);
+  metalPoly(g, hull, 0, -20, 0, 20, [[0, '#d0cec6'], [0.4, '#3e4440'], [1, '#141614']]);
+  metalPoly(g, prow, 18, -14, 18, 14, [[0, '#9aa090'], [0.5, '#3a3e38'], [1, '#10120e']]);
+  clipPoly(g, hull, g => {
+    g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 0.7;
+    for (const x of [8, -4, -16]) { g.beginPath(); g.moveTo(x, -16); g.lineTo(x, 16); g.stroke(); }
+    g.beginPath(); g.moveTo(16, -7); g.lineTo(-24, -8); g.stroke();
+    g.beginPath(); g.moveTo(16, 7); g.lineTo(-24, 8); g.stroke();
+    for (const [bx, by] of [[10, -10], [10, 10], [-8, -12], [-8, 12], [-20, -8], [-20, 8]]) bolt(g, bx, by, 1.15);
+  });
+  // furnace viewport
+  g.beginPath(); g.ellipse(2, 0, 6.5, 4.2, 0, 0, Math.PI * 2);
+  const fg = g.createRadialGradient(1, -1, 0, 2, 0, 6.5);
+  fg.addColorStop(0, '#ffe0a0'); fg.addColorStop(1, '#4a2008');
+  g.fillStyle = fg; g.fill();
+  coreGlow(g, 2, 0, 5, '255,140,40');
+  // heavy rear stacks
+  metalBox(g, -34, -11, 12, 8, 1.4, ['#b0b4ac', '#3a3e38', '#121410']);
+  metalBox(g, -34, 3, 12, 8, 1.4, ['#b0b4ac', '#3a3e38', '#121410']);
+  engineNozzle(g, -34, -7, 2.8, 2.4, '255,120,40');
+  engineNozzle(g, -34, 7, 2.8, 2.4, '255,120,40');
+}
+
 function drawCryoBody(g) {
   const hull = [[28, 0], [14, -5], [2, -6.5], [-14, -5], [-24, -8], [-28, -3], [-28, 3], [-24, 8], [-14, 5], [2, 6.5], [14, 5]];
   dropShadow(g, hull, -1, 3, 0.36);
@@ -676,6 +774,12 @@ SD.Sprites = {
   cryo() {
     return partCanvas(90, g => drawCryoBody(g));
   },
+  interceptor() {
+    return partCanvas(80, g => drawInterceptorBody(g));
+  },
+  juggernaut() {
+    return partCanvas(124, g => drawJuggernautBody(g));
+  },
   /* Modern metallic sci-fi turrets. Base is static; head/barrel rotates. Glow is accent-only. */
   turretBase(kind, level = 1) {
     const size = 84;
@@ -695,6 +799,7 @@ SD.Sprites = {
                   : kind === 'railgun' ? ['#a09a80', '#545040', '#1e1c14']
                   : kind === 'tesla' ? ['#8a8498', '#4a4458', '#1a1824']
                   : kind === 'pulse' ? ['#7a988c', '#3e5448', '#16201a']
+                  : kind === 'nebula' ? ['#6a6280', '#2e283c', '#12101a']
                   : ['#8a93a2', '#4a5260', '#1a1e26'];
       const rad = g.createRadialGradient(-5, -6, 2, 0, 0, R + 1);
       rad.addColorStop(0, steel[0]); rad.addColorStop(0.45, steel[1]); rad.addColorStop(1, steel[2]);
@@ -711,7 +816,7 @@ SD.Sprites = {
       g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 0.7; g.stroke();
 
       // kind accent as a painted inset ring (flat, not neon)
-      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : '#2a4a72';
+      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : kind === 'nebula' ? '#4a2080' : '#2a4a72';
       g.beginPath(); g.arc(0, 0, R - 5.4, 0, Math.PI * 2);
       g.strokeStyle = accent; g.lineWidth = 1.6; g.stroke();
 
@@ -771,7 +876,7 @@ SD.Sprites = {
       g.beginPath(); g.arc(0, 0, 6.5, 0, Math.PI * 2); g.fillStyle = well; g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 0.8; g.stroke();
       // tiny status lamp (accent glow)
-      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : '#5aa8e8';
+      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : kind === 'nebula' ? '#c070ff' : '#5aa8e8';
       g.beginPath(); g.arc(0, 0, 1.6, 0, Math.PI * 2);
       g.fillStyle = lamp; g.fill();
       g.fillStyle = 'rgba(255,255,255,0.65)'; g.beginPath(); g.arc(-0.4, -0.4, 0.5, 0, Math.PI * 2); g.fill();
@@ -786,6 +891,7 @@ SD.Sprites = {
       else if (kind === 'ice') drawIceHead(g, level);
       else if (kind === 'railgun') drawRailgunHead(g, level);
       else if (kind === 'tesla') drawTeslaHead(g, level);
+      else if (kind === 'nebula') drawNebulaHead(g, level);
       else drawPulseHead(g, level);
     });
   },
@@ -832,6 +938,14 @@ SD.Sprites = {
         g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 20, 0, Math.PI * 2); g.fill();
         g.strokeStyle = 'rgba(160,255,210,0.7)'; g.lineWidth = 2;
         g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.stroke();
+      } else if (kind === 'nebula') {
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, 22);
+        gr.addColorStop(0, 'rgba(255,240,255,0.95)');
+        gr.addColorStop(0.25, 'rgba(180,80,255,0.75)');
+        gr.addColorStop(1, 'rgba(60,0,120,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 22, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(230,200,255,0.95)';
+        g.fillRect(-1.6, -22, 3.2, 28);
       } else {
         const gr = g.createRadialGradient(0, 0, 0, 0, 0, 18);
         gr.addColorStop(0, 'rgba(255,255,255,0.9)');
