@@ -353,31 +353,31 @@ function drawTeslaHead(g, level) {
   }
 }
 function drawNebulaHead(g, level) {
-  // Heavy dark-energy projector: long void barrel, purple core, shrouded coils.
-  metalBox(g, -10, 6, 20, 12, 3, ['#8a8498', '#2e2838', '#121018']);
+  // Heavy dark-energy projector: long void barrel, red core (matches Nebula's mothership).
+  metalBox(g, -10, 6, 20, 12, 3, ['#8a8490', '#2e2830', '#121014']);
   bolt(g, -6, 14, 1.2); bolt(g, 6, 14, 1.2);
-  // rear reactor
+  // rear reactor — ship dome: #ffc8c8 / #e6283c / #5a0014, glow 255,80,80
   g.beginPath(); g.arc(0, 12, 7, 0, Math.PI * 2);
   const rx = g.createRadialGradient(-2, 10, 0, 0, 12, 7);
-  rx.addColorStop(0, '#e0c8ff'); rx.addColorStop(0.45, '#5a20a0'); rx.addColorStop(1, '#120818');
+  rx.addColorStop(0, '#ffc8c8'); rx.addColorStop(0.45, '#d4142a'); rx.addColorStop(1, '#5a0014');
   g.fillStyle = rx; g.fill();
   g.strokeStyle = '#0a0810'; g.lineWidth = 1; g.stroke();
-  coreGlow(g, 0, 12, 7, '180,80,255');
-  // long shrouded barrel
-  metalBox(g, -7, -34, 14, 40, 3, ['#6a6680', '#2a2434', '#0e0c14']);
-  metalBox(g, -5, -38, 10, 10, 2, ['#9a90b0', '#3a3450', '#14101c']);
-  // coil rings
-  g.strokeStyle = '#3a2060'; g.lineWidth = 1.4;
+  coreGlow(g, 0, 12, 7, '255,80,80');
+  // long shrouded barrel (neutral dark metal)
+  metalBox(g, -7, -34, 14, 40, 3, ['#6a646c', '#2a2430', '#0e0c14']);
+  metalBox(g, -5, -38, 10, 10, 2, ['#9a9098', '#3a3438', '#141014']);
+  // coil rings — ship wing / stripe red
+  g.strokeStyle = '#a00c1e'; g.lineWidth = 1.4;
   for (const y of [-8, -16, -24]) {
     g.beginPath(); g.ellipse(0, y, 8, 2.4, 0, 0, Math.PI * 2); g.stroke();
   }
   // core slit
-  g.fillStyle = '#1a1028';
+  g.fillStyle = '#1a0810';
   g.fillRect(-1.8, -36, 3.6, 30);
-  g.fillStyle = '#d8b8ff';
+  g.fillStyle = '#ffd0d0';
   g.fillRect(-0.8, -35, 1.6, 28);
-  coreGlow(g, 0, -30, 6, '200,100,255');
-  coreGlow(g, 0, -38, 7, '180,80,255');
+  coreGlow(g, 0, -30, 6, '255,90,90');
+  coreGlow(g, 0, -38, 7, '255,70,70');
 }
 
 function drawPulseHead(g, level) {
@@ -799,7 +799,7 @@ SD.Sprites = {
                   : kind === 'railgun' ? ['#a09a80', '#545040', '#1e1c14']
                   : kind === 'tesla' ? ['#8a8498', '#4a4458', '#1a1824']
                   : kind === 'pulse' ? ['#7a988c', '#3e5448', '#16201a']
-                  : kind === 'nebula' ? ['#6a6280', '#2e283c', '#12101a']
+                  : kind === 'nebula' ? ['#6a646c', '#2e282c', '#121014']
                   : ['#8a93a2', '#4a5260', '#1a1e26'];
       const rad = g.createRadialGradient(-5, -6, 2, 0, 0, R + 1);
       rad.addColorStop(0, steel[0]); rad.addColorStop(0.45, steel[1]); rad.addColorStop(1, steel[2]);
@@ -816,7 +816,7 @@ SD.Sprites = {
       g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 0.7; g.stroke();
 
       // kind accent as a painted inset ring (flat, not neon)
-      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : kind === 'nebula' ? '#4a2080' : '#2a4a72';
+      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : kind === 'nebula' ? '#a00c1e' : '#2a4a72';
       g.beginPath(); g.arc(0, 0, R - 5.4, 0, Math.PI * 2);
       g.strokeStyle = accent; g.lineWidth = 1.6; g.stroke();
 
@@ -876,7 +876,7 @@ SD.Sprites = {
       g.beginPath(); g.arc(0, 0, 6.5, 0, Math.PI * 2); g.fillStyle = well; g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 0.8; g.stroke();
       // tiny status lamp (accent glow)
-      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : kind === 'nebula' ? '#c070ff' : '#5aa8e8';
+      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : kind === 'nebula' ? '#ff6060' : '#5aa8e8';
       g.beginPath(); g.arc(0, 0, 1.6, 0, Math.PI * 2);
       g.fillStyle = lamp; g.fill();
       g.fillStyle = 'rgba(255,255,255,0.65)'; g.beginPath(); g.arc(-0.4, -0.4, 0.5, 0, Math.PI * 2); g.fill();
@@ -940,11 +940,11 @@ SD.Sprites = {
         g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.stroke();
       } else if (kind === 'nebula') {
         const gr = g.createRadialGradient(0, 0, 0, 0, 0, 22);
-        gr.addColorStop(0, 'rgba(255,240,255,0.95)');
-        gr.addColorStop(0.25, 'rgba(180,80,255,0.75)');
-        gr.addColorStop(1, 'rgba(60,0,120,0)');
+        gr.addColorStop(0, 'rgba(255,240,240,0.95)');
+        gr.addColorStop(0.25, 'rgba(255,80,80,0.75)');
+        gr.addColorStop(1, 'rgba(90,0,20,0)');
         g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 22, 0, Math.PI * 2); g.fill();
-        g.fillStyle = 'rgba(230,200,255,0.95)';
+        g.fillStyle = 'rgba(255,230,230,0.95)';
         g.fillRect(-1.6, -22, 3.2, 28);
       } else {
         const gr = g.createRadialGradient(0, 0, 0, 0, 0, 18);
@@ -1011,6 +1011,41 @@ function paintAsteroids(b) {
     b.beginPath(); b.arc(x, y, r, 0, Math.PI * 2); b.fillStyle = ag; b.fill();
   }
 }
+SD.Sprites.hero = function (kind) {
+  const size = 72;
+  return SD.Sprites._hero ? SD.Sprites._hero(kind) : (function (kind) {
+    const c = SD.mkCanvas(size, size), g = c.getContext('2d');
+    g.translate(size / 2, size / 2);
+    const red = kind === 'nebula';
+    const steel = ['#c8ccd6', '#3a3e48', '#12141a'];
+    const accent = red ? '#d4142a' : '#50a8e8';
+    const glow = red ? '255,70,70' : '80,170,255';
+    // disc pad
+    g.beginPath(); g.ellipse(0, 10, 16, 6, 0, 0, Math.PI * 2);
+    g.fillStyle = '#1a1c24'; g.fill(); g.strokeStyle = accent; g.lineWidth = 1.2; g.stroke();
+    // body
+    g.fillStyle = steel[1];
+    g.beginPath(); g.moveTo(-7, 8); g.lineTo(-9, -2); g.lineTo(-4, -10); g.lineTo(4, -10); g.lineTo(9, -2); g.lineTo(7, 8); g.closePath(); g.fill();
+    g.strokeStyle = '#0a0c10'; g.lineWidth = 1; g.stroke();
+    // visor
+    g.fillStyle = accent;
+    g.beginPath(); g.ellipse(0, -5, 5, 3.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = red ? 'rgba(255,230,230,0.8)' : 'rgba(220,245,255,0.85)';
+    g.beginPath(); g.ellipse(-1, -6, 2, 1.2, 0, 0, Math.PI * 2); g.fill();
+    // shoulders
+    g.fillStyle = steel[0];
+    g.fillRect(-11, -1, 6, 4); g.fillRect(5, -1, 6, 4);
+    g.fillStyle = accent;
+    g.fillRect(-10, 0, 4, 1.4); g.fillRect(6, 0, 4, 1.4);
+    // glow
+    g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(0, -5, 0, 0, -5, 14);
+    gr.addColorStop(0, `rgba(${glow},0.45)`); gr.addColorStop(1, `rgba(${glow},0)`);
+    g.fillStyle = gr; g.beginPath(); g.arc(0, -5, 14, 0, Math.PI * 2); g.fill();
+    return { c, size };
+  })(kind);
+};
+
 SD.drawSpaceBg = (g, variant = 'orbital') => {
   if (!bgs[variant]) {
     const c = SD.mkCanvas(W, H); const b = c.getContext('2d');
@@ -1030,6 +1065,24 @@ SD.drawSpaceBg = (g, variant = 'orbital') => {
       const mg = b.createRadialGradient(860, 90, 10, 860, 90, 80);
       mg.addColorStop(0, '#d8dce4'); mg.addColorStop(0.45, '#8a909c'); mg.addColorStop(1, 'rgba(40,48,60,0)');
       b.fillStyle = mg; b.beginPath(); b.arc(860, 90, 80, 0, Math.PI * 2); b.fill();
+    } else if (variant === 'dock') {
+      gr.addColorStop(0, '#120806'); gr.addColorStop(0.55, '#1a1008'); gr.addColorStop(1, '#100c08');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 200, 80, 360, 200, '255,160,40', 0.16);
+      SD.glow(b, 860, 420, 300, 200, '220,100,30', 0.12);
+      SD.glow(b, 512, 40, 280, 120, '255,200,80', 0.10);
+    } else if (variant === 'canyon') {
+      gr.addColorStop(0, '#0a1214'); gr.addColorStop(0.55, '#10181c'); gr.addColorStop(1, '#0c1412');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 160, 200, 280, 220, '40,160,150', 0.12);
+      SD.glow(b, 860, 80, 300, 180, '80,140,180', 0.12);
+      SD.glow(b, 500, 500, 340, 160, '30,80,70', 0.10);
+    } else if (variant === 'void') {
+      gr.addColorStop(0, '#050206'); gr.addColorStop(0.55, '#0a0408'); gr.addColorStop(1, '#08020a');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 200, 120, 300, 240, '160,20,40', 0.14);
+      SD.glow(b, 850, 400, 320, 240, '80,0,20', 0.16);
+      SD.glow(b, 512, 80, 200, 120, '255,60,60', 0.08);
     } else {
       gr.addColorStop(0, '#05010f'); gr.addColorStop(0.55, '#090218'); gr.addColorStop(1, '#0b0320');
       b.fillStyle = gr; b.fillRect(0, 0, W, H);

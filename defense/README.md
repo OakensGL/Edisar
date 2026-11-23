@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.2.1
+# Starlight: Last Station v0.3
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -6,10 +6,12 @@ Hold the last station against Commander Edisar Starlight's fleet.
 Open `index.html` in a browser (a local static server is best; a PWA install
 is available over http). No build step.
 
-Play opens the level select. There are three levels of ten waves, each with
-its own map: Orbital Station, Asteroid Belt, and Moon Base. Credits and
+Play opens the level select. There are six levels of ten waves, each with
+its own map: Orbital Station, Asteroid Belt, Moon Base, Solar Drydock,
+Twin Gates, and Eclipse Rim. Twin Gates and Eclipse Rim have two
+entrances; ships spawn from both sides and the paths may merge. Credits and
 turrets reset at the start of every level. The last wave of each level is a
-boss; Level 3 brings Edisar's flagship at full strength.
+boss. The Nebula turret unlocks on Level 3 and later.
 Waves are denser than in v0.2: about twice the ships on Level 1, and up
 to three times as many on Levels 2 and 3.
 
@@ -24,17 +26,33 @@ early-send bonus scales with the time you save. The auto timer still runs
 when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
+Turrets can only be built on marked pads. A few gold premium pads sit on
+the best chokepoints and must be unlocked with match credits (about 60–120)
+before you can build there.
+
 A HUD speed button (and the F key) cycles x1 / x2 / x3. It only speeds the
 simulation; music is unaffected.
+
+At the start of a level you choose a hero, Oakens or Nebula. They stand at
+the path edge, auto-attack, move on a short cooldown when you tap a
+destination, and have one special ability. If they go down they respawn.
+
+Three active abilities sit on the HUD: Orbital Strike (area damage), Drones
+(briefly hold ships), and EMP (drops shields in an area). Tap the button,
+then tap the field. Each turret has a targeting priority (First, Last,
+Strongest, Weakest, Closest) you can cycle in its panel.
 
 ## Turrets and enemies
 
 Six turrets are each upgradable to MK III: laser (twin beams at MK III),
 missiles (cluster warheads), ice (brief freeze), railgun (piercing line),
-tesla (chaining arc), and pulse (shield-breaking shockwave; only MK III stuns, briefly, and bosses are immune).
-Level 3 also unlocks the Nebula turret (about 300 credits, one per map): a
-heavy dark-energy piercing beam that ignores shields and resistances. On
+tesla (chaining arc), and pulse (shield-breaking shockwave that poisons hulls; MK III toxin can spread).
+Level 3 and later unlock the Nebula turret (about 300 credits, one per map): a
+heavy dark-energy piercing beam, in the red of Nebula's mothership, that
+ignores shields and resistances. On
 Levels 1 and 2 it appears in the shop with a Level 3 lock tag.
+Pulse no longer stuns; it strips shields and applies a stacking poison.
+MK III poison is stronger and can spread to nearby ships.
 After you place a turret, build mode clears so the cursor is free.
 
 Scouts resist missiles and are weak to lasers. Armored resist lasers and
@@ -52,7 +70,8 @@ Click a placed turret to upgrade or sell. Space or the Start / Send Wave
 button begins the next wave, or sends the next one early (during the
 countdown, or mid-wave once the 3-second call window opens).
 P / Esc pauses, M mutes, F cycles battle speed. Keys 1–7 pick turret types
-(7 is Nebula). U upgrades, X sells.
+(7 is Nebula). Q / W / E arm Orbital, Drones and EMP. T cycles targeting
+on a selected turret. R fires the hero special. U upgrades, X sells.
 
 Phone: the same, with taps. Speed and Send Wave are on the HUD. Landscape is
 recommended.

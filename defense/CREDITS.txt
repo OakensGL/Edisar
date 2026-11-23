@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.2.1
+STARLIGHT: LAST STATION v0.3
 =============================
 
 A tower defense set in the Project Starlight universe.

@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.2.1';
+SD.VERSION = '0.3.0';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -67,18 +67,35 @@ SD.CONFIG = {
       name: 'PULSE', short: 'PULSE', rgb: '80,255,180',
       cost: 75, upCost: 65, upCost2: 110,
       range: [84, 102, 120], damage: [14, 20, 22], rate: [1.25, 1.05, 0.90],
-      stun: [0, 0, 0.4],
-      stunCooldown: 3,
-      blurb: 'Shockwave that strips shields',
-      upBlurb: 'Wider blast, more punch',
-      upBlurb2: 'Brief stun; bosses resist',
+      poison: [5, 8, 12], poisonTime: [2.0, 2.6, 3.2], poisonMax: [2, 3, 3],
+      poisonSpread: [0, 0, 52],
+      blurb: 'Shockwave that strips shields and poisons hulls',
+      upBlurb: 'Wider blast, stronger toxin',
+      upBlurb2: 'Toxin spreads to nearby ships',
     },
     nebula: {
-      name: 'NEBULA', short: 'NEBULA', rgb: '180,80,255',
+      name: 'NEBULA', short: 'NEBULA', rgb: '255,70,70',
       cost: 300, upCost: 0, upCost2: 0, maxLevel: 1, unique: 1, minLevel: 2,
       range: [220], damage: [240], rate: [2.55], pierce: [99],
       ignoreResist: true,
       blurb: "Dr. Nebula's dark-energy beam. Pierces a line and ignores shields and resists. One per map.",
+    },
+  },
+  abilities: {
+    orbital: { id: 'orbital', name: 'ORBITAL', sub: 'STRIKE', rgb: '255,180,80', cd: 42, dmg: 170, radius: 78 },
+    drones:  { id: 'drones',  name: 'DRONES',  sub: 'HOLD',   rgb: '80,200,255', cd: 38, radius: 70, hold: 1.35 },
+    emp:     { id: 'emp',     name: 'EMP',     sub: 'SHIELDS', rgb: '200,230,255', cd: 32, radius: 92 },
+  },
+  heroes: {
+    oakens: {
+      id: 'oakens', name: 'OAKENS', rgb: '80,170,255',
+      hp: 110, range: 102, damage: 14, rate: 0.34, moveCd: 3.2, moveSpeed: 230,
+      specialCd: 16, special: 'burst', specialDmg: 55, specialR: 70, respawn: 12,
+    },
+    nebula: {
+      id: 'nebula', name: 'NEBULA', rgb: '255,70,70',
+      hp: 95, range: 122, damage: 20, rate: 0.62, moveCd: 3.2, moveSpeed: 210,
+      specialCd: 18, special: 'beam', specialDmg: 90, specialRange: 200, respawn: 12,
     },
   },
   enemies: {
@@ -145,12 +162,38 @@ SD.CONFIG = {
       boss: true, scale: 1, sprite: 'flagship',
       line: "I crawled back from the edge of the solar system for this moment. No more fleets, no more tricks. Face me yourselves... and fall.",
     },
+    flagship4: {
+      name: 'Sunlance Frigate', hp: 4000, shield: 1000, speed: 21, reward: 220, hull: 18, r: 44, rgb: '255,200,110',
+      resist: { laser: 0.65, missile: 1.15, ice: 0.9, railgun: 1.25, tesla: 1.15, pulse: 1.2 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
+      boss: true, scale: 1.02, sprite: 'flagship',
+      line: "You thought the moon was the end of it? I left a second fleet in the solar docks. They're hungry, and they remember your names.",
+    },
+    flagship5: {
+      name: 'Twin-Spear Vanguard', hp: 4800, shield: 1200, speed: 21, reward: 250, hull: 20, r: 46, rgb: '255,210,120',
+      resist: { laser: 0.65, missile: 1.2, ice: 0.9, railgun: 1.3, tesla: 1.15, pulse: 1.2 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
+      boss: true, scale: 1.06, sprite: 'flagship',
+      line: "Two gates, one grave. I will come at you from every heading until there is nothing left of your precious station.",
+    },
+    flagship6: {
+      name: 'The Eclipse', hp: 5800, shield: 1400, speed: 20, reward: 280, hull: 22, r: 48, rgb: '255,220,130',
+      resist: { laser: 0.6, missile: 1.2, ice: 0.85, railgun: 1.3, tesla: 1.2, pulse: 1.2 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
+      boss: true, scale: 1.12, sprite: 'flagship',
+      line: "This is the fleet I hid in the dark. Avrill's light doesn't reach this far, Oakens. Step into the eclipse and be extinguished.",
+    },
   },
   levels: [
     {
       id: 'orbital', name: 'ORBITAL STATION', short: 'Orbital', variant: 'orbital',
       blurb: 'Hold the last orbital platform.',
       path: [[0, 4], [6, 4], [6, 11], [13, 11], [13, 4], [20, 4], [20, 12], [28, 12], [31, 12]],
+      pads: [
+        {tx:4,ty:5},{tx:7,ty:5},{tx:5,ty:8},{tx:8,ty:10},{tx:10,ty:10},
+        {tx:14,ty:9},{tx:15,ty:5},{tx:19,ty:8},{tx:23,ty:11},{tx:26,ty:11},
+        {tx:7,ty:8,premium:1,cost:80},{tx:12,ty:8,premium:1,cost:100},{tx:21,ty:11,premium:1,cost:120},
+      ],
       hpMul: 1, waves: [
         { name: 'SCOUT WING',           groups: [['scout', 16, 0.50]] },
         { name: 'FIGHTER ESCORT',       groups: [['scout', 16, 0.40], ['fighter', 8, 0.61]] },
@@ -168,6 +211,13 @@ SD.CONFIG = {
       id: 'belt', name: 'ASTEROID BELT', short: 'Asteroid Belt', variant: 'belt',
       blurb: 'Ambush lanes through the rocks.',
       path: [[0, 8], [5, 8], [5, 3], [12, 3], [12, 13], [19, 13], [19, 6], [25, 6], [25, 12], [31, 12]],
+      pads: [
+        {tx:3,ty:7},{tx:6,ty:6},{tx:6,ty:4},{tx:10,ty:4},{tx:11,ty:6},
+        {tx:13,ty:8},{tx:13,ty:11},{tx:16,ty:12},{tx:18,ty:8},{tx:20,ty:8},
+        {tx:23,ty:7},{tx:26,ty:11},
+        {tx:6,ty:5,premium:1,cost:80},{tx:13,ty:10,premium:1,cost:100},
+        {tx:20,ty:7,premium:1,cost:110},{tx:24,ty:11,premium:1,cost:120},
+      ],
       hpMul: 1.3, waves: [
         { name: 'BELT SCOUTS',          groups: [['scout', 27, 0.34], ['fighter', 11, 0.50]] },
         { name: 'ROCK FIGHTERS',        groups: [['fighter', 18, 0.40], ['interceptor', 14, 0.26]] },
@@ -185,7 +235,14 @@ SD.CONFIG = {
       id: 'moon', name: 'MOON BASE', short: 'Moon Base', variant: 'moon',
       blurb: 'The last fortress on the lunar rim.',
       path: [[0, 3], [7, 3], [7, 8], [3, 8], [3, 13], [15, 13], [15, 5], [22, 5], [22, 11], [31, 11]],
-      hpMul: 1.35, waves: [
+      pads: [
+        {tx:5,ty:4},{tx:8,ty:5},{tx:8,ty:7},{tx:5,ty:9},{tx:5,ty:12},
+        {tx:9,ty:12},{tx:12,ty:12},{tx:16,ty:11},{tx:16,ty:8},{tx:18,ty:6},
+        {tx:21,ty:7},{tx:23,ty:9},
+        {tx:6,ty:6,premium:1,cost:90},{tx:14,ty:12,premium:1,cost:110},
+        {tx:16,ty:6,premium:1,cost:120},{tx:21,ty:10,premium:1,cost:100},
+      ],
+      hpMul: 1.58, waves: [
         { name: 'LUNAR SCOUTS',         groups: [['scout', 12, 0.45], ['fighter', 6, 0.58]] },
         { name: 'SHIELD TIDE',          groups: [['shielded', 6, 0.70], ['scout', 8, 0.40]] },
         { name: 'CRYO LINE',            groups: [['cryo', 12, 0.50], ['fighter', 8, 0.45], ['interceptor', 10, 0.24]] },
@@ -196,6 +253,88 @@ SD.CONFIG = {
         { name: 'FORTRESS WING',        groups: [['shielded', 24, 0.41], ['armored', 18, 0.44], ['cryo', 15, 0.41]] },
         { name: 'DREAD TIDE',           groups: [['armored', 16, 0.41], ['shielded', 16, 0.41], ['juggernaut', 5, 1.10], ['interceptor', 14, 0.22], ['cryo', 12, 0.38]] },
         { name: 'COMMANDER EDISAR',     groups: [['flagship', 1, 0.10], ['armored', 10, 0.64], ['shielded', 10, 0.49], ['juggernaut', 4, 1.20], ['interceptor', 12, 0.26], ['cryo', 8, 0.46]] },
+      ],
+    },
+    {
+      id: 'dock', name: 'SOLAR DRYDOCK', short: 'Drydock', variant: 'dock',
+      blurb: 'A second fleet waits in the solar yards.',
+      path: [[0, 5], [5, 5], [5, 2], [11, 2], [11, 9], [4, 9], [4, 13], [13, 13], [13, 7], [19, 7], [19, 3], [25, 3], [25, 12], [31, 12]],
+      pads: [
+        {tx:3,ty:4},{tx:6,ty:4},{tx:6,ty:3},{tx:9,ty:3},{tx:10,ty:6},
+        {tx:10,ty:8},{tx:6,ty:10},{tx:6,ty:12},{tx:10,ty:12},{tx:14,ty:12},
+        {tx:14,ty:9},{tx:16,ty:8},{tx:20,ty:6},{tx:20,ty:4},{tx:23,ty:4},
+        {tx:24,ty:8},{tx:26,ty:11},{tx:28,ty:11},
+        {tx:10,ty:4,premium:1,cost:90},{tx:12,ty:10,premium:1,cost:110},
+        {tx:18,ty:6,premium:1,cost:120},{tx:24,ty:11,premium:1,cost:100},
+      ],
+      hpMul: 1.78, waves: [
+        { name: 'YARD SCOUTS',          groups: [['scout', 18, 0.40], ['fighter', 10, 0.50]] },
+        { name: 'DOCK FIGHTERS',        groups: [['fighter', 16, 0.40], ['interceptor', 12, 0.24]] },
+        { name: 'ARMOR GANTRY',         groups: [['armored', 14, 0.48], ['cryo', 10, 0.46], ['juggernaut', 3, 1.20]] },
+        { name: 'SHIELD SCAFFOLD',      groups: [['shielded', 16, 0.46], ['scout', 18, 0.24]] },
+        { name: 'MIXED SHIFT',          groups: [['fighter', 20, 0.34], ['armored', 14, 0.46], ['cryo', 12, 0.42]] },
+        { name: 'SWARM LANE',           groups: [['scout', 26, 0.18], ['interceptor', 16, 0.16], ['shielded', 14, 0.44]] },
+        { name: 'HEAVY HOIST',          groups: [['armored', 16, 0.44], ['juggernaut', 5, 1.15], ['cryo', 14, 0.40], ['fighter', 12, 0.34]] },
+        { name: 'DRYDOCK WING',         groups: [['shielded', 20, 0.40], ['armored', 16, 0.44], ['cryo', 14, 0.40]] },
+        { name: 'SUNLANCE LINE',        groups: [['armored', 16, 0.40], ['shielded', 16, 0.40], ['juggernaut', 5, 1.10], ['interceptor', 14, 0.22], ['cryo', 12, 0.38]] },
+        { name: 'SUNLANCE FRIGATE',     groups: [['flagship4', 1, 0.10], ['armored', 10, 0.60], ['shielded', 10, 0.48], ['juggernaut', 4, 1.20], ['interceptor', 12, 0.26], ['cryo', 8, 0.44]] },
+      ],
+    },
+    {
+      id: 'canyon', name: 'TWIN GATES', short: 'Twin Gates', variant: 'canyon',
+      blurb: 'Two invasion corridors merge on the station.',
+      paths: [
+        [[0, 3], [7, 3], [7, 8], [14, 8], [14, 5], [21, 5], [21, 11], [31, 11]],
+        [[0, 13], [7, 13], [7, 8], [14, 8], [14, 11], [21, 11], [31, 11]],
+      ],
+      pads: [
+        {tx:5,ty:4},{tx:8,ty:4},{tx:8,ty:6},{tx:5,ty:12},{tx:8,ty:12},
+        {tx:8,ty:10},{tx:10,ty:7},{tx:10,ty:9},{tx:12,ty:7},{tx:12,ty:9},
+        {tx:15,ty:6},{tx:15,ty:9},{tx:17,ty:6},{tx:18,ty:10},{tx:20,ty:7},
+        {tx:22,ty:9},{tx:24,ty:10},{tx:27,ty:10},
+        {tx:6,ty:8,premium:1,cost:100},{tx:13,ty:7,premium:1,cost:120},
+        {tx:13,ty:9,premium:1,cost:120},{tx:20,ty:10,premium:1,cost:110},
+      ],
+      hpMul: 1.68, waves: [
+        { name: 'SPLIT SCOUTS',         groups: [['scout', 20, 0.36], ['fighter', 12, 0.48]] },
+        { name: 'DUAL FIGHTERS',        groups: [['fighter', 18, 0.36], ['interceptor', 14, 0.22]] },
+        { name: 'CANYON ARMOR',         groups: [['armored', 16, 0.46], ['cryo', 12, 0.44], ['juggernaut', 3, 1.18]] },
+        { name: 'TWIN SHIELDS',         groups: [['shielded', 18, 0.44], ['scout', 20, 0.22]] },
+        { name: 'MERGED FLEET',         groups: [['fighter', 22, 0.32], ['armored', 16, 0.44], ['cryo', 14, 0.40]] },
+        { name: 'CROSS SWARM',          groups: [['scout', 28, 0.16], ['interceptor', 18, 0.16], ['shielded', 16, 0.42]] },
+        { name: 'HEAVY FORK',           groups: [['armored', 18, 0.42], ['juggernaut', 5, 1.12], ['cryo', 14, 0.40], ['fighter', 12, 0.32]] },
+        { name: 'BOTH GATES',           groups: [['shielded', 22, 0.40], ['armored', 18, 0.42], ['cryo', 14, 0.40]] },
+        { name: 'VANGUARD TIDE',        groups: [['armored', 18, 0.40], ['shielded', 18, 0.40], ['juggernaut', 5, 1.08], ['interceptor', 16, 0.20], ['cryo', 12, 0.36]] },
+        { name: 'TWIN-SPEAR VANGUARD',  groups: [['flagship5', 1, 0.10], ['armored', 12, 0.56], ['shielded', 12, 0.46], ['juggernaut', 4, 1.16], ['interceptor', 14, 0.24], ['cryo', 10, 0.42]] },
+      ],
+    },
+    {
+      id: 'void', name: 'ECLIPSE RIM', short: 'Eclipse Rim', variant: 'void',
+      blurb: 'Edisar hid a last fleet in the dark.',
+      paths: [
+        [[0, 3], [10, 3], [10, 7], [5, 7], [5, 11], [13, 11], [13, 6], [20, 6], [20, 11], [31, 11]],
+        [[0, 13], [9, 13], [9, 9], [16, 9], [16, 13], [23, 13], [23, 7], [27, 7], [27, 11], [31, 11]],
+      ],
+      pads: [
+        {tx:5,ty:4},{tx:8,ty:4},{tx:11,ty:4},{tx:11,ty:6},{tx:8,ty:6},
+        {tx:6,ty:8},{tx:6,ty:10},{tx:8,ty:12},{tx:11,ty:12},{tx:11,ty:10},
+        {tx:14,ty:10},{tx:14,ty:7},{tx:17,ty:7},{tx:18,ty:5},{tx:19,ty:8},
+        {tx:17,ty:12},{tx:21,ty:12},{tx:21,ty:8},{tx:24,ty:8},{tx:25,ty:10},
+        {tx:26,ty:10},{tx:28,ty:10},
+        {tx:9,ty:5,premium:1,cost:100},{tx:12,ty:10,premium:1,cost:120},
+        {tx:19,ty:10,premium:1,cost:120},{tx:24,ty:9,premium:1,cost:110},
+      ],
+      hpMul: 1.72, waves: [
+        { name: 'VOID SCOUTS',          groups: [['scout', 22, 0.32], ['fighter', 14, 0.44]] },
+        { name: 'DARK FIGHTERS',        groups: [['fighter', 20, 0.34], ['interceptor', 16, 0.20]] },
+        { name: 'ECLIPSE ARMOR',        groups: [['armored', 18, 0.44], ['cryo', 14, 0.42], ['juggernaut', 4, 1.14]] },
+        { name: 'BLACK SHIELDS',        groups: [['shielded', 20, 0.42], ['scout', 22, 0.20]] },
+        { name: 'UMBRAL MIX',           groups: [['fighter', 24, 0.30], ['armored', 18, 0.42], ['cryo', 16, 0.38]] },
+        { name: 'NIGHT SWARM',          groups: [['scout', 30, 0.16], ['interceptor', 20, 0.15], ['shielded', 18, 0.40]] },
+        { name: 'HEAVY DARK',           groups: [['armored', 20, 0.40], ['juggernaut', 6, 1.10], ['cryo', 16, 0.38], ['fighter', 14, 0.30]] },
+        { name: 'RIM WING',             groups: [['shielded', 24, 0.38], ['armored', 20, 0.40], ['cryo', 16, 0.38]] },
+        { name: 'ECLIPSE TIDE',         groups: [['armored', 20, 0.38], ['shielded', 20, 0.38], ['juggernaut', 6, 1.06], ['interceptor', 18, 0.18], ['cryo', 14, 0.36]] },
+        { name: 'THE ECLIPSE',          groups: [['flagship6', 1, 0.10], ['armored', 14, 0.52], ['shielded', 14, 0.44], ['juggernaut', 5, 1.12], ['interceptor', 16, 0.22], ['cryo', 12, 0.40]] },
       ],
     },
   ],
@@ -209,13 +348,15 @@ SD.pad = (n, len = 2) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 
 SD.Progress = {
   load() {
+    const n = (SD.CONFIG.levels && SD.CONFIG.levels.length) || 6;
+    const zeros = () => Array.from({ length: n }, () => 0);
     try {
       const v = JSON.parse(SD.store.get(SD.CONFIG.storage.progress, ''));
       if (v && typeof v === 'object') {
-        return { unlocked: Math.max(1, v.unlocked | 0), stars: [0, 0, 0].map((z, i) => (v.stars && v.stars[i]) || 0) };
+        return { unlocked: Math.max(1, v.unlocked | 0), stars: zeros().map((_, i) => (v.stars && v.stars[i]) || 0) };
       }
     } catch (e) {}
-    return { unlocked: 1, stars: [0, 0, 0] };
+    return { unlocked: 1, stars: zeros() };
   },
   save(p) { SD.store.set(SD.CONFIG.storage.progress, JSON.stringify(p)); },
   record(levelIndex, stars) {
