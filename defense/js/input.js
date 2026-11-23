@@ -1,7 +1,7 @@
 /* Keyboard + pointer (mouse/touch) input. Pointers are in logical (1024x576) coords. */
 SD.Input = (() => {
   const keys = new Set(), pressed = new Set(), pointers = new Map();
-  let downs = [], ups = [], touchMode = /[?&]touch/.test(location.search);
+  let downs = [], released = [], touchMode = /[?&]touch/.test(location.search);
   const mouse = { x: 0, y: 0, over: false };
   const PREVENT = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'];
   addEventListener('keydown', e => {
@@ -37,7 +37,8 @@ SD.Input = (() => {
         const p = SD.toLogical(e.clientX, e.clientY);
         ptr.x = p.x; ptr.y = p.y;
         const dx = ptr.x - ptr.ox, dy = ptr.y - ptr.oy;
-        if (dx * dx + dy * dy < 14 * 14) ups.push({ x: ptr.x, y: ptr.y, type: ptr.type });
+        const tap = dx * dx + dy * dy < 14 * 14;
+        released.push({ x: ptr.x, y: ptr.y, type: ptr.type, tap, id: ptr.id, ox: ptr.ox, oy: ptr.oy });
       }
       pointers.delete(e.pointerId);
     };
@@ -52,8 +53,9 @@ SD.Input = (() => {
     confirm: () => hitAny('Enter', 'Space', 'NumpadEnter'),
     pointers, mouse,
     takeDowns() { const d = downs; downs = []; return d; },
-    takeClicks() { const c = ups; ups = []; return c; },
-    endFrame() { pressed.clear(); downs = []; ups = []; },
+    takeReleased() { const r = released; released = []; return r; },
+    takeClicks() { return this.takeReleased().filter(u => u.tap); },
+    endFrame() { pressed.clear(); downs = []; released = []; },
     get touchMode() { return touchMode; },
   };
 })();

@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.3
+STARLIGHT: LAST STATION v0.3.1
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -19,6 +19,8 @@ The title screen uses an illustrated station background of Oakens and
 Dr. Nebula with the defense arsenal (assets/title-bg.jpg).
 The opening crawl uses an illustrated scene of Oakens and Dr. Nebula
 facing Edisar's flagship (assets/crawl-bg.jpg).
+Boss dialogue uses an approved portrait of Commander Edisar Starlight
+(assets/edisar-scarred.jpg), shown beside his line.
 App icons are generated from the same palette (cyan, gold, magenta on a
 deep-space field).
 
@@ -102,3 +104,24 @@ one starts spawning, fighting several waves at once, with an early-send
 bonus proportional to time saved. The auto timer still starts when the
 field is clear. Level 3 unlocks the unique Nebula turret, a heavy
 dark-energy piercing beam that ignores shields and resistances.
+
+v0.3
+----
+Build pads and premium chokepoint pads, Pulse poison instead of stun,
+levels 4-6 (two of them with dual entrances), targeting priority,
+active abilities, and a field hero (Oakens or Nebula). The Nebula turret
+is red, in the color of Dr. Nebula's mothership, and unlocks from Level 3.
+
+
+v0.3.1
+------
+Edisar's boss line is shown beside his portrait. Turrets can be dragged
+from the build bar onto a pad (ghost and range preview; drop off a pad
+to cancel). RETRY on the pause menu and the defeat screen asks RESTART?
+YES/NO, and T does the same. The hero special (R) works without selecting
+the hero, a fixed SPECIAL button shows the cooldown, and the first levels
+explain how to move the hero and fire their power.
+The Edisar boss hulls (cruiser, dreadnought, flagship, frigate,
+vanguard and eclipse) were redrawn as clean, symmetric navy-and-silver
+capital ships, mirrored along the travel axis.
+

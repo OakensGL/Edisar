@@ -47,7 +47,7 @@
   SD.start = (s, opt = {}) => {
     if (s === 'play' || s === 'level') {
       SD.state = 'play';
-      SD.game = new SD.Defense({ levelIndex: opt.index || 0 });
+      SD.game = new SD.Defense({ levelIndex: opt.index || 0, hero: opt.hero, auto: opt.auto });
       if (credit) credit.style.display = 'none';
       if (SD.Audio.stopMusic) SD.Audio.stopMusic();
     } else if (s === 'levels') {

@@ -541,105 +541,201 @@ function drawArmoredBody(g) {
   engineNozzle(g, -35, 8.5, 3.4, 3.0, '255,150,60');
 }
 
-function drawFlagshipBody(g) {
-  const S = 1.12;
-  const P = (x, y) => [x * S, y * S];
-  const wing = [P(-66, -54), P(78, 0), P(-66, 54), P(-52, 42), P(58, 0), P(-52, -42)];
-  const under = [P(-70, -58), P(86, 0), P(-70, 58), P(-58, 46), P(62, 0), P(-58, -46)];
-  dropShadow(g, under, -2, 6, 0.4);
-  metalPoly(g, under, 0, -60 * S, 0, 60 * S, [[0, '#3a404c'], [1, '#12141a']]);
-  metalPoly(g, wing, -20 * S, -50 * S, 20 * S, 50 * S, [[0, '#e8edf4'], [0.4, '#8a93a4'], [1, '#2a303c']]);
-  clipPoly(g, wing, g => {
-    // plate seams
-    g.strokeStyle = 'rgba(20,24,32,0.4)'; g.lineWidth = 0.9;
-    for (let i = 1; i <= 8; i++) {
-      const x = (-60 + i * 15) * S;
-      g.beginPath(); g.moveTo(x, -40 * S); g.lineTo(x + 8 * S, 0); g.lineTo(x, 40 * S); g.stroke();
-    }
-    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 0.7;
-    for (const k of [0.25, 0.5, 0.75]) {
-      g.beginPath(); g.moveTo(-58 * S, (-36 + k * 20) * S); g.lineTo(50 * S, k * 8 * S); g.lineTo(-58 * S, (36 - k * 20) * S); g.stroke();
-    }
-    for (const sy of [-1, 1]) {
-      for (const x of [-40, -18, 8, 28]) bolt(g, x * S, sy * (22 - Math.abs(x) * 0.12) * S, 1.35);
-    }
-  });
-  // brass leading-edge plate (inlay, not a glow stroke)
-  const edge = [P(-50, -40), P(58, 0), P(-50, 40), P(-44, 32), P(46, 0), P(-44, -32)];
-  metalPoly(g, edge, 0, -36 * S, 0, 36 * S, [[0, '#e8d090'], [0.45, '#8a6a30'], [1, '#3a2a10']]);
-  // engine banks (rear / left)
-  for (const sy of [-1, 1]) {
-    const x0 = -62 * S, y0 = sy * 28 * S;
-    metalBox(g, x0 - 18, y0 - 16, 32, 32, 5, ['#dfe6f0', '#6a7384', '#242a34']);
-    g.fillStyle = '#8a7340'; g.fillRect(x0 - 16, y0 + 12, 28, 2.2);
-    for (let i = -1; i <= 1; i++) engineNozzle(g, x0 - 8, y0 + i * 9, 4.2, 3.2, '80,200,230');
+function navyRidge(g, pts, span) {
+  metalPoly(g, pts, 0, -span, 0, span, [
+    [0, '#0c1420'], [0.16, '#1c2c48'], [0.36, '#4a5c78'],
+    [0.5, '#d4dce8'], [0.64, '#4a5c78'], [0.84, '#1c2c48'], [1, '#0c1420'],
+  ]);
+}
+function navyArmor(g, pts, span) {
+  metalPoly(g, pts, 0, -span, 0, span, [
+    [0, '#080e18'], [0.28, '#162238'], [0.5, '#3a4c68'],
+    [0.72, '#162238'], [1, '#080e18'],
+  ]);
+}
+function silverBand(g, pts, span) {
+  metalPoly(g, pts, 0, -span, 0, span, [
+    [0, '#3a4658'], [0.5, '#eef2f8'], [1, '#3a4658'],
+  ]);
+}
+function edisarTurret(g, x, y) {
+  const r = 6.2;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+  const tg = g.createRadialGradient(x, y - 2, 1, x, y, r);
+  tg.addColorStop(0, '#d8dee8'); tg.addColorStop(0.5, '#4a5668'); tg.addColorStop(1, '#141820');
+  g.fillStyle = tg; g.fill();
+  g.strokeStyle = '#0a0c10'; g.lineWidth = 0.7; g.stroke();
+  g.beginPath(); g.arc(x, y, r - 2.1, 0, Math.PI * 2);
+  g.strokeStyle = '#9aa8bc'; g.lineWidth = 1; g.stroke();
+  // barrel points along the travel axis (forward)
+  const bw = 8.5, bh = 3.2;
+  const bx = x + 1, by = y - bh / 2;
+  SD.roundRect(g, bx, by, bw, bh, 1);
+  const bg = g.createLinearGradient(bx, by, bx, by + bh);
+  bg.addColorStop(0, '#e4eaf2'); bg.addColorStop(0.5, '#5a6678'); bg.addColorStop(1, '#161a22');
+  g.fillStyle = bg; g.fill();
+  g.strokeStyle = '#0a0c10'; g.lineWidth = 0.55; g.stroke();
+}
+function edisarEngines(g, x, ys, rx, ry, glow) {
+  for (const y of ys) {
+    // housing, centered on y, opening to the rear
+    const hw = 16, hh = Math.max(10, ry * 2 + 5);
+    SD.roundRect(g, x - 2, y - hh / 2, hw, hh, 2.4);
+    const hg = g.createLinearGradient(x - 2, y - hh / 2, x - 2, y + hh / 2);
+    hg.addColorStop(0, '#1a2434'); hg.addColorStop(0.5, '#c0c8d4'); hg.addColorStop(1, '#1a2434');
+    g.fillStyle = hg; g.fill();
+    g.strokeStyle = '#0a0c10'; g.lineWidth = 0.7; g.stroke();
+    engineNozzle(g, x - 2, y, rx, ry, glow);
   }
-  // central spine
-  metalBox(g, -36 * S, -20 * S, 72 * S, 40 * S, 6, ['#d0d6e0', '#6a7384', '#2a3038']);
-  // command citadel
-  metalBox(g, -78 * S / 2, -116 * S / 2 + 10, 78 * S, 58 * S, 8, ['#f0f3f8', '#8a93a4', '#3a4250']);
-  metalBox(g, -54 * S / 2, -128 * S / 2 + 6, 54 * S, 16 * S, 5, ['#f6f8fc', '#9aa3b2', '#4a5260']);
-  // brass belts (paint)
-  g.fillStyle = '#b08a40';
-  g.fillRect(-78 * S / 2, 4 * S, 78 * S, 3.2);
-  g.fillRect(-54 * S / 2, -50 * S, 54 * S, 2.4);
-  // antenna
-  g.beginPath(); g.moveTo(-3.5, -64 * S); g.lineTo(0, -82 * S); g.lineTo(3.5, -64 * S); g.closePath();
-  g.fillStyle = '#8a93a4'; g.fill(); g.strokeStyle = '#0c0e12'; g.lineWidth = 0.6; g.stroke();
-  coreGlow(g, 0, -82 * S, 3.4, '80,200,230');
-  // visor — dark glass, cyan only inside
-  const visor = [P(-64, -92 + 70), P(0, -70 + 70), P(64, -92 + 70), P(60, -80 + 70), P(0, -62 + 70), P(-60, -80 + 70)];
-  // original visor was around y=-92 to -58; tower is centered lower... use original-ish coords scaled
-  const vis = [P(-58, -28), P(16, -8), P(-58, 28), P(-52, 18), P(6, 0), P(-52, -18)];
-  // simpler chevron visor on the citadel facing right
-  const vs = [[-8 * S, -16 * S], [22 * S, 0], [-8 * S, 16 * S], [-4 * S, 10 * S], [12 * S, 0], [-4 * S, -10 * S]];
-  path(g, vs);
-  g.fillStyle = '#121820'; g.fill();
-  g.strokeStyle = '#6a7380'; g.lineWidth = 0.8; g.stroke();
-  clipPoly(g, vs, g => { coreGlow(g, 4 * S, 0, 14 * S, '80,200,230'); });
-  // side cheeks
-  for (const sx of [-1, 1]) {
-    const cheek = [P(sx * 0 + (-4), sx * 28), P(sx * 0 + 22, sx * 42), P(sx * 0 + 16, sx * 18), P(-4, sx * 14)];
-    // use explicit
-  }
-  const cheekL = [P(-8, -36), P(18, -48), P(12, -20), P(-8, -16)];
-  const cheekR = [P(-8, 36), P(18, 48), P(12, 20), P(-8, 16)];
-  metalPoly(g, cheekL, 0, -48 * S, 0, -16 * S, [[0, '#e8edf4'], [1, '#4a5260']]);
-  metalPoly(g, cheekR, 0, 16 * S, 0, 48 * S, [[0, '#e8edf4'], [1, '#4a5260']]);
-  // fleet emblem — painted metal, no glow ring
-  g.beginPath(); g.arc(-2 * S, 0, 10 * S, 0, Math.PI * 2);
-  g.fillStyle = '#12161e'; g.fill();
-  g.strokeStyle = '#b08a40'; g.lineWidth = 1.6; g.stroke();
+}
+function edisarEmblem(g, x, y, r) {
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+  g.fillStyle = '#10141c'; g.fill();
+  g.strokeStyle = '#c8d0dc'; g.lineWidth = 1.3; g.stroke();
   g.beginPath();
   for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 3.2 : 8.2) * S;
-    g[i ? 'lineTo' : 'moveTo'](-2 * S + Math.cos(a) * r, Math.sin(a) * r);
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = (i % 2 ? r * 0.38 : r * 0.78);
+    g[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
   }
   g.closePath();
-  const sg = g.createLinearGradient(-2 * S, -8 * S, -2 * S, 8 * S);
-  sg.addColorStop(0, '#f0d890'); sg.addColorStop(1, '#8a6a28');
+  const sg = g.createLinearGradient(x, y - r, x, y + r);
+  sg.addColorStop(0, '#f0f4fa'); sg.addColorStop(0.5, '#9aa8bc'); sg.addColorStop(1, '#3a4658');
   g.fillStyle = sg; g.fill();
-  // core housing at the nose
-  g.beginPath(); g.arc(32 * S, 0, 12 * S, 0, Math.PI * 2);
-  const cg = g.createRadialGradient(30 * S, -2 * S, 1, 32 * S, 0, 12 * S);
-  cg.addColorStop(0, '#4a5260'); cg.addColorStop(1, '#12161c');
-  g.fillStyle = cg; g.fill();
-  g.strokeStyle = '#b08a40'; g.lineWidth = 2.2; g.stroke();
-  g.beginPath(); g.arc(32 * S, 0, 8 * S, 0, Math.PI * 2);
-  g.strokeStyle = '#6a7380'; g.lineWidth = 1; g.stroke();
-  coreGlow(g, 32 * S, 0, 8 * S, '80,200,230');
-  // wing turrets — small metallic cups, no neon rings
-  for (const [px, py, sc] of [[-40, -38, 1], [8, -24, 0.9], [-40, 38, 1], [8, 24, 0.9]]) {
-    const x = px * S, y = py * S, r = 7.5 * sc;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
-    const tg = g.createRadialGradient(x - 2, y - 2, 1, x, y, r);
-    tg.addColorStop(0, '#c8ced8'); tg.addColorStop(0.55, '#4a5260'); tg.addColorStop(1, '#1a1e24');
-    g.fillStyle = tg; g.fill();
-    g.strokeStyle = '#0c0e12'; g.lineWidth = 0.8; g.stroke();
-    g.beginPath(); g.arc(x, y, r - 2.2, 0, Math.PI * 2);
-    g.strokeStyle = '#8a7340'; g.lineWidth = 1.1; g.stroke();
-    metalBox(g, x, y - 2 * sc, 8 * sc, 4 * sc, 1, ['#c0c6d0', '#4a5260', '#1a1e24']);
+}
+function edisarPlates(g, hull, xs, yEdge) {
+  clipPoly(g, hull, g => {
+    g.strokeStyle = 'rgba(8,12,20,0.45)'; g.lineWidth = 0.7;
+    for (const x of xs) {
+      g.beginPath(); g.moveTo(x, -yEdge); g.lineTo(x, yEdge); g.stroke();
+    }
+    g.strokeStyle = 'rgba(230,238,250,0.16)'; g.lineWidth = 0.6;
+    g.beginPath(); g.moveTo(xs[0] - 4, 0); g.lineTo(xs[xs.length - 1] + 6, 0); g.stroke();
+    for (const s of [-1, 1]) {
+      for (const x of xs) bolt(g, x, s * Math.max(6, yEdge * 0.45), 1.05);
+    }
+  });
+}
+
+/* Edisar navy/silver capital ships. Nose to +X, mirrored across the travel axis, pivot at the origin. */
+function drawEdisarShip(g, kind) {
+  const glow = '140,190,255';
+  kind = kind || 'flagship';
+
+  const hulls = {
+    cruiser: {
+      body: [[92, 0], [48, 11], [8, 15], [-36, 14], [-72, 9], [-72, -9], [-36, -14], [8, -15], [48, -11]],
+      wing: [[8, 14], [-8, 28], [-40, 30], [-58, 22], [-46, 13], [8, 13]],
+      inner: [[70, 0], [36, 6], [-20, 7], [-56, 4], [-56, -4], [-20, -7], [36, -6]],
+      stripe: [[80, 0], [40, 2.1], [-50, 2.1], [-50, -2.1], [40, -2.1]],
+      span: 16, wingSpan: 30, plates: [-50, -24, 0, 24, 48], plateY: 14,
+      turrets: [[28, 16], [-16, 18]],
+      engines: { x: -78, ys: [-11, 11], rx: 3.4, ry: 2.8 },
+      canopy: [22, 0, 11, 5.5], emblem: [-8, 0, 6.2],
+    },
+    dreadnought: {
+      body: [[88, 0], [52, 16], [16, 22], [-20, 24], [-56, 20], [-80, 12], [-80, -12], [-56, -20], [-20, -24], [16, -22], [52, -16]],
+      wing: [[10, 20], [-4, 38], [-36, 46], [-68, 40], [-74, 26], [-50, 18], [10, 18]],
+      inner: [[64, 0], [28, 9], [-16, 11], [-52, 8], [-64, 5], [-64, -5], [-52, -8], [-16, -11], [28, -9]],
+      stripe: [[74, 0], [36, 2.2], [-48, 2.2], [-48, -2.2], [36, -2.2]],
+      span: 24, wingSpan: 46, plates: [-56, -28, 0, 28, 50], plateY: 20,
+      turrets: [[36, 20], [4, 26], [-32, 24]],
+      engines: { x: -86, ys: [-26, -10, 10, 26], rx: 3.6, ry: 2.8 },
+      canopy: [18, 0, 12, 6.2], emblem: [-6, 0, 6.6],
+    },
+    flagship: {
+      body: [[100, 0], [58, 13], [16, 18], [-24, 17], [-62, 13], [-86, 8], [-86, -8], [-62, -13], [-24, -17], [16, -18], [58, -13]],
+      wing: [[14, 16], [-6, 36], [-40, 44], [-72, 36], [-70, 18], [-48, 15], [14, 15]],
+      inner: [[76, 0], [40, 7], [-8, 8], [-48, 6], [-68, 4], [-68, -4], [-48, -6], [-8, -8], [40, -7]],
+      stripe: [[90, 0], [48, 2.3], [-58, 2.3], [-58, -2.3], [48, -2.3]],
+      span: 18, wingSpan: 44, plates: [-60, -28, 4, 36, 64], plateY: 16,
+      turrets: [[36, 18], [-8, 22], [-40, 26]],
+      engines: { x: -92, ys: [-22, -8, 8, 22], rx: 3.8, ry: 3.0 },
+      canopy: [24, 0, 13, 6.2], emblem: [0, 0, 7],
+    },
+    frigate: {
+      body: [[110, 0], [70, 8], [24, 13], [-20, 13], [-58, 10], [-84, 6], [-84, -6], [-58, -10], [-20, -13], [24, -13], [70, -8]],
+      wing: [[6, 12], [-16, 26], [-50, 28], [-68, 18], [-52, 11], [6, 11]],
+      inner: [[86, 0], [44, 5], [-8, 6], [-52, 4], [-70, 3], [-70, -3], [-52, -4], [-8, -6], [44, -5]],
+      stripe: [[104, 0], [60, 1.8], [-62, 1.8], [-62, -1.8], [60, -1.8]],
+      span: 13, wingSpan: 28, plates: [-52, -20, 12, 48, 78], plateY: 12,
+      turrets: [[32, 14], [-24, 16]],
+      engines: { x: -90, ys: [-10, 10], rx: 3.5, ry: 2.6 },
+      canopy: [28, 0, 11, 5], emblem: [-4, 0, 5.8],
+    },
+    vanguard: {
+      // mid hull; twin spears added below
+      body: [[12, 16], [-16, 18], [-52, 16], [-82, 9], [-82, -9], [-52, -16], [-16, -18], [12, -16]],
+      wing: [[-8, 16], [-24, 32], [-58, 34], [-74, 22], [-60, 14], [-8, 14]],
+      inner: [[4, 0], [-20, 8], [-56, 6], [-70, 3.5], [-70, -3.5], [-56, -6], [-20, -8]],
+      stripe: [[8, 0], [-20, 2], [-64, 2], [-64, -2], [-20, -2]],
+      span: 18, wingSpan: 34, plates: [-60, -28, -4], plateY: 16,
+      turrets: [[-8, 20], [-40, 24]],
+      engines: { x: -88, ys: [-20, -8, 8, 20], rx: 3.5, ry: 2.7 },
+      canopy: [-8, 0, 11, 6], emblem: [-28, 0, 6.2],
+      spears: true,
+    },
+    eclipse: {
+      body: [[96, 0], [50, 16], [10, 24], [-28, 26], [-64, 22], [-90, 12], [-90, -12], [-64, -22], [-28, -26], [10, -24], [50, -16]],
+      wing: [[16, 22], [-8, 46], [-44, 54], [-80, 46], [-86, 24], [-58, 20], [16, 20]],
+      inner: [[70, 0], [30, 9], [-12, 12], [-48, 10], [-72, 6], [-72, -6], [-48, -10], [-12, -12], [30, -9]],
+      stripe: [[82, 0], [40, 2.2], [-56, 2.2], [-56, -2.2], [40, -2.2]],
+      span: 26, wingSpan: 54, plates: [-64, -28, 4, 36, 60], plateY: 22,
+      turrets: [[36, 22], [4, 30], [-32, 28], [-60, 26]],
+      engines: { x: -96, ys: [-32, -16, 0, 16, 32], rx: 3.8, ry: 2.9 },
+      canopy: [18, 0, 13, 6.5], emblem: [-4, 0, 7.2],
+      dark: true,
+    },
+  };
+  const H = hulls[kind] || hulls.flagship;
+
+  const flipY = (pts) => pts.map(([x, y]) => [x, -y]);
+  const wingL = H.wing, wingR = flipY(H.wing);
+
+  // soft centered contact shadow (no directional offset, so rotation stays clean)
+  g.save();
+  g.scale(1, 0.62);
+  const sh = g.createRadialGradient(0, 0, 8, 0, 0, 78);
+  sh.addColorStop(0, 'rgba(0,0,0,0.45)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = sh; g.beginPath(); g.arc(0, 0, 78, 0, Math.PI * 2); g.fill();
+  g.restore();
+
+  const armor = H.dark ? navyArmor : navyRidge;
+  armor(g, wingL, H.wingSpan);
+  armor(g, wingR, H.wingSpan);
+  armor(g, H.body, H.span + 4);
+  if (H.spears) {
+    const spear = (s) => [
+      [14, s * 8], [14, s * 18], [52, s * 20], [88, s * 16], [108, s * 12], [110, s * 8],
+      [88, s * 9], [52, s * 11], [14, s * 9],
+    ];
+    navyRidge(g, spear(1), 20);
+    navyRidge(g, spear(-1), 20);
+    silverBand(g, [[110, 8], [80, 10], [30, 10], [30, 8], [80, 8]], 10);
+    silverBand(g, [[110, -8], [80, -10], [30, -10], [30, -8], [80, -8]], 10);
   }
+  if (H.inner) silverBand(g, H.inner, Math.max(6, H.span * 0.55));
+  edisarPlates(g, H.body, H.plates, H.plateY);
+  if (H.stripe) silverBand(g, H.stripe, 2.6);
+
+  // canopy / command dome on the spine (centered, not a one-sided tower)
+  const [cx, cy, crx, cry] = H.canopy;
+  g.beginPath(); g.ellipse(cx, cy, crx, cry, 0, 0, Math.PI * 2);
+  const cg = g.createLinearGradient(cx, cy - cry, cx, cy + cry);
+  cg.addColorStop(0, '#1a2838'); cg.addColorStop(0.45, '#0a121c'); cg.addColorStop(1, '#1a2838');
+  g.fillStyle = cg; g.fill();
+  g.strokeStyle = '#9aa8bc'; g.lineWidth = 1.1; g.stroke();
+  g.beginPath(); g.ellipse(cx + crx * 0.15, cy, crx * 0.55, cry * 0.45, 0, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(160,200,240,0.16)'; g.fill();
+  coreGlow(g, cx, cy, Math.min(crx, cry) * 0.7, glow);
+
+  if (H.emblem) edisarEmblem(g, H.emblem[0], H.emblem[1], H.emblem[2]);
+
+  for (const [tx, ty] of H.turrets) {
+    edisarTurret(g, tx, ty);
+    edisarTurret(g, tx, -ty);
+  }
+  const E = H.engines;
+  edisarEngines(g, E.x, E.ys, E.rx, E.ry, glow);
 }
 
 
@@ -765,9 +861,12 @@ SD.Sprites = {
   armored() {
     return partCanvas(100, g => drawArmoredBody(g));
   },
-  flagship() {
-    return partCanvas(228, g => drawFlagshipBody(g));
-  },
+  flagship()  { return partCanvas(240, g => drawEdisarShip(g, 'flagship')); },
+  flagship1() { return partCanvas(240, g => drawEdisarShip(g, 'cruiser')); },
+  flagship2() { return partCanvas(240, g => drawEdisarShip(g, 'dreadnought')); },
+  flagship4() { return partCanvas(240, g => drawEdisarShip(g, 'frigate')); },
+  flagship5() { return partCanvas(240, g => drawEdisarShip(g, 'vanguard')); },
+  flagship6() { return partCanvas(240, g => drawEdisarShip(g, 'eclipse')); },
   shielded() {
     return partCanvas(90, g => drawShieldedBody(g));
   },

@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.3.0';
+SD.VERSION = '0.3.1';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -145,14 +145,14 @@ SD.CONFIG = {
       name: 'Raid Cruiser', hp: 1600, shield: 500, speed: 24, reward: 160, hull: 12, r: 40, rgb: '255,200,110',
       resist: { laser: 0.7, missile: 1.15, ice: 1, railgun: 1.2, tesla: 1.15, pulse: 1.25 },
       weak: ['MISSILES', 'RAILGUN', 'PULSE'], resists: ['LASER'],
-      boss: true, scale: 0.82, sprite: 'flagship',
+      boss: true, scale: 0.86, sprite: 'flagship1',
       line: "So this is the last station? Oakens, Nebula... you built a fortress out of scrap. Cute. Let my cruiser show you what real firepower looks like.",
     },
     flagship2: {
       name: 'Siege Dreadnought', hp: 2400, shield: 650, speed: 22, reward: 180, hull: 16, r: 44, rgb: '255,210,120',
       resist: { laser: 0.7, missile: 1.15, ice: 1, railgun: 1.25, tesla: 1.1, pulse: 1.15 },
       weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
-      boss: true, scale: 0.92, sprite: 'flagship',
+      boss: true, scale: 0.94, sprite: 'flagship2',
       line: "You keep surviving. Avrill did too, until she didn't. My Dreadnought will grind your little towers into dust.",
     },
     flagship: {
@@ -166,21 +166,21 @@ SD.CONFIG = {
       name: 'Sunlance Frigate', hp: 4000, shield: 1000, speed: 21, reward: 220, hull: 18, r: 44, rgb: '255,200,110',
       resist: { laser: 0.65, missile: 1.15, ice: 0.9, railgun: 1.25, tesla: 1.15, pulse: 1.2 },
       weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
-      boss: true, scale: 1.02, sprite: 'flagship',
+      boss: true, scale: 1.00, sprite: 'flagship4',
       line: "You thought the moon was the end of it? I left a second fleet in the solar docks. They're hungry, and they remember your names.",
     },
     flagship5: {
       name: 'Twin-Spear Vanguard', hp: 4800, shield: 1200, speed: 21, reward: 250, hull: 20, r: 46, rgb: '255,210,120',
       resist: { laser: 0.65, missile: 1.2, ice: 0.9, railgun: 1.3, tesla: 1.15, pulse: 1.2 },
       weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
-      boss: true, scale: 1.06, sprite: 'flagship',
+      boss: true, scale: 1.04, sprite: 'flagship5',
       line: "Two gates, one grave. I will come at you from every heading until there is nothing left of your precious station.",
     },
     flagship6: {
       name: 'The Eclipse', hp: 5800, shield: 1400, speed: 20, reward: 280, hull: 22, r: 48, rgb: '255,220,130',
       resist: { laser: 0.6, missile: 1.2, ice: 0.85, railgun: 1.3, tesla: 1.2, pulse: 1.2 },
       weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
-      boss: true, scale: 1.12, sprite: 'flagship',
+      boss: true, scale: 1.08, sprite: 'flagship6',
       line: "This is the fleet I hid in the dark. Avrill's light doesn't reach this far, Oakens. Step into the eclipse and be extinguished.",
     },
   },

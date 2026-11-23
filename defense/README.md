@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.3
+# Starlight: Last Station v0.3.1
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -65,16 +65,25 @@ resistances.
 
 ## Controls
 
-Desktop: click a turret in the build bar, then click a pad to place it.
-Click a placed turret to upgrade or sell. Space or the Start / Send Wave
-button begins the next wave, or sends the next one early (during the
-countdown, or mid-wave once the 3-second call window opens).
+Desktop: click a turret in the build bar, then click a pad to place it,
+or press and drag a turret from the bar onto a pad. A ghost and range
+preview follow the cursor; dropping off a valid pad cancels. Click a
+placed turret to upgrade or sell. Space or the Start / Send Wave button
+begins the next wave, or sends the next one early (during the countdown,
+or mid-wave once the 3-second call window opens).
 P / Esc pauses, M mutes, F cycles battle speed. Keys 1–7 pick turret types
-(7 is Nebula). Q / W / E arm Orbital, Drones and EMP. T cycles targeting
-on a selected turret. R fires the hero special. U upgrades, X sells.
+(7 is Nebula). Q / W / E arm Orbital, Drones and EMP. The turret panel
+cycles targeting priority. R or the on-screen SPECIAL button fires the
+hero power (no need to select the hero first). T retries the current
+level, with a Yes/No confirm, from play, the pause menu, or the defeat
+screen. U upgrades, X sells.
 
-Phone: the same, with taps. Speed and Send Wave are on the HUD. Landscape is
-recommended.
+Phone: the same, with taps and drag-and-drop. Speed, Send Wave and the
+hero SPECIAL button are on the HUD. Landscape is recommended.
+The first two levels show a short hint on how to move the hero and fire
+their special.
+
+When a boss wave starts, Edisar's line appears beside his portrait.
 
 You can buy, place, upgrade and sell at any time, including during a wave.
 Every enemy that dies grants credits.

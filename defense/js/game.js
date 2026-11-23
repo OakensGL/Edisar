@@ -5,6 +5,13 @@ const C = () => SD.CONFIG;
 const KINDS = ['laser', 'missile', 'ice', 'railgun', 'tesla', 'pulse'];
 const SHOP = KINDS.concat('nebula');
 
+SD.Portraits = SD.Portraits || {};
+if (!SD.Portraits.edisar) {
+  const im = new Image();
+  im.src = 'assets/edisar-scarred.jpg';
+  SD.Portraits.edisar = im;
+}
+
 function tileCenter(tx, ty) { return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }; }
 function tileAt(x, y) { return { tx: Math.floor(x / TILE), ty: Math.floor(y / TILE) }; }
 
@@ -98,6 +105,11 @@ SD.Title = class {
         fighter: SD.Sprites.fighter(),
         armored: SD.Sprites.armored(),
         flagship: SD.Sprites.flagship(),
+        flagship1: SD.Sprites.flagship1(),
+        flagship2: SD.Sprites.flagship2(),
+        flagship4: SD.Sprites.flagship4(),
+        flagship5: SD.Sprites.flagship5(),
+        flagship6: SD.Sprites.flagship6(),
         turret: {
           laser: { base: SD.Sprites.turretBase('laser', 2), head: SD.Sprites.turretHead('laser', 2) },
           missile: { base: SD.Sprites.turretBase('missile', 1), head: SD.Sprites.turretHead('missile', 1) },
@@ -223,12 +235,13 @@ SD.Title = class {
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
       'Each turret can target First, Last, Strongest, Weakest or Closest — toggle it in the turret panel.',
       'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then tap the field.',
-      'Bring Oakens or Nebula. Tap them, then a tile to move. They auto-attack and have a special.',
+      'Bring Oakens or Nebula. Tap them, then a tile to move. R or the SPECIAL button fires their power.',
+      'Drag a turret from the build bar onto a pad to place it. T retries the level (with a confirm).',
       'The HUD speed button (or F) cycles x1 / x2 / x3. It only speeds the battle, not the music.',
       '',
       SD.Input.touchMode
-        ? 'PHONE  ·  TAP A TURRET, THEN A PAD  ·  SPEED AND SEND WAVE ARE ON THE HUD  ·  LANDSCAPE'
-        : 'DESKTOP  ·  1–7 SELECT  ·  U UPGRADE  ·  X SELL  ·  F SPEED  ·  P PAUSE  ·  M MUTE',
+        ? 'PHONE  ·  DRAG A TURRET ONTO A PAD  ·  SPECIAL AND SEND WAVE ARE ON THE HUD  ·  LANDSCAPE'
+        : 'DESKTOP  ·  1–7 SELECT  ·  DRAG TO PLACE  ·  R SPECIAL  ·  T RETRY  ·  U UPGRADE  ·  F SPEED  ·  P PAUSE',
     ];
     lines.forEach((ln, i) => {
       const small = i >= lines.length - 1;
@@ -555,6 +568,11 @@ SD.Defense = class {
       fighter: SD.Sprites.fighter(),
       armored: SD.Sprites.armored(),
       flagship: SD.Sprites.flagship(),
+      flagship1: SD.Sprites.flagship1(),
+      flagship2: SD.Sprites.flagship2(),
+      flagship4: SD.Sprites.flagship4(),
+      flagship5: SD.Sprites.flagship5(),
+      flagship6: SD.Sprites.flagship6(),
       shielded: SD.Sprites.shielded(),
       cryo: SD.Sprites.cryo(),
       interceptor: SD.Sprites.interceptor(),
@@ -626,9 +644,14 @@ SD.Defense = class {
     this.flashGold = 0;
     this.flashHull = 0;
     this.ghost = null;
+    this.drag = null;
     this.pickingHero = false;
     this.hero = null;
     this.pickedHero = false;
+    this.heroHint = null;
+    this.restartAsk = false;
+    this.restartFrom = null;
+    this.restartSel = 0;
     this.aim = null;
     this.abCd = { orbital: 0, drones: 0, emp: 0 };
     this.drones = [];
@@ -667,6 +690,16 @@ SD.Defense = class {
     if (force) return true;
     const pad = this.padAt(tx, ty);
     return !!(pad && pad.open);
+  }
+  canDrop(tx, ty, kind) {
+    kind = kind || this.shop;
+    if (!kind || !this.canShop(kind)) return false;
+    if (this.canPlace(tx, ty) && this.canBuild(kind)) return true;
+    if (this.padLocked(tx, ty)) {
+      const pad = this.padAt(tx, ty);
+      return this.credits >= (pad.cost || 0) + this.costOf(kind);
+    }
+    return false;
   }
   padLocked(tx, ty) {
     const pad = this.padAt(tx, ty);
@@ -1290,6 +1323,7 @@ SD.Defense = class {
       if (this.flashHull > 0) this.flashHull -= dt;
       if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
       if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
+      if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
       return;
     }
     const scale = this.timeScale || 1;
@@ -1309,6 +1343,7 @@ SD.Defense = class {
     if (this.flashHull > 0) this.flashHull -= dt;
     if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
     if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
+    if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
 
     this.fx.update(dt);
 
@@ -1497,6 +1532,9 @@ SD.Defense = class {
       cool: 0, moveCd: 0, specialCd: 0, respawn: 0,
       dead: false, moving: false, destX: home.x, destY: home.y, flash: 0,
     };
+    if (!this.shot && !this.auto && this.levelIndex <= 1) {
+      this.heroHint = { life: 7.5, max: 7.5 };
+    }
   }
   updateHero(dt) {
     const h = this.hero; if (!h) return;
@@ -1596,17 +1634,25 @@ SD.Defense = class {
 
   handleInput() {
     if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
+    const downs = SD.Input.takeDowns();
+    const released = SD.Input.takeReleased();
+    const clicks = released.filter(u => u.tap);
+
+    if (this.restartAsk) {
+      this.handleRestartInput(clicks);
+      return;
+    }
     if (this.pickingHero && !this.score && !this.over) {
       if (SD.Input.hit('Digit1') || SD.Input.hit('KeyO')) { this.spawnHero('oakens'); SD.Audio.click(); return; }
       if (SD.Input.hit('Digit2') || SD.Input.hit('KeyN')) { this.spawnHero('nebula'); SD.Audio.click(); return; }
-      for (const p of SD.Input.takeClicks()) {
+      for (const p of clicks) {
         if (this.oakensBtn && SD.inBtn(this.oakensBtn, p)) { this.spawnHero('oakens'); SD.Audio.click(); }
         else if (this.nebulaBtn && SD.inBtn(this.nebulaBtn, p)) { this.spawnHero('nebula'); SD.Audio.click(); }
       }
       return;
     }
     if (this.bossLine && !this.score && !this.over) {
-      if (SD.Input.confirm() || SD.Input.hit('Escape') || SD.Input.takeClicks().length) {
+      if (SD.Input.confirm() || SD.Input.hit('Escape') || clicks.length) {
         this.dismissBossLine();
         SD.Audio.click();
         return;
@@ -1615,21 +1661,23 @@ SD.Defense = class {
     if (this.score) {
       if (SD.Input.confirm()) { SD.Audio.click(); this.closeLevelScore(true); return; }
       if (SD.Input.hit('Escape')) { SD.Audio.click(); this.closeLevelScore(false); return; }
-      for (const p of SD.Input.takeClicks()) {
+      for (const p of clicks) {
         if (this.nextBtn && SD.inBtn(this.nextBtn, p)) { SD.Audio.click(); this.closeLevelScore(true); }
         else if (this.menuBtn && SD.inBtn(this.menuBtn, p)) { SD.Audio.click(); this.closeLevelScore(false); }
       }
       return;
     }
     if (this.over) {
-      for (const p of SD.Input.takeClicks()) this.clickOverlay(p);
-      if (SD.Input.confirm()) { SD.Audio.click(); SD.start('level', { index: this.levelIndex }); }
+      if (SD.Input.hit('KeyT') && this.over !== 'win') { this.askRestart('over'); return; }
+      for (const p of clicks) this.clickOverlay(p);
+      if (this.over !== 'win' && (SD.Input.confirm() || SD.Input.hit('KeyT'))) this.askRestart('over');
       if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('title'); }
       return;
     }
+    if (SD.Input.hit('KeyT')) { this.askRestart(this.paused ? 'pause' : 'play'); return; }
     if (SD.Input.hit('KeyP') || SD.Input.hit('Escape')) { this.pause(); SD.Audio.click(); }
     if (this.paused) {
-      for (const p of SD.Input.takeClicks()) this.clickPause(p);
+      for (const p of clicks) this.clickPause(p);
       return;
     }
     SHOP.forEach((k, i) => {
@@ -1639,14 +1687,16 @@ SD.Defense = class {
     if (SD.Input.hit('KeyQ')) this.armAbility('orbital');
     if (SD.Input.hit('KeyW')) this.armAbility('drones');
     if (SD.Input.hit('KeyE')) this.armAbility('emp');
-    if (SD.Input.hit('KeyR') && this.pickedHero) this.heroSpecial();
-    if (SD.Input.hit('KeyT') && this.picked) this.cyclePriority(this.picked);
+    if (SD.Input.hit('KeyR')) this.heroSpecial();
     if (SD.Input.hit('KeyU')) this.tryUpgrade();
     if (SD.Input.hit('KeyX') || SD.Input.hit('Backspace') || SD.Input.hit('Delete')) this.trySell();
     if (SD.Input.hit('Space') || SD.Input.hit('KeyG')) this.sendWaveEarly();
 
+    this.updateDrag(downs, released);
+    if (this._dragConsumed) { this._dragConsumed = false; return; }
+
     const ui = this.uiButtons();
-    for (const p of SD.Input.takeClicks()) {
+    for (const p of clicks) {
       let hit = false;
       for (const b of ui) if (SD.inBtn(b, p)) { b.click(); hit = true; break; }
       if (hit) continue;
@@ -1683,6 +1733,112 @@ SD.Defense = class {
         this.pickedHero = false;
         this.inspected = null;
       }
+    }
+  }
+
+  shopBtnAt(p) {
+    for (const b of this.uiButtons()) {
+      if (SHOP.includes(b.id) && !b.disabled && SD.inBtn(b, p)) return b;
+    }
+    return null;
+  }
+  updateDrag(downs, released) {
+    this._dragConsumed = false;
+    if (!this.drag) {
+      for (const d of downs) {
+        const b = this.shopBtnAt(d);
+        if (b) {
+          this.drag = { kind: b.id, x: d.x, y: d.y, ox: d.x, oy: d.y, armed: false, ptr: d.id };
+          break;
+        }
+      }
+    }
+    if (!this.drag) return;
+    const ptr = (this.drag.ptr != null && SD.Input.pointers.get(this.drag.ptr))
+      || (SD.Input.pointers.size ? SD.Input.pointers.values().next().value : null);
+    if (ptr) { this.drag.x = ptr.x; this.drag.y = ptr.y; }
+    else if (SD.Input.mouse.over && !released.length) {
+      this.drag.x = SD.Input.mouse.x; this.drag.y = SD.Input.mouse.y;
+    }
+    if (!this.drag.armed) {
+      const dx = this.drag.x - this.drag.ox, dy = this.drag.y - this.drag.oy;
+      if (dx * dx + dy * dy >= 14 * 14) {
+        this.drag.armed = true;
+        this.shop = this.drag.kind;
+        this.picked = null; this.pickedHero = false; this.aim = null;
+      }
+    }
+    if (released.length) {
+      if (this.drag.armed) {
+        this.finishDrag(released[0].x, released[0].y);
+        this._dragConsumed = true;
+      }
+      this.drag = null;
+    }
+  }
+  finishDrag(x, y) {
+    const kind = this.drag && this.drag.kind;
+    this.shop = kind;
+    if (!kind || inHud({ x, y })) {
+      this.shop = null; SD.Audio.deny(); return;
+    }
+    const { tx, ty } = tileAt(x, y);
+    if (this.canDrop(tx, ty, kind)) this.tryPlace(tx, ty);
+    else { this.shop = null; SD.Audio.deny(); }
+  }
+
+  canRestart() {
+    if (this.score || this.pickingHero) return false;
+    if (this.over === 'win') return false;
+    return true;
+  }
+  askRestart(from) {
+    if (!this.canRestart()) return;
+    this.restartAsk = true;
+    this.restartFrom = from || (this.over ? 'over' : this.paused ? 'pause' : 'play');
+    this.restartSel = 0;
+    if (!this.over && !this.paused) this.pause(true);
+    SD.Audio.click();
+  }
+  cancelRestart() {
+    if (!this.restartAsk) return;
+    this.restartAsk = false;
+    SD.Audio.click();
+    if (this.restartFrom === 'play') this.pause(false);
+  }
+  retryLevel() {
+    SD.start('level', { index: this.levelIndex, hero: this.heroKind || undefined });
+  }
+  restartButtons() {
+    return {
+      yes: { x: W / 2 - 100, y: 330, w: 180, h: 50, label: 'YES', rgb: '255,80,220', size: 22 },
+      no:  { x: W / 2 + 100, y: 330, w: 180, h: 50, label: 'NO',  rgb: '70,160,255', size: 22 },
+    };
+  }
+  pauseButtons() {
+    return {
+      resume: { x: W / 2, y: 268, w: 240, h: 50, label: 'RESUME', rgb: '80,170,255', size: 22 },
+      retry:  { x: W / 2, y: 334, w: 240, h: 50, label: 'RETRY',  rgb: '255,200,90', size: 22 },
+      menu:   { x: W / 2, y: 400, w: 240, h: 50, label: 'MENU',   rgb: '255,80,220', size: 22 },
+    };
+  }
+  overButtons() {
+    return {
+      again: { x: W / 2, y: 340, w: 260, h: 52, label: this.over === 'win' ? 'PLAY AGAIN' : 'RETRY', rgb: '80,170,255', size: 22 },
+      menu:  { x: W / 2, y: 406, w: 260, h: 52, label: 'MENU', rgb: '255,80,220', size: 22 },
+    };
+  }
+  handleRestartInput(clicks) {
+    const btns = this.restartButtons();
+    if (SD.Input.hitAny('Escape', 'Backspace', 'KeyN')) { this.cancelRestart(); return; }
+    if (SD.Input.hitAny('ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS')) {
+      this.restartSel = 1 - this.restartSel; SD.Audio.click(); return;
+    }
+    if (SD.Input.hit('KeyY') || (SD.Input.confirm() && this.restartSel === 0)) { this.retryLevel(); return; }
+    if (SD.Input.confirm() && this.restartSel === 1) { this.cancelRestart(); return; }
+    for (const p of clicks) {
+      if (SD.inBtn(btns.yes, p)) this.retryLevel();
+      else if (SD.inBtn(btns.no, p)) this.cancelRestart();
     }
   }
 
@@ -1731,11 +1887,6 @@ SD.Defense = class {
       mk(708, 88, 'SELL', '+' + back + ' CR', '255,110,140', () => this.trySell(), false, 'sell');
       btns.push({ x: 800, y: H - 78, w: 92, h: 22, label: 'TGT '+this.priLabel(t), rgb: '200,220,255', size: 11, click: () => this.cyclePriority(t), id: 'pri' });
     }
-    if (this.pickedHero && this.hero && !this.hero.dead) {
-      const cd = Math.ceil(this.hero.specialCd);
-      const ready = this.hero.specialCd <= 0;
-      btns.push({ x: 610, y, w: 110, h: 62, label: 'SPECIAL', sub: ready ? 'READY' : (cd + 's'), rgb: this.hero.rgb, size: 14, click: () => this.heroSpecial(), disabled: !ready, id: 'hspecial' });
-    }
     const last = this.waveIndex >= this.wavesLen();
     const waiting = !this.waveActive && this.waveTimer > 0;
     const canCall = this.canCallNext();
@@ -1766,6 +1917,17 @@ SD.Defense = class {
         click: () => this.armAbility(id), disabled: !ready && this.aim !== id, id: 'ab-' + id,
       });
     });
+    if (this.hero) {
+      const h = this.hero;
+      const down = h.dead;
+      const ready = !down && h.specialCd <= 0;
+      const sub = down ? (Math.ceil(h.respawn) + 's') : (ready ? 'READY' : (Math.ceil(h.specialCd) + 's'));
+      btns.push({
+        x: 352, y: 68, w: 100, h: 30,
+        label: 'SPECIAL', sub, rgb: h.rgb, size: 11,
+        click: () => this.heroSpecial(), disabled: !ready, id: 'hspecial',
+      });
+    }
 
     btns.push({ x: W - 168, y: 24, w: 64, h: 28, label: 'x' + (this.timeScale || 1), rgb: '255,220,120', size: 14, click: () => this.cycleSpeed(), id: 'speed' });
     btns.push({ x: W - 100, y: 24, w: 64, h: 28, label: 'PAUSE', rgb: '180,200,255', size: 12, click: () => { this.pause(); SD.Audio.click(); }, id: 'pause' });
@@ -1774,17 +1936,26 @@ SD.Defense = class {
   }
 
   clickPause(p) {
-    const resume = { x: W / 2, y: 300, w: 240, h: 50, label: 'RESUME' };
-    const menu = { x: W / 2, y: 366, w: 240, h: 50, label: 'MENU' };
-    if (SD.inBtn(resume, p) || Math.hypot(p.x - W / 2, p.y - 288) < 10) { this.paused = false; SD.Audio.click(); }
-    else if (SD.inBtn(menu, p)) { SD.Audio.click(); SD.start('title'); }
+    if (this.restartAsk) {
+      this.handleRestartInput([p]);
+      return;
+    }
+    const b = this.pauseButtons();
+    if (SD.inBtn(b.resume, p)) { this.paused = false; SD.Audio.click(); }
+    else if (SD.inBtn(b.retry, p)) this.askRestart('pause');
+    else if (SD.inBtn(b.menu, p)) { SD.Audio.click(); SD.start('title'); }
   }
 
   clickOverlay(p) {
-    const again = { x: W / 2, y: 340, w: 260, h: 52 };
-    const menu = { x: W / 2, y: 406, w: 260, h: 52 };
-    if (SD.inBtn(again, p)) { SD.Audio.click(); SD.start('level', { index: this.levelIndex }); }
-    else if (SD.inBtn(menu, p)) { SD.Audio.click(); SD.start('title'); }
+    if (this.restartAsk) {
+      this.handleRestartInput([p]);
+      return;
+    }
+    const b = this.overButtons();
+    if (SD.inBtn(b.again, p)) {
+      if (this.over === 'win') { SD.Audio.click(); this.retryLevel(); }
+      else this.askRestart('over');
+    } else if (SD.inBtn(b.menu, p)) { SD.Audio.click(); SD.start('title'); }
   }
 
   /* ---------- draw ---------- */
@@ -1829,6 +2000,7 @@ SD.Defense = class {
     this.drawEnemyInfo(g);
 
     this.drawHud(g);
+    if (this.heroHint) this.drawHeroHint(g);
     if (this.banner && !this.bossLine) {
       const a = Math.min(1, this.banner.life, (2.6 - this.banner.life) * 3);
       SD.neonText(g, this.banner.text, W / 2, 96, this.banner.text.length > 22 ? 22 : 28, this.banner.rgb, { alpha: a, blur: 18 });
@@ -1861,6 +2033,10 @@ SD.Defense = class {
   }
 
   hoverTile() {
+    if (this.drag && this.drag.armed) {
+      if (inHud({ x: this.drag.x, y: this.drag.y })) return null;
+      return tileAt(this.drag.x, this.drag.y);
+    }
     if (this.ghost) return this.ghost;
     if (!this.shop || !SD.Input.mouse.over) return null;
     if (inHud(SD.Input.mouse)) return null;
@@ -1888,6 +2064,12 @@ SD.Defense = class {
         g.fillStyle = occ ? 'rgba(80,170,255,0.05)' : 'rgba(80,170,255,0.14)'; g.fill();
         g.strokeStyle = 'rgba(120,210,255,0.45)'; g.lineWidth = 1.2; g.stroke();
       }
+      const hover = this.hoverTile();
+      if (this.shop && hover && hover.tx === pad.tx && hover.ty === pad.ty) {
+        const ok = this.canDrop(pad.tx, pad.ty, this.shop);
+        g.strokeStyle = ok ? 'rgba(80,255,160,0.95)' : 'rgba(255,70,90,0.95)';
+        g.lineWidth = 2.4; g.stroke();
+      }
       g.restore();
     }
   }
@@ -1896,7 +2078,7 @@ SD.Defense = class {
     const hover = this.hoverTile();
     if (this.shop && hover && this.inPlay(hover.tx, hover.ty)) {
       const p = tileCenter(hover.tx, hover.ty);
-      const ok = this.canPlace(hover.tx, hover.ty);
+      const ok = this.canDrop(hover.tx, hover.ty, this.shop);
       const conf = C().turrets[this.shop];
       const range = conf.range[0];
       g.save();
@@ -1950,6 +2132,13 @@ SD.Defense = class {
       g.beginPath(); g.arc(h.x, h.y, conf.range, 0, Math.PI * 2);
       g.fillStyle = `rgba(${h.rgb},0.07)`; g.fill();
       g.strokeStyle = `rgba(${h.rgb},0.5)`; g.lineWidth = 1.3; g.stroke();
+      g.restore();
+    } else if (!h.moving) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.T * 3.2);
+      g.save();
+      g.beginPath(); g.arc(h.x, h.y, 15 + pulse * 5, 0, Math.PI * 2);
+      g.strokeStyle = `rgba(${h.rgb},${0.28 + 0.42 * pulse})`;
+      g.lineWidth = 1.6; g.stroke();
       g.restore();
     }
     const spr = this.spr.hero && this.spr.hero[h.kind];
@@ -2144,28 +2333,76 @@ SD.Defense = class {
     return lines;
   }
 
+  drawHeroHint(g) {
+    const q = this.heroHint; if (!q) return;
+    const fadeIn = Math.min(1, (q.max - q.life) * 3);
+    const fadeOut = Math.min(1, q.life * 3);
+    const a = Math.min(fadeIn, fadeOut);
+    const touch = SD.Input.touchMode;
+    const l1 = touch
+      ? 'Tap your hero, then tap a tile to move.'
+      : 'Click your hero, then click a tile to move.';
+    const l2 = touch
+      ? 'Tap SPECIAL to fire their power.'
+      : 'Press R or the SPECIAL button to fire their power.';
+    const w = 560, h = 78, x = (W - w) / 2, y = 108;
+    g.save();
+    g.globalAlpha = 0.94 * a;
+    SD.roundRect(g, x, y, w, h, 10);
+    g.fillStyle = 'rgba(8,10,20,0.92)'; g.fill();
+    g.strokeStyle = 'rgba(80,170,255,0.65)'; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+    SD.neonText(g, l1, W / 2, y + 28, 15, '200,230,255', { blur: 6, alpha: a });
+    SD.neonText(g, l2, W / 2, y + 52, 15, '200,230,255', { blur: 6, alpha: a });
+  }
+
   drawBossLine(g) {
     const q = this.bossLine; if (!q) return;
     const fadeIn = Math.min(1, (q.max - q.life) * 4);
     const fadeOut = Math.min(1, q.life * 4);
     const a = Math.min(fadeIn, fadeOut);
+    const por = 148, gap = 16, textW = 620;
+    const w = 18 + por + gap + textW + 18;
     g.save();
     g.font = 'bold 16px ' + (SD.CONFIG.font || 'sans-serif');
-    const lines = this.wrapLine(g, q.text, 700);
-    const w = 760, h = 86 + lines.length * 22;
-    const x = (W - w) / 2, y = 118;
-    g.globalAlpha = 0.94 * a;
+    const lines = this.wrapLine(g, q.text, textW - 8);
+    const h = Math.max(por + 20, 92 + lines.length * 22);
+    const x = (W - w) / 2, y = 108;
+    const px = x + 10, py = y + (h - por) / 2;
+    g.globalAlpha = 0.96 * a;
     SD.roundRect(g, x, y, w, h, 12);
     g.fillStyle = 'rgba(8,10,20,0.94)'; g.fill();
-    g.strokeStyle = 'rgba(255,205,90,0.7)'; g.lineWidth = 1.6; g.stroke();
+    g.strokeStyle = 'rgba(255,205,90,0.75)'; g.lineWidth = 1.8; g.stroke();
     g.restore();
-    SD.neonText(g, 'EDISAR STARLIGHT', W / 2, y + 22, 13, '255,205,90', { blur: 8, alpha: a });
-    SD.neonText(g, q.name.toUpperCase(), W / 2, y + 42, 11, '200,210,230', { blur: 5, alpha: a * 0.9 });
+
+    const im = SD.Portraits && SD.Portraits.edisar;
+    g.save();
+    g.globalAlpha = a;
+    SD.roundRect(g, px, py, por, por, 10);
+    g.fillStyle = 'rgba(8,4,20,0.9)'; g.fill();
+    g.clip();
+    if (im && im.complete && im.naturalWidth) {
+      g.drawImage(im, px, py, por, por);
+      g.fillStyle = 'rgba(0,0,0,0.14)';
+      for (let sy = py; sy < py + por; sy += 4) g.fillRect(px, sy, por, 1.4);
+    }
+    g.restore();
+    g.save();
+    g.globalAlpha = a;
+    SD.roundRect(g, px, py, por, por, 10);
+    g.strokeStyle = 'rgba(255,205,90,0.95)'; g.lineWidth = 2.2;
+    g.shadowColor = 'rgba(255,205,90,0.85)'; g.shadowBlur = 14 * (SD.view && SD.view.scale || 1);
+    g.stroke();
+    g.restore();
+
+    const tx = px + por + gap;
+    SD.neonText(g, 'EDISAR STARLIGHT', tx, y + 24, 15, '255,205,90', { blur: 8, alpha: a, align: 'left' });
+    SD.neonText(g, q.name.toUpperCase(), tx, y + 44, 11, '200,210,230', { blur: 5, alpha: a * 0.9, align: 'left' });
     lines.forEach((ln, i) => {
-      SD.neonText(g, ln, W / 2, y + 68 + i * 22, 16, '230,235,245', { blur: 6, alpha: a });
+      SD.neonText(g, ln, tx, y + 72 + i * 22, 16, '230,235,245', { blur: 6, alpha: a, align: 'left' });
     });
     const hint = SD.Input.touchMode ? 'TAP TO DISMISS' : 'TAP  ·  SPACE  TO DISMISS';
-    SD.neonText(g, hint, W / 2, y + h - 16, 11, '180,200,220', { blur: 5, alpha: 0.55 * a });
+    SD.neonText(g, hint, tx, y + h - 16, 11, '180,200,220', { blur: 5, alpha: 0.55 * a, align: 'left' });
   }
 
   drawHud(g) {
@@ -2247,25 +2484,41 @@ SD.Defense = class {
     SD.drawButton(g, menu, mouse.over && SD.inBtn(menu, mouse), this.T);
   }
 
+  drawRestartAsk(g) {
+    const mouse = SD.Input.mouse;
+    SD.neonText(g, 'RESTART?', W / 2, 210, 48, '255,80,220', { blur: 22 });
+    SD.neonText(g, 'THIS LEVEL WILL START OVER', W / 2, 262, 16, '160,200,255', { blur: 8, alpha: 0.9 });
+    const b = this.restartButtons();
+    SD.drawButton(g, b.yes, this.restartSel === 0 || (mouse.over && SD.inBtn(b.yes, mouse)), this.T);
+    SD.drawButton(g, b.no, this.restartSel === 1 || (mouse.over && SD.inBtn(b.no, mouse)), this.T);
+  }
+
   drawPause(g) {
     g.save(); g.fillStyle = 'rgba(4,2,12,0.62)'; g.fillRect(0, 0, W, H); g.restore();
-    SD.neonText(g, 'PAUSED', W / 2, 220, 48, '80,170,255', { blur: 20 });
-    SD.drawButton(g, { x: W / 2, y: 300, w: 240, h: 50, label: 'RESUME', rgb: '80,170,255', size: 22 }, false, this.T);
-    SD.drawButton(g, { x: W / 2, y: 366, w: 240, h: 50, label: 'MENU', rgb: '255,80,220', size: 22 }, false, this.T);
-    SD.neonText(g, 'P / ESC TO RESUME', W / 2, 440, 13, '180,200,255', { blur: 6, alpha: 0.7 });
+    if (this.restartAsk) { this.drawRestartAsk(g); return; }
+    const mouse = SD.Input.mouse;
+    SD.neonText(g, 'PAUSED', W / 2, 196, 48, '80,170,255', { blur: 20 });
+    const b = this.pauseButtons();
+    SD.drawButton(g, b.resume, mouse.over && SD.inBtn(b.resume, mouse), this.T);
+    SD.drawButton(g, b.retry, mouse.over && SD.inBtn(b.retry, mouse), this.T);
+    SD.drawButton(g, b.menu, mouse.over && SD.inBtn(b.menu, mouse), this.T);
+    SD.neonText(g, SD.Input.touchMode ? 'RESUME  ·  RETRY  ·  MENU' : 'P / ESC TO RESUME  ·  T RETRY', W / 2, 468, 13, '180,200,255', { blur: 6, alpha: 0.7 });
   }
 
   drawOver(g) {
     g.save(); g.fillStyle = 'rgba(4,2,12,0.72)'; g.fillRect(0, 0, W, H); g.restore();
+    if (this.restartAsk) { this.drawRestartAsk(g); return; }
+    const mouse = SD.Input.mouse;
     if (this.over === 'win') {
       SD.neonText(g, 'SECTOR HELD', W / 2, 200, 52, '80,255,180', { blur: 22 });
       SD.neonText(g, "Edisar's flagship is down. The station stands.", W / 2, 260, 18, '220,230,255', { blur: 8, alpha: 0.9 });
     } else {
       SD.neonText(g, 'HULL BREACHED', W / 2, 200, 48, '255,80,120', { blur: 22 });
-      SD.neonText(g, 'The station has fallen to Edisar\'s fleet.', W / 2, 260, 18, '220,230,255', { blur: 8, alpha: 0.9 });
+      SD.neonText(g, "The station has fallen to Edisar's fleet.", W / 2, 260, 18, '220,230,255', { blur: 8, alpha: 0.9 });
     }
-    SD.drawButton(g, { x: W / 2, y: 340, w: 260, h: 52, label: this.over === 'win' ? 'PLAY AGAIN' : 'RETRY', rgb: '80,170,255', size: 22 }, false, this.T);
-    SD.drawButton(g, { x: W / 2, y: 406, w: 260, h: 52, label: 'MENU', rgb: '255,80,220', size: 22 }, false, this.T);
+    const b = this.overButtons();
+    SD.drawButton(g, b.again, mouse.over && SD.inBtn(b.again, mouse), this.T);
+    SD.drawButton(g, b.menu, mouse.over && SD.inBtn(b.menu, mouse), this.T);
   }
 
   /* Close-up of the turret roster at MK I / II / III for screenshots. */
@@ -2331,7 +2584,8 @@ SD.Defense = class {
     ];
     for (const [type, x, y, sc] of bosses) {
       const def = C().enemies[type];
-      SD.blit(g, this.spr.flagship, x, y, -0.06, sc);
+      const spr = this.spr[def.sprite || type] || this.spr.flagship;
+      SD.blit(g, spr, x, y, 0, sc);
       if (def.shield) {
         g.save(); g.strokeStyle = 'rgba(100,220,255,0.4)'; g.lineWidth = 2;
         g.beginPath(); g.arc(x, y, 58 * sc, 0, Math.PI * 2); g.stroke(); g.restore();
@@ -2625,6 +2879,87 @@ SD.Defense = class {
       ['scout','fighter','armored','interceptor'].forEach((tp, i) => this.spawn(tp, 160 + i * 150, 0));
       ['shielded','cryo','juggernaut','fighter'].forEach((tp, i) => this.spawn(tp, 200 + i * 150, 1));
       this.sim(0.5);
+    } else if (id === 'portrait' || id === 'edisarline') {
+      this.setLevel(2);
+      this.reset();
+      this.spawnHero('oakens');
+      plantNear(8);
+      this.credits = 240;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.enemies = [];
+      this.spawn('flagship', 780);
+      this.spawn('shielded', 520);
+      this.spawn('juggernaut', 400);
+      if (this.bossLine) { this.bossLine.life = this.bossLine.max - 0.4; this.bossLine.max = this.bossLine.life + 8; }
+      this.heroHint = null;
+    } else if (id === 'drag') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
+      this.credits = 220;
+      this.shop = 'missile';
+      this.drag = { kind: 'missile', x: 10 * 32 + 16, y: 10 * 32 + 16, ox: 120, oy: H - 43, armed: true, ptr: -1 };
+      this.heroHint = null;
+    } else if (id === 'retry') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
+      this.credits = 200;
+      this.paused = true;
+      this.restartAsk = true;
+      this.restartFrom = 'pause';
+      this.restartSel = 0;
+      this.heroHint = null;
+    } else if (id === 'herohint') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 1], [8, 10, 'ice', 1], [15, 5, 'tesla', 1]]);
+      this.credits = 210;
+      const h = this.hero;
+      const mid = this.path.pts[2] || this.path.pts[1];
+      h.x = mid.x + 28; h.y = mid.y + 28; h.homeX = h.x; h.homeY = h.y;
+      this.pickedHero = false;
+      this.heroHint = { life: 6.5, max: 7.5 };
+      this.waveIndex = 1;
+    } else if (id === 'edisarship') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1]]);
+      this.credits = 200;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.enemies = [];
+      this.heroHint = null;
+      const e = this.spawn('flagship', 0);
+      // Vertical leg (20,4)->(20,12): nose down the path, clear of the left turrets.
+      const route = e.route || this.path;
+      const seg = route.seg[5];
+      e.dist = seg.start + seg.len * 0.48;
+      const p = posOnPath(route, e.dist);
+      e.x = p.x; e.y = p.y; e.ang = p.ang;
+      e.stunT = 99; e.freezeT = 99;
+      this.bossLine = null;
+      this.banner = null;
+      this.floaters = [];
+    } else if (id === 'edisarship2') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1]]);
+      this.credits = 200;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.enemies = [];
+      this.heroHint = null;
+      const e = this.spawn('flagship1', 0);
+      // Long horizontal run (20,12)->(28,12), nose to the right.
+      const route = e.route || this.path;
+      const seg = route.seg[6];
+      e.dist = seg.start + seg.len * 0.45;
+      const p = posOnPath(route, e.dist);
+      e.x = p.x; e.y = p.y; e.ang = p.ang;
+      e.stunT = 99; e.freezeT = 99;
+      this.bossLine = null;
+      this.banner = null;
+      this.floaters = [];
     } else if (id === 'title') {
       // unused here
     }
