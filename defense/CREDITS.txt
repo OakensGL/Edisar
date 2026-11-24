@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.1
+STARLIGHT: LAST STATION v0.4.2
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -171,3 +171,11 @@ nearest one or two turrets. Disabled towers sit dark, spark, and
 show a timer ring until they come back online.
 Kill bounties are about 28% lower so later levels ask for more
 careful spending. Early-send bonuses are unchanged.
+
+
+v0.4.2
+------
+Each turret now has its own ARMORY upgrades. The tree shape and
+star costs are the same, and older saves keep every purchased node;
+only the effects, names, and icons changed. MK IV perks are
+unchanged and still need the two 1-star nodes in that column.

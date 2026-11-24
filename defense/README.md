@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.1
+# Starlight: Last Station v0.4.2
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -29,7 +29,9 @@ bonuses, time, and 1–3 stars) appears only after you finish a level.
 Stars are kept as the best result on each level (18 maximum across six
 levels). An ARMORY on the title screen and the level-select screen spends those stars on
 permanent turret and station upgrades, sold by Bazooka Joe, the station's
-mad-scientist weapons inventor. After HERO PROTOCOL, a fork lets
+mad-scientist weapons inventor. Each turret has its own upgrades
+(faster fire, wider blasts, deeper slows, and so on) instead of a
+shared damage / range / cost package. After HERO PROTOCOL, a fork lets
 you specialize the hero special as FREEZE (also freezes every ship) or
 OVERLOAD (+50% special damage). Only one can be owned at a time; a free
 respec returns every star and lets you switch.

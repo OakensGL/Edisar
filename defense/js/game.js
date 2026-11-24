@@ -273,7 +273,7 @@ SD.Title = class {
     const lines = [
       'Six levels, ten waves each. Credits and turrets reset every level. Later maps use two entrance gates.',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
-      'ARMORY on the title screen or the level select spends earned stars on permanent turret and station upgrades. Respec is free.',
+      'ARMORY on the title or level select spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
       'NEBULA · Level 3 and later, one per map. A red dark-energy beam that ignores shields and resists.',
       'Upgrade twice for MK III specials (twin beams, cluster, freeze, full pierce, longer chains, spreading toxin).',
@@ -615,7 +615,7 @@ SD.Armory = class {
     this.from = opt.from === 'title' ? 'title' : 'levels';
     this.progress = this.shot ? this.shotProgress() : SD.Progress.load();
     this.hover = null;
-    this.focus = (this.shot === true || this.shot === 'armory') ? 'hero-freeze' : null;
+    this.focus = (this.shot === true || this.shot === 'armory') ? 'laser-economy' : null;
     this.joeLine = SD.JOE_LINES.open;
     this.joePop = 0.4;
     this.respecAsk = false;
@@ -1001,9 +1001,7 @@ SD.Armory = class {
     g.lineJoin = 'round';
     g.shadowColor = `rgba(${rgb},0.8)`;
     g.shadowBlur = 4 * (SD.view ? SD.view.scale : 1);
-    if (id.endsWith('-power')) this.iconPower(g, s);
-    else if (id.endsWith('-reach')) this.iconReach(g, s);
-    else if (id.endsWith('-economy')) this.iconEconomy(g, s);
+    if (it.icon && this.drawNamedIcon(g, it.icon, s)) { /* unique turret node */ }
     else if (perk === 'FOCUS FIRE') this.iconFocus(g, s);
     else if (perk === 'BARRAGE') this.iconBarrage(g, s);
     else if (perk === 'SHATTER') this.iconShatter(g, s);
@@ -1018,6 +1016,179 @@ SD.Armory = class {
     else if (id === 'hero-overload') this.iconHeroOverload(g, s);
     else if (id === 'nebula-core') this.iconCore(g, s);
     g.restore();
+  }
+  drawNamedIcon(g, name, s) {
+    const map = {
+      overclock: this.iconOverclock, hotshot: this.iconHotshot, prism: this.iconPrism,
+      warheads: this.iconWarheads, boosters: this.iconBoosters, autoload: this.iconAutoload,
+      deepfreeze: this.iconDeepFreeze, whiteout: this.iconWhiteout, rimefield: this.iconRimefield,
+      pierce: this.iconPierce, quickcharge: this.iconQuickCharge, sabot: this.iconSabot,
+      arcspan: this.iconArcSpan, forked: this.iconForked, static: this.iconStatic,
+      neurotoxin: this.iconNeurotoxin, ionspike: this.iconIonSpike, stockpile: this.iconEconomy,
+    };
+    const fn = map[name];
+    if (!fn) return false;
+    fn.call(this, g, s);
+    return true;
+  }
+  iconOverclock(g, s) {
+    // stacked chevrons — faster fire, no overheat
+    for (let i = 0; i < 3; i++) {
+      const x = -s * 0.42 + i * s * 0.28;
+      g.beginPath();
+      g.moveTo(x - s * 0.08, -s * 0.38);
+      g.lineTo(x + s * 0.22, 0);
+      g.lineTo(x - s * 0.08, s * 0.38);
+      g.stroke();
+    }
+  }
+  iconHotshot(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.28, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(0, 0, 1.7, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * s * 0.36, Math.sin(a) * s * 0.36);
+      g.lineTo(Math.cos(a) * s * 0.72, Math.sin(a) * s * 0.72);
+      g.stroke();
+    }
+    g.beginPath();
+    g.moveTo(s * 0.12, -s * 0.55); g.lineTo(s * 0.42, -s * 0.72); g.stroke();
+    g.beginPath(); g.arc(s * 0.5, -s * 0.78, s * 0.1, 0, Math.PI * 2); g.fill();
+  }
+  iconPrism(g, s) {
+    g.beginPath();
+    g.moveTo(-s * 0.15, -s * 0.55); g.lineTo(s * 0.15, -s * 0.55); g.lineTo(s * 0.32, s * 0.15); g.lineTo(-s * 0.32, s * 0.15);
+    g.closePath(); g.stroke(); g.globalAlpha *= 0.35; g.fill(); g.globalAlpha /= 0.35;
+    g.beginPath(); g.moveTo(-s * 0.02, -s * 0.7); g.lineTo(0, -s * 0.2); g.stroke();
+    g.beginPath(); g.moveTo(0, s * 0.15); g.lineTo(-s * 0.38, s * 0.7); g.moveTo(0, s * 0.15); g.lineTo(s * 0.38, s * 0.7); g.stroke();
+  }
+  iconWarheads(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.28, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(0, 0, s * 0.5, 0, Math.PI * 2); g.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * s * 0.55, Math.sin(a) * s * 0.55);
+      g.lineTo(Math.cos(a) * s * 0.78, Math.sin(a) * s * 0.78);
+      g.stroke();
+    }
+  }
+  iconBoosters(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.55, 0); g.lineTo(-s * 0.1, -s * 0.22); g.lineTo(-s * 0.1, s * 0.22);
+    g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(-s * 0.1, -s * 0.14); g.lineTo(-s * 0.55, 0); g.lineTo(-s * 0.1, s * 0.14);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(-s * 0.55, 0); g.lineTo(-s * 0.82, -s * 0.16);
+    g.moveTo(-s * 0.55, 0); g.lineTo(-s * 0.82, s * 0.16);
+    g.stroke();
+  }
+  iconAutoload(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.42, 0.4, Math.PI * 1.6); g.stroke();
+    g.beginPath();
+    const ax = Math.cos(0.4) * s * 0.42, ay = Math.sin(0.4) * s * 0.42;
+    g.moveTo(ax, ay); g.lineTo(ax + s * 0.08, ay - s * 0.18); g.lineTo(ax + s * 0.2, ay - s * 0.02); g.stroke();
+    g.beginPath(); g.moveTo(s * 0.12, 0); g.lineTo(-s * 0.08, -s * 0.16); g.lineTo(-s * 0.08, s * 0.16); g.closePath(); g.fill();
+  }
+  iconDeepFreeze(g, s) {
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(Math.cos(a) * s * 0.7, Math.sin(a) * s * 0.7);
+      g.stroke();
+      const bx = Math.cos(a) * s * 0.38, by = Math.sin(a) * s * 0.38;
+      const px = Math.cos(a + 0.55) * s * 0.18, py = Math.sin(a + 0.55) * s * 0.18;
+      g.beginPath(); g.moveTo(bx - px, by - py); g.lineTo(bx, by); g.lineTo(bx + px, by + py); g.stroke();
+    }
+  }
+  iconWhiteout(g, s) {
+    g.beginPath();
+    g.moveTo(-s * 0.15, s * 0.15); g.lineTo(-s * 0.7, -s * 0.55); g.lineTo(s * 0.7, -s * 0.55); g.lineTo(s * 0.15, s * 0.15);
+    g.closePath(); g.stroke();
+    g.beginPath(); g.arc(0, s * 0.28, s * 0.2, 0, Math.PI * 2); g.fill();
+  }
+  iconRimefield(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.22, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(0, 0, s * 0.58, 0.15, Math.PI * 2 - 0.15); g.stroke();
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5 - 0.3;
+      g.beginPath(); g.arc(Math.cos(a) * s * 0.62, Math.sin(a) * s * 0.62, s * 0.08, 0, Math.PI * 2); g.fill();
+    }
+  }
+  iconPierce(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.78, 0); g.lineTo(s * 0.2, -s * 0.16); g.lineTo(-s * 0.78, -s * 0.1);
+    g.lineTo(-s * 0.78, s * 0.1); g.lineTo(s * 0.2, s * 0.16); g.closePath();
+    g.fill(); g.stroke();
+    g.beginPath();
+    g.moveTo(-s * 0.1, -s * 0.55); g.lineTo(-s * 0.1, s * 0.55);
+    g.moveTo(s * 0.28, -s * 0.55); g.lineTo(s * 0.28, s * 0.55);
+    g.stroke();
+  }
+  iconQuickCharge(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.52, 0.35, Math.PI * 1.7); g.stroke();
+    g.beginPath();
+    g.moveTo(s * 0.08, -s * 0.5); g.lineTo(-s * 0.12, 0.02); g.lineTo(s * 0.18, 0.02); g.lineTo(-s * 0.08, s * 0.5);
+    g.stroke();
+  }
+  iconSabot(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.7, 0); g.lineTo(s * 0.1, -s * 0.22); g.lineTo(-s * 0.2, -s * 0.14);
+    g.lineTo(-s * 0.2, s * 0.14); g.lineTo(s * 0.1, s * 0.22);
+    g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(-s * 0.2, -s * 0.28); g.lineTo(-s * 0.65, -s * 0.4);
+    g.moveTo(-s * 0.2, s * 0.28); g.lineTo(-s * 0.65, s * 0.4);
+    g.moveTo(-s * 0.2, 0); g.lineTo(-s * 0.7, 0);
+    g.stroke();
+  }
+  iconArcSpan(g, s) {
+    g.beginPath();
+    g.moveTo(-s * 0.75, s * 0.1); g.lineTo(-s * 0.35, -s * 0.35); g.lineTo(-s * 0.05, s * 0.2);
+    g.lineTo(s * 0.3, -s * 0.32); g.lineTo(s * 0.75, s * 0.15);
+    g.stroke();
+    g.beginPath(); g.arc(-s * 0.75, s * 0.1, s * 0.1, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(s * 0.75, s * 0.15, s * 0.1, 0, Math.PI * 2); g.fill();
+  }
+  iconForked(g, s) {
+    g.beginPath();
+    g.moveTo(0, -s * 0.7); g.lineTo(-s * 0.08, -s * 0.05); g.lineTo(s * 0.16, -s * 0.05); g.lineTo(-s * 0.08, s * 0.15);
+    g.stroke();
+    g.beginPath(); g.moveTo(-s * 0.08, s * 0.15); g.lineTo(-s * 0.55, s * 0.65); g.moveTo(-s * 0.08, s * 0.15); g.lineTo(s * 0.5, s * 0.65); g.stroke();
+  }
+  iconStatic(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.18, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.9 - 0.4;
+      const r0 = s * 0.28, r1 = s * (i % 2 ? 0.7 : 0.55);
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+      g.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+      g.stroke();
+    }
+  }
+  iconNeurotoxin(g, s) {
+    g.beginPath();
+    g.moveTo(-s * 0.18, -s * 0.55); g.lineTo(s * 0.18, -s * 0.55);
+    g.lineTo(s * 0.18, -s * 0.2); g.lineTo(s * 0.38, s * 0.15);
+    g.quadraticCurveTo(s * 0.4, s * 0.65, 0, s * 0.65);
+    g.quadraticCurveTo(-s * 0.4, s * 0.65, -s * 0.38, s * 0.15);
+    g.lineTo(-s * 0.18, -s * 0.2);
+    g.closePath(); g.stroke(); g.globalAlpha *= 0.35; g.fill(); g.globalAlpha /= 0.35;
+    g.beginPath(); g.arc(0, s * 0.22, s * 0.12, 0, Math.PI * 2); g.fill();
+  }
+  iconIonSpike(g, s) {
+    g.beginPath();
+    g.arc(0, 0, s * 0.52, -0.6, Math.PI * 1.15);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(s * 0.2, -s * 0.45); g.lineTo(s * 0.05, -s * 0.05); g.lineTo(s * 0.45, 0); g.lineTo(s * 0.15, s * 0.2);
+    g.stroke();
+    g.beginPath(); g.moveTo(-s * 0.15, -s * 0.1); g.lineTo(s * 0.55, s * 0.55); g.stroke();
   }
   iconPower(g, s) {
     // bursting bullet / energy bolt
@@ -1421,7 +1592,7 @@ SD.Defense = class {
   hasPerk(id) { return (this.bought || []).indexOf(id) >= 0; }
   costOf(kind) {
     let c = C().turrets[kind].cost;
-    if (this.hasPerk(kind + '-economy')) c = Math.round(c * 0.85);
+    if (kind === 'pulse' && this.hasPerk('pulse-economy')) c = Math.round(c * 0.85);
     return c;
   }
   heroVal(key, kind) {
@@ -1774,10 +1945,23 @@ SD.Defense = class {
     if (!conf || conf[key] == null) return 0;
     let v = Array.isArray(conf[key]) ? conf[key][Math.max(0, (t.level || 1) - 1)] : conf[key];
     if (v == null) v = 0;
-    if (key === 'range' && this.hasPerk(t.kind + '-reach')) v *= 1.12;
-    if (key === 'damage' && this.hasPerk(t.kind + '-power')) v *= 1.15;
+    if (key === 'range' && t.kind === 'ice' && this.hasPerk('ice-reach')) v *= 1.16;
     if (key === 'damage' && t.kind === 'nebula' && this.hasPerk('nebula-core')) v *= 1.15;
+    if (key === 'rate') {
+      if (t.kind === 'laser' && this.hasPerk('laser-power')) v /= 1.08;
+      if (t.kind === 'missile' && this.hasPerk('missile-economy')) v /= 1.18;
+      if (t.kind === 'railgun' && this.hasPerk('railgun-reach')) v /= 1.16;
+    }
+    if (key === 'splash' && t.kind === 'missile' && this.hasPerk('missile-power')) v *= 1.30;
+    if (key === 'speed' && t.kind === 'missile' && this.hasPerk('missile-reach')) v *= 1.45;
+    if (key === 'slow' && this.hasPerk('ice-power')) v = 1 - (1 - v) * 1.18;
+    if (key === 'slowTime' && this.hasPerk('ice-power')) v += 0.8;
+    if (key === 'pierce' && this.hasPerk('railgun-power') && v < 90) v += 1;
+    if (key === 'jump' && this.hasPerk('tesla-power')) v *= 1.28;
+    if (key === 'chain' && this.hasPerk('tesla-reach')) v += 1;
     if (key === 'chain' && this.hasPerk('tesla-mk4')) v += 1;
+    if (key === 'poison' && this.hasPerk('pulse-power')) v *= 1.30;
+    if (key === 'poisonTime' && this.hasPerk('pulse-power')) v += 0.7;
     if (key === 'poisonTime' && this.hasPerk('pulse-mk4')) v += 1;
     if (key === 'poisonMax' && this.hasPerk('pulse-mk4')) v += 1;
     if (key === 'poisonSpread' && this.hasPerk('pulse-mk4') && !(v > 0)) v = 40;
@@ -1853,6 +2037,7 @@ SD.Defense = class {
         kind: 'ice', x: ox, y: oy, tx: e.x, ty: e.y, target: e, ang: t.ang, speed: 420,
         dmg, slow: this.stat(t, 'slow'), slowTime: this.stat(t, 'slowTime'),
         freeze: this.stat(t, 'freeze') || 0,
+        rime: this.hasPerk('ice-economy') ? 42 : 0,
         rgb: C().turrets.ice.rgb, life: 1.6, r: 4,
       });
       SD.Audio.ice();
@@ -1864,22 +2049,37 @@ SD.Defense = class {
 
   fireLaser(t, e, ox, oy, dmg) {
     const rgb = C().turrets.laser.rgb;
+    const critMul = (this.hasPerk('laser-reach') && Math.random() < 0.10) ? 1.45 : 1;
     let primary = dmg;
     if (this.hasPerk('laser-mk4') && e) {
       if (t.focusId !== e) { t.focusId = e; t.focusHits = 0; }
       t.focusHits = (t.focusHits || 0) + 1;
       primary = dmg * (1 + Math.min(0.40, Math.max(0, t.focusHits - 1) * 0.08));
     }
-    this.beams.push({ x0: ox, y0: oy, x1: e.x, y1: e.y, rgb, life: 0.1, max: 0.1 });
+    primary *= critMul;
+    this.beams.push({ x0: ox, y0: oy, x1: e.x, y1: e.y, rgb: critMul > 1 ? '220,245,255' : rgb, life: critMul > 1 ? 0.14 : 0.1, max: critMul > 1 ? 0.14 : 0.1, thick: critMul > 1 ? 3.2 : undefined });
     this.hurt(e, primary, 'laser');
+    const used = new Set([e]);
     if (t.level >= 3) {
       const r = this.stat(t, 'range');
       const other = this.enemies.find(x => x !== e && x.hp > 0 && Math.hypot(x.x - t.x, x.y - t.y) <= r + x.r);
       const tgt = other || e;
+      const twinCrit = (this.hasPerk('laser-reach') && tgt !== e && Math.random() < 0.10) ? 1.45 : (tgt === e ? critMul : 1);
       const ox2 = t.x + Math.cos(t.ang + 0.2) * this.muzzleTip(t);
       const oy2 = t.y + Math.sin(t.ang + 0.2) * this.muzzleTip(t);
       this.beams.push({ x0: ox2, y0: oy2, x1: tgt.x, y1: tgt.y, rgb, life: 0.1, max: 0.1 });
-      this.hurt(tgt, tgt === e ? primary : dmg, 'laser');
+      this.hurt(tgt, (tgt === e ? primary : dmg) * (tgt === e ? 1 : twinCrit), 'laser');
+      if (tgt !== e) used.add(tgt);
+    }
+    if (this.hasPerk('laser-economy')) {
+      const r = this.stat(t, 'range');
+      const mid = this.enemies.find(x => !used.has(x) && x.hp > 0
+        && Math.hypot(x.x - e.x, x.y - e.y) <= 90 + x.r
+        && Math.hypot(x.x - t.x, x.y - t.y) <= r + x.r);
+      if (mid) {
+        this.beams.push({ x0: e.x, y0: e.y, x1: mid.x, y1: mid.y, rgb: '160,220,255', life: 0.08, max: 0.08, thick: 1.4 });
+        this.hurt(mid, primary * 0.30, 'laser');
+      }
     }
     SD.Audio.laser();
   }
@@ -1889,7 +2089,7 @@ SD.Defense = class {
     const ang = t.ang + (extra ? 0.16 : 0);
     this.shots.push({
       kind: 'missile', x: ox, y: oy, tx: e.x, ty: e.y, target: e,
-      ang, speed: conf.speed[t.level - 1], dmg, splash: conf.splash[t.level - 1],
+      ang, speed: this.stat(t, 'speed') || conf.speed[t.level - 1], dmg, splash: this.stat(t, 'splash') || conf.splash[t.level - 1],
       splashMul: conf.splashMul[t.level - 1], cluster: this.stat(t, 'cluster') || 0,
       rgb: conf.rgb, life: 2.4, r: 5,
     });
@@ -1961,6 +2161,7 @@ SD.Defense = class {
         if (cur.shield <= 0) { cur.shield = 0; this.fx.ring(cur.x, cur.y, '80,220,255', cur.r + 16, 0.3); }
       }
       this.hurt(cur, dmg, 'tesla');
+      if (this.hasPerk('tesla-economy')) this.tryTeslaStun(cur);
       let best = null, bestD = jump;
       for (const o of this.enemies) {
         if (seen.has(o) || o.hp <= 0) continue;
@@ -2036,14 +2237,20 @@ SD.Defense = class {
     if (this.hasPerk('ice-mk4') && ((e.slowT > 0 && (e.slow || 1) < 0.995) || (e.freezeT > 0))) {
       applied *= 1.20;
     }
+    if (kind === 'railgun' && this.hasPerk('railgun-economy')) {
+      if (e.boss) applied *= 1.08;
+      else if ((e.hull || 1) >= 2) applied *= 1.20;
+    }
     if (e.shield > 0 && !pure) {
       if (kind === 'tesla' || kind === 'pulse') {
-        if (applied >= e.shield) {
-          applied -= e.shield;
+        const spike = (kind === 'pulse' && this.hasPerk('pulse-reach')) ? 1.25 : 1;
+        const vsShield = applied * spike;
+        if (vsShield >= e.shield) {
+          applied = applied - e.shield / spike;
           e.shield = 0;
           this.fx.ring(e.x, e.y, '80,220,255', e.r + 16, 0.3);
         } else {
-          e.shield -= applied;
+          e.shield -= vsShield;
           applied = 0;
         }
       } else {
@@ -2091,6 +2298,27 @@ SD.Defense = class {
         }
       }
     }
+  }
+
+  applyRimeField(s) {
+    const r = s.rime || 0;
+    if (r <= 0) return;
+    this.fx.ring(s.x, s.y, s.rgb || '140,230,255', r, 0.22);
+    const weak = 1 - (1 - (s.slow || 0.55)) * 0.65;
+    for (const o of this.enemies) {
+      if (o.dead || o.hp <= 0) continue;
+      if (s.target && o === s.target) continue;
+      if (Math.hypot(o.x - s.x, o.y - s.y) <= r + o.r) this.applySlow(o, weak, s.slowTime);
+    }
+  }
+
+  tryTeslaStun(e) {
+    if (!e || e.dead || e.boss || (e.hull || 1) > 1) return;
+    if ((e.stunCd || 0) > 0) return;
+    if (Math.random() > 0.16) return;
+    e.stunT = Math.max(e.stunT || 0, 0.4);
+    e.stunCd = 1.1;
+    this.fx.burst(e.x, e.y, '200,180,255', 6, 50, 0.2, 1.2);
   }
 
   applySlow(e, factor, time) {
@@ -2390,11 +2618,14 @@ SD.Defense = class {
       if (Math.hypot(s.tx - s.x, s.ty - s.y) < hitR || s.life <= 0) {
         s.dead = true;
         if (s.kind === 'missile') this.boom(s.x, s.y, s.dmg, s.splash, s.splashMul, s.rgb, s.cluster);
-        else if (s.target && s.target.hp > 0 && Math.hypot(s.target.x - s.x, s.target.y - s.y) < hitR + 8) {
-          this.hurt(s.target, s.dmg, 'ice');
-          this.applySlow(s.target, s.slow, s.slowTime);
-          this.applyFreeze(s.target, s.freeze);
-          this.fx.burst(s.x, s.y, s.rgb, 8, 70, 0.3, 1.6);
+        else if (s.kind === 'ice') {
+          if (s.target && s.target.hp > 0 && Math.hypot(s.target.x - s.x, s.target.y - s.y) < hitR + 8) {
+            this.hurt(s.target, s.dmg, 'ice');
+            this.applySlow(s.target, s.slow, s.slowTime);
+            this.applyFreeze(s.target, s.freeze);
+            this.fx.burst(s.x, s.y, s.rgb, 8, 70, 0.3, 1.6);
+          }
+          if (s.rime > 0) this.applyRimeField(s);
         }
       }
     }

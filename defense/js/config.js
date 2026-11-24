@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.1';
+SD.VERSION = '0.4.2';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -27,7 +27,7 @@ SD.CONFIG = {
       upBlurb2: 'Twin beams',
       tip: {
         role: 'Rapid-fire beam. Laser damage.',
-        effect: 'Fast single-target shots. Twin beams at MK III.',
+        effect: 'Fast single-target shots. Twin beams at MK III. Armory can add faster fire, crits, and a glancing beam.',
         vs: 'Good vs Scouts and Interceptors.',
         resist: 'Armored ships, Juggernauts, and bosses resist it.',
       },
@@ -43,7 +43,7 @@ SD.CONFIG = {
       upBlurb2: 'Cluster warheads',
       tip: {
         role: 'Splash bombardment. Missile damage.',
-        effect: 'Slow rockets with splash. Cluster warheads at MK III.',
+        effect: 'Slow rockets with splash. Cluster warheads at MK III. Armory can widen the blast and speed up rockets.',
         vs: 'Good vs Armored ships and Juggernauts.',
         resist: 'Scouts and Interceptors resist it.',
       },
@@ -59,7 +59,7 @@ SD.CONFIG = {
       upBlurb2: 'Brief hard freeze',
       tip: {
         role: 'Crowd control. Ice damage.',
-        effect: 'Slows ships in range. Brief hard freeze at MK III.',
+        effect: 'Slows ships in range. Brief hard freeze at MK III. Armory can deepen the slow and add a rime field. Bosses resist the worst of it.',
         vs: 'Interceptors are slowed hard.',
         resist: 'Cryo ships are immune. Juggernauts barely slow.',
       },
@@ -74,7 +74,7 @@ SD.CONFIG = {
       upBlurb2: 'Pierces the whole line',
       tip: {
         role: 'Long-range sniper. Railgun damage.',
-        effect: 'Piercing slug. MK III goes through the whole line.',
+        effect: 'Piercing slug. MK III goes through the whole line. Armory can add pierce, a faster charge, and sabot rounds.',
         vs: 'Good vs Armored ships and Juggernauts.',
         resist: 'Weak against shields until they drop.',
       },
@@ -89,7 +89,7 @@ SD.CONFIG = {
       upBlurb2: 'Chains further still',
       tip: {
         role: 'Chaining arc. Tesla damage.',
-        effect: 'Jumps from ship to ship and punches through shields.',
+        effect: 'Jumps from ship to ship and punches through shields. Armory can extend the chain and briefly stun light ships.',
         vs: 'Good vs Shielded ships and Interceptors.',
         resist: 'No hull type resists the arc.',
       },
@@ -105,7 +105,7 @@ SD.CONFIG = {
       upBlurb2: 'Toxin spreads to nearby ships',
       tip: {
         role: 'Shield-breaker. Pulse damage.',
-        effect: 'Strips shields and poisons hulls. MK III toxin spreads.',
+        effect: 'Strips shields and poisons hulls. MK III toxin spreads. Armory can strengthen the toxin, punch shields harder, or cut the build cost.',
         vs: 'Good vs Shielded ships.',
         resist: 'Low burst vs heavy hulls until the toxin stacks.',
       },
@@ -413,8 +413,7 @@ SD.Progress = {
       if (v && typeof v === 'object') {
         base.unlocked = Math.max(1, v.unlocked | 0);
         base.stars = base.stars.map((_, i) => (v.stars && v.stars[i]) || 0);
-        const ids = new Set(SD.StarShop.items.map(it => it.id));
-        base.bought = Array.isArray(v.bought) ? v.bought.filter(id => ids.has(id)) : [];
+        base.bought = SD.StarShop.migrate(Array.isArray(v.bought) ? v.bought : []);
       }
     } catch (e) {}
     return base;
@@ -475,27 +474,66 @@ SD.StarShop = {
   perksOf(p, kind) {
     const bits = [];
     if (kind !== 'nebula') {
-      if (this.owns(p, kind + '-power')) bits.push('POWER');
-      if (this.owns(p, kind + '-reach')) bits.push('REACH');
-      if (this.owns(p, kind + '-economy')) bits.push('ECONOMY');
-      if (this.owns(p, kind + '-mk4')) bits.push((this.mk4[kind] && this.mk4[kind].name) || 'MK IV');
+      for (const key of ['power', 'reach', 'economy', 'mk4']) {
+        const it = this.item(kind + '-' + key);
+        if (it && this.owns(p, it.id)) bits.push(it.perk || it.name);
+      }
     } else if (this.owns(p, 'nebula-core')) bits.push('DARK CORE');
     return bits;
+  },
+  /* v0.4.2 keeps the same ids so existing bought arrays stay valid.
+     Effects and display names changed in place; this is an identity
+     filter today and a hook if a later version ever remaps an id. */
+  migrate(bought) {
+    const ids = new Set(this.items.map(it => it.id));
+    const out = [], seen = new Set();
+    for (const id of (bought || [])) {
+      if (typeof id === 'string' && ids.has(id) && !seen.has(id)) { seen.add(id); out.push(id); }
+    }
+    return out;
   },
 };
 
 (function buildStarShop() {
   const items = [];
-  const blurbs = {
-    power: '+15% damage',
-    reach: '+12% range',
-    economy: '−15% build cost',
+  const nodes = {
+    laser: {
+      power:   { name: 'OVERCLOCK',  icon: 'overclock',  blurb: 'Fire rate +8%. The beam stays cool; no overheat.' },
+      reach:   { name: 'HOTSHOT',    icon: 'hotshot',    blurb: '10% chance for a critical beam that deals ×1.45 damage.' },
+      economy: { name: 'PRISM',      icon: 'prism',      blurb: 'The beam glances to a nearby ship for 30% damage.' },
+    },
+    missile: {
+      power:   { name: 'WARHEADS',   icon: 'warheads',   blurb: 'Splash radius +30%.' },
+      reach:   { name: 'BOOSTERS',   icon: 'boosters',   blurb: 'Rockets fly 45% faster.' },
+      economy: { name: 'AUTOLOAD',   icon: 'autoload',   blurb: 'Reload 18% faster.' },
+    },
+    ice: {
+      power:   { name: 'DEEP FREEZE', icon: 'deepfreeze', blurb: 'Slow is 18% stronger and lasts +0.8s. Bosses still resist the worst of it.' },
+      reach:   { name: 'WHITEOUT',    icon: 'whiteout',   blurb: 'Ice range +16%, so the slow covers a wider lane.' },
+      economy: { name: 'RIMEFIELD',   icon: 'rimefield',  blurb: 'Hits splash a slow field around the target. No extra freeze on bosses.' },
+    },
+    railgun: {
+      power:   { name: 'PIERCE',       icon: 'pierce',      blurb: 'Slugs punch through one extra ship (MK III already clears the line).' },
+      reach:   { name: 'QUICK CHARGE', icon: 'quickcharge', blurb: 'Charge time −16%, so the rail fires more often.' },
+      economy: { name: 'SABOT',        icon: 'sabot',       blurb: '+20% damage vs armored hulls. +8% vs bosses.' },
+    },
+    tesla: {
+      power:   { name: 'ARC SPAN', icon: 'arcspan', blurb: 'Chain jump range +28%.' },
+      reach:   { name: 'FORKED',   icon: 'forked',  blurb: 'The arc jumps to one extra ship.' },
+      economy: { name: 'STATIC',   icon: 'static',  blurb: '16% chance to briefly stun hull-1 ships. Bosses are immune.' },
+    },
+    pulse: {
+      power:   { name: 'NEUROTOXIN', icon: 'neurotoxin', blurb: 'Poison DPS +30% and duration +0.7s.' },
+      reach:   { name: 'ION SPIKE',  icon: 'ionspike',   blurb: '+25% damage dealt to shields.' },
+      economy: { name: 'STOCKPILE',  icon: 'stockpile',  blurb: 'Pulse build cost −15%.' },
+    },
   };
   for (const kind of SD.StarShop.kinds) {
     const name = (SD.CONFIG.turrets[kind] && SD.CONFIG.turrets[kind].short) || kind.toUpperCase();
-    items.push({ id: kind + '-power',   col: kind, name: 'POWER',   cost: 1, blurb: name + '  ' + blurbs.power });
-    items.push({ id: kind + '-reach',   col: kind, name: 'REACH',   cost: 1, blurb: name + '  ' + blurbs.reach });
-    items.push({ id: kind + '-economy', col: kind, name: 'ECONOMY', cost: 2, blurb: name + '  ' + blurbs.economy });
+    const n = nodes[kind];
+    items.push({ id: kind + '-power',   col: kind, name: n.power.name,   cost: 1, icon: n.power.icon,   blurb: name + '  ' + n.power.name + '  —  ' + n.power.blurb });
+    items.push({ id: kind + '-reach',   col: kind, name: n.reach.name,   cost: 1, icon: n.reach.icon,   blurb: name + '  ' + n.reach.name + '  —  ' + n.reach.blurb });
+    items.push({ id: kind + '-economy', col: kind, name: n.economy.name, cost: 2, icon: n.economy.icon, blurb: name + '  ' + n.economy.name + '  —  ' + n.economy.blurb });
     const mk = SD.StarShop.mk4[kind];
     items.push({
       id: kind + '-mk4', col: kind, name: 'MK IV', perk: mk.name, cost: 3,
