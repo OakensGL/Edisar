@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.3.1
+# Starlight: Last Station v0.3.2
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -72,7 +72,7 @@ placed turret to upgrade or sell. Space or the Start / Send Wave button
 begins the next wave, or sends the next one early (during the countdown,
 or mid-wave once the 3-second call window opens).
 P / Esc pauses, M mutes, F cycles battle speed. Keys 1–7 pick turret types
-(7 is Nebula). Q / W / E arm Orbital, Drones and EMP. The turret panel
+(7 is Nebula). Q / W / E arm Orbital, Drones and EMP (a TAP TO TARGET reticle follows the cursor; Esc or right-click cancels). The turret panel
 cycles targeting priority. R or the on-screen SPECIAL button fires the
 hero power (no need to select the hero first). T retries the current
 level, with a Yes/No confirm, from play, the pause menu, or the defeat

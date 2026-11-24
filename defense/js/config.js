@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.3.1';
+SD.VERSION = '0.3.2';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 

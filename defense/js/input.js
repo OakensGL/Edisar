@@ -22,7 +22,7 @@ SD.Input = (() => {
       if (e.pointerType === 'touch' || e.pointerType === 'pen') touchMode = true;
       const p = SD.toLogical(e.clientX, e.clientY);
       mouse.x = p.x; mouse.y = p.y; mouse.over = true;
-      const ptr = { id: e.pointerId, x: p.x, y: p.y, ox: p.x, oy: p.y, type: e.pointerType };
+      const ptr = { id: e.pointerId, x: p.x, y: p.y, ox: p.x, oy: p.y, type: e.pointerType, button: e.button || 0 };
       pointers.set(e.pointerId, ptr); downs.push(ptr);
       try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     });
@@ -38,7 +38,7 @@ SD.Input = (() => {
         ptr.x = p.x; ptr.y = p.y;
         const dx = ptr.x - ptr.ox, dy = ptr.y - ptr.oy;
         const tap = dx * dx + dy * dy < 14 * 14;
-        released.push({ x: ptr.x, y: ptr.y, type: ptr.type, tap, id: ptr.id, ox: ptr.ox, oy: ptr.oy });
+        released.push({ x: ptr.x, y: ptr.y, type: ptr.type, tap, id: ptr.id, ox: ptr.ox, oy: ptr.oy, button: ptr.button || 0 });
       }
       pointers.delete(e.pointerId);
     };

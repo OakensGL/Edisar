@@ -234,7 +234,7 @@ SD.Title = class {
       'Tap a ship to see HP, weaknesses and resistances. Pulse no longer stuns.',
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
       'Each turret can target First, Last, Strongest, Weakest or Closest — toggle it in the turret panel.',
-      'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then tap the field.',
+      'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then the field. Esc or right-click cancels.',
       'Bring Oakens or Nebula. Tap them, then a tile to move. R or the SPECIAL button fires their power.',
       'Drag a turret from the build bar onto a pad to place it. T retries the level (with a confirm).',
       'The HUD speed button (or F) cycles x1 / x2 / x3. It only speeds the battle, not the music.',
@@ -654,6 +654,8 @@ SD.Defense = class {
     this.restartSel = 0;
     this.aim = null;
     this.abCd = { orbital: 0, drones: 0, emp: 0 };
+    this.bossBarTrail = null;
+    this.bossBarOf = null;
     this.drones = [];
     this.strikes = [];
     this.initPads();
@@ -1324,6 +1326,7 @@ SD.Defense = class {
       if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
       if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
       if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
+      this.tickBossBar(dt);
       return;
     }
     const scale = this.timeScale || 1;
@@ -1344,6 +1347,7 @@ SD.Defense = class {
     if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
     if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
     if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
+    this.tickBossBar(dt);
 
     this.fx.update(dt);
 
@@ -1463,6 +1467,12 @@ SD.Defense = class {
     this.picked = null;
     this.pickedHero = false;
     SD.Audio.click();
+  }
+  cancelAim() {
+    if (!this.aim) return false;
+    this.aim = null;
+    SD.Audio.click();
+    return true;
   }
   fireAbility(id, x, y) {
     const conf = this.abilityConf(id);
@@ -1636,7 +1646,7 @@ SD.Defense = class {
     if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
     const downs = SD.Input.takeDowns();
     const released = SD.Input.takeReleased();
-    const clicks = released.filter(u => u.tap);
+    const clicks = released.filter(u => u.tap && u.button !== 2);
 
     if (this.restartAsk) {
       this.handleRestartInput(clicks);
@@ -1674,6 +1684,8 @@ SD.Defense = class {
       if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('title'); }
       return;
     }
+    const rightClick = downs.some(d => d.button === 2) || released.some(u => u.button === 2);
+    if (this.aim && (SD.Input.hit('Escape') || rightClick)) { this.cancelAim(); return; }
     if (SD.Input.hit('KeyT')) { this.askRestart(this.paused ? 'pause' : 'play'); return; }
     if (SD.Input.hit('KeyP') || SD.Input.hit('Escape')) { this.pause(); SD.Audio.click(); }
     if (this.paused) {
@@ -1746,6 +1758,7 @@ SD.Defense = class {
     this._dragConsumed = false;
     if (!this.drag) {
       for (const d of downs) {
+        if (d.button === 2) continue;
         const b = this.shopBtnAt(d);
         if (b) {
           this.drag = { kind: b.id, x: d.x, y: d.y, ox: d.x, oy: d.y, armed: false, ptr: d.id };
@@ -1863,15 +1876,6 @@ SD.Defense = class {
       const b = { x: 44 + i * 76, y, w: 72, h: 62, label: conf.short, sub, rgb: conf.rgb, size: 13, click: () => this.toggleShop(k), disabled: locked || used || noGold, id: k };
       if (locked) b.tag = 'LEVEL 3';
       btns.push(b);
-    }
-    if (this.aim && SD.Input.mouse.over && !inHud(SD.Input.mouse)) {
-      const conf = C().abilities[this.aim];
-      const m = SD.Input.mouse;
-      g.save();
-      g.beginPath(); g.arc(m.x, m.y, conf.radius, 0, Math.PI * 2);
-      g.fillStyle = `rgba(${conf.rgb},0.10)`; g.fill();
-      g.strokeStyle = `rgba(${conf.rgb},0.7)`; g.lineWidth = 1.6; g.stroke();
-      g.restore();
     }
     if (this.picked) {
       const t = this.picked, conf = C().turrets[t.kind];
@@ -2118,7 +2122,93 @@ SD.Defense = class {
     }
   }
 
-  drawAim(g) { /* range preview is in drawGhost */ }
+  drawAim(g) {
+    if (!this.aim) return;
+    const conf = C().abilities[this.aim];
+    if (!conf) return;
+    const m = SD.Input.mouse;
+    const at = (m.over && !inHud(m)) ? m : null;
+    if (at) {
+      g.save();
+      g.beginPath(); g.arc(at.x, at.y, conf.radius, 0, Math.PI * 2);
+      g.fillStyle = `rgba(${conf.rgb},0.12)`; g.fill();
+      g.strokeStyle = `rgba(${conf.rgb},0.85)`; g.lineWidth = 2; g.stroke();
+      // reticle
+      g.beginPath(); g.arc(at.x, at.y, 8, 0, Math.PI * 2);
+      g.strokeStyle = `rgba(${conf.rgb},0.95)`; g.lineWidth = 1.4; g.stroke();
+      g.beginPath();
+      g.moveTo(at.x - 16, at.y); g.lineTo(at.x - 5, at.y);
+      g.moveTo(at.x + 5, at.y); g.lineTo(at.x + 16, at.y);
+      g.moveTo(at.x, at.y - 16); g.lineTo(at.x, at.y - 5);
+      g.moveTo(at.x, at.y + 5); g.lineTo(at.x, at.y + 16);
+      g.stroke();
+      g.restore();
+    }
+    const touch = SD.Input.touchMode;
+    const title = (conf.name || 'ABILITY') + '  ·  ' + (touch ? 'TAP TO TARGET' : 'CLICK TO TARGET');
+    const hint = touch ? 'TAP THE BUTTON AGAIN TO CANCEL' : 'ESC  ·  RIGHT-CLICK  ·  BUTTON TO CANCEL';
+    const w = 520, h = 48, x = (W - w) / 2, y = 100;
+    g.save();
+    SD.roundRect(g, x, y, w, h, 10);
+    g.fillStyle = 'rgba(8,10,20,0.88)'; g.fill();
+    g.strokeStyle = `rgba(${conf.rgb},0.7)`; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+    SD.neonText(g, title, W / 2, y + 18, 15, conf.rgb, { blur: 7 });
+    SD.neonText(g, hint, W / 2, y + 36, 11, '200,220,240', { blur: 5, alpha: 0.85 });
+  }
+
+  tickBossBar(dt) {
+    const boss = (this.enemies || []).find(e => e.boss && !e.dead && e.hp > 0);
+    if (!boss) { this.bossBarTrail = null; this.bossBarOf = null; return; }
+    const pct = Math.max(0, Math.min(1, boss.hp / (boss.max || 1)));
+    if (this.bossBarOf !== boss) { this.bossBarTrail = pct; this.bossBarOf = boss; }
+    if (this.bossBarTrail == null) this.bossBarTrail = pct;
+    const step = Math.max(0.15, dt) * 0.55;
+    if (this.bossBarTrail > pct) this.bossBarTrail = Math.max(pct, this.bossBarTrail - step);
+    else this.bossBarTrail = pct;
+  }
+
+  drawBossBar(g) {
+    const boss = (this.enemies || []).find(e => e.boss && !e.dead && e.hp > 0);
+    if (!boss) return;
+    const pct = Math.max(0, Math.min(1, boss.hp / (boss.max || 1)));
+    const trail = this.bossBarTrail == null ? pct : this.bossBarTrail;
+    const name = (boss.name || 'EDISAR').toUpperCase();
+    // Under the top bar, clear of ability/SPECIAL buttons (they end at x=402).
+    const w = 420, x = 424, y = 50, h = 28;
+    g.save();
+    SD.roundRect(g, x, y, w, h, 7);
+    g.fillStyle = 'rgba(6,8,14,0.92)'; g.fill();
+    const frame = g.createLinearGradient(x, y, x, y + h);
+    frame.addColorStop(0, 'rgba(210,220,235,0.85)');
+    frame.addColorStop(0.45, 'rgba(70,80,100,0.9)');
+    frame.addColorStop(1, 'rgba(150,160,180,0.65)');
+    g.strokeStyle = frame; g.lineWidth = 1.7; g.stroke();
+    g.restore();
+    SD.neonText(g, name, x + w / 2, y + 10, 11, '255,210,210', { blur: 6 });
+    const bx = x + 10, by = y + 16, bw = w - 20, bh = 8;
+    g.save();
+    SD.roundRect(g, bx, by, bw, bh, 3);
+    g.fillStyle = 'rgba(18,6,8,0.95)'; g.fill();
+    if (trail > pct + 0.01) {
+      SD.roundRect(g, bx, by, bw * trail, bh, 3);
+      g.fillStyle = 'rgba(200,90,50,0.9)'; g.fill();
+    }
+    const hg = g.createLinearGradient(bx, by, bx, by + bh);
+    hg.addColorStop(0, '#ff8a8a');
+    hg.addColorStop(0.4, '#e01828');
+    hg.addColorStop(1, '#7a0a14');
+    SD.roundRect(g, bx, by, Math.max(0, bw * pct), bh, 3);
+    g.fillStyle = hg; g.fill();
+    g.strokeStyle = 'rgba(255,230,230,0.22)'; g.lineWidth = 0.7;
+    g.beginPath(); g.moveTo(bx + 1, by + 1.2); g.lineTo(bx + bw * pct - 1, by + 1.2); g.stroke();
+    g.strokeStyle = 'rgba(8,8,12,0.75)'; g.lineWidth = 1;
+    for (const t of [0.25, 0.5, 0.75]) {
+      const tx = Math.round(bx + bw * t) + 0.5;
+      g.beginPath(); g.moveTo(tx, by); g.lineTo(tx, by + bh); g.stroke();
+    }
+    g.restore();
+  }
 
   drawHero(g) {
     const h = this.hero; if (!h) return;
@@ -2449,6 +2539,7 @@ SD.Defense = class {
       const t = this.picked, conf = C().turrets[t.kind];
       SD.neonText(g, conf.name + '  MK ' + (t.level === 3 ? 'III' : t.level === 2 ? 'II' : 'I'), 650, H - 78, 11, conf.rgb, { blur: 4, alpha: 0.8 });
     }
+    this.drawBossBar(g);
   }
 
   drawScore(g) {
@@ -2960,6 +3051,46 @@ SD.Defense = class {
       this.bossLine = null;
       this.banner = null;
       this.floaters = [];
+    } else if (id === 'orbital') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 2], [19, 8, 'railgun', 1]]);
+      this.credits = 240;
+      this.waveIndex = 4;
+      this.startWave();
+      this.enemies = [];
+      ['scout','fighter','armored','shielded','interceptor','cryo','scout','fighter'].forEach((tp, i) => this.spawn(tp, 140 + i * 110));
+      this.sim(0.25);
+      const cx = 400, cy = 290;
+      this.fireAbility('orbital', cx, cy);
+      this.abCd.orbital = 12;
+      this.fx.ring(cx, cy, '255,180,80', 78, 8);
+      this.fx.burst(cx, cy, '255,180,80', 22, 180, 8, 2.2);
+      this.heroHint = null;
+      this.banner = null;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'bossbar') {
+      this.setLevel(2); this.reset(); this.spawnHero('oakens');
+      plantNear(6);
+      this.credits = 220;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.enemies = [];
+      this.heroHint = null;
+      const e = this.spawn('flagship', 0);
+      const route = e.route || this.path;
+      const seg = route.seg[Math.min(3, route.seg.length - 1)];
+      e.dist = seg.start + seg.len * 0.45;
+      const p = posOnPath(route, e.dist);
+      e.x = p.x; e.y = p.y; e.ang = p.ang;
+      e.hp = Math.round(e.max * 0.58);
+      e.stunT = 99; e.freezeT = 99;
+      this.bossBarOf = e;
+      this.bossBarTrail = 0.86;
+      this.bossLine = null;
+      this.banner = null;
+      this.floaters = [];
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
     } else if (id === 'title') {
       // unused here
     }

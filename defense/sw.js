@@ -1,5 +1,5 @@
-/* Starlight: Last Station v0.3.1 — cache the app shell for offline / PWA play. */
-const CACHE = 'starlight-td-v0.3.1';
+/* Starlight: Last Station v0.3.2 — cache the app shell for offline / PWA play. */
+const CACHE = 'starlight-td-v0.3.2';
 const ASSETS = [
   './',
   './index.html',

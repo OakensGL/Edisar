@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.3.1
+STARLIGHT: LAST STATION v0.3.2
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -124,4 +124,14 @@ explain how to move the hero and fire their power.
 The Edisar boss hulls (cruiser, dreadnought, flagship, frigate,
 vanguard and eclipse) were redrawn as clean, symmetric navy-and-silver
 capital ships, mirrored along the travel axis.
+
+
+v0.3.2
+------
+Fixed a freeze when arming Orbital, Drones or EMP: the aim preview was
+drawn inside the HUD button builder, where the canvas context did not
+exist, so the game loop threw and the screen stopped. Aim mode now keeps
+the battle running, shows a TAP TO TARGET reticle, and cancels with Esc,
+right-click, or the same button. A large red boss health bar appears at
+the top of the screen when an Edisar ship is on the field.
 
