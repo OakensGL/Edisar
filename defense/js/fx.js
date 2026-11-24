@@ -67,8 +67,10 @@ SD.drawButton = (g, b, selected, t = 0) => {
   g.lineWidth = selected ? 2.5 : 1.5; g.strokeStyle = `rgba(${rgb},${pulse})`;
   g.shadowColor = `rgba(${rgb},1)`; g.shadowBlur = (selected ? 16 : 6) * (SD.view ? SD.view.scale : 1); g.stroke();
   g.restore();
-  SD.neonText(g, b.label, b.x, b.y + (b.sub ? -7 : 1), b.size || 16, rgb, { alpha: b.disabled ? 0.55 : 1, blur: selected ? 16 : 8 });
-  if (b.sub) SD.neonText(g, b.sub, b.x, b.y + 12, b.subSize || 11, b.disabled ? '180,170,140' : (b.subRgb || rgb), { blur: 6, alpha: 0.9 });
+  const labelY = b.labelY != null ? b.labelY : (b.sub ? -7 : 1);
+  const subY = b.subY != null ? b.subY : 12;
+  SD.neonText(g, b.label, b.x, b.y + labelY, b.size || 16, rgb, { alpha: b.disabled ? 0.55 : 1, blur: selected ? 16 : 8 });
+  if (b.sub) SD.neonText(g, b.sub, b.x, b.y + subY, b.subSize || 11, b.disabled ? '180,170,140' : (b.subRgb || rgb), { blur: 6, alpha: 0.9 });
 };
 SD.inBtn = (b, p) => Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.y - b.y) <= b.h / 2;
 

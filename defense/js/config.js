@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.3.2';
+SD.VERSION = '0.4.0';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -24,6 +24,12 @@ SD.CONFIG = {
       blurb: 'Fast single-target beam',
       upBlurb: 'Hotter beam, longer reach',
       upBlurb2: 'Twin beams',
+      tip: {
+        role: 'Rapid-fire beam. Laser damage.',
+        effect: 'Fast single-target shots. Twin beams at MK III.',
+        vs: 'Good vs Scouts and Interceptors.',
+        resist: 'Armored ships, Juggernauts, and bosses resist it.',
+      },
     },
     missile: {
       name: 'MISSILES', short: 'MISSILE', rgb: '255,170,70',
@@ -34,6 +40,12 @@ SD.CONFIG = {
       blurb: 'Slow rockets, splash damage',
       upBlurb: 'Heavier warhead, wider blast',
       upBlurb2: 'Cluster warheads',
+      tip: {
+        role: 'Splash bombardment. Missile damage.',
+        effect: 'Slow rockets with splash. Cluster warheads at MK III.',
+        vs: 'Good vs Armored ships and Juggernauts.',
+        resist: 'Scouts and Interceptors resist it.',
+      },
     },
     ice: {
       name: 'ICE', short: 'ICE', rgb: '140,230,255',
@@ -44,6 +56,12 @@ SD.CONFIG = {
       blurb: 'Slows ships in range',
       upBlurb: 'Deeper freeze, longer hold',
       upBlurb2: 'Brief hard freeze',
+      tip: {
+        role: 'Crowd control. Ice damage.',
+        effect: 'Slows ships in range. Brief hard freeze at MK III.',
+        vs: 'Interceptors are slowed hard.',
+        resist: 'Cryo ships are immune. Juggernauts barely slow.',
+      },
     },
     railgun: {
       name: 'RAILGUN', short: 'RAIL', rgb: '255,210,90',
@@ -53,6 +71,12 @@ SD.CONFIG = {
       blurb: 'Long-range piercing slug',
       upBlurb: 'Heavier slug, more pierce',
       upBlurb2: 'Pierces the whole line',
+      tip: {
+        role: 'Long-range sniper. Railgun damage.',
+        effect: 'Piercing slug. MK III goes through the whole line.',
+        vs: 'Good vs Armored ships and Juggernauts.',
+        resist: 'Weak against shields until they drop.',
+      },
     },
     tesla: {
       name: 'TESLA', short: 'TESLA', rgb: '180,140,255',
@@ -62,6 +86,12 @@ SD.CONFIG = {
       blurb: 'Arc that chains to nearby ships',
       upBlurb: 'Longer arc, more jumps',
       upBlurb2: 'Chains further still',
+      tip: {
+        role: 'Chaining arc. Tesla damage.',
+        effect: 'Jumps from ship to ship and punches through shields.',
+        vs: 'Good vs Shielded ships and Interceptors.',
+        resist: 'No hull type resists the arc.',
+      },
     },
     pulse: {
       name: 'PULSE', short: 'PULSE', rgb: '80,255,180',
@@ -72,6 +102,12 @@ SD.CONFIG = {
       blurb: 'Shockwave that strips shields and poisons hulls',
       upBlurb: 'Wider blast, stronger toxin',
       upBlurb2: 'Toxin spreads to nearby ships',
+      tip: {
+        role: 'Shield-breaker. Pulse damage.',
+        effect: 'Strips shields and poisons hulls. MK III toxin spreads.',
+        vs: 'Good vs Shielded ships.',
+        resist: 'Low burst vs heavy hulls until the toxin stacks.',
+      },
     },
     nebula: {
       name: 'NEBULA', short: 'NEBULA', rgb: '255,70,70',
@@ -79,6 +115,12 @@ SD.CONFIG = {
       range: [220], damage: [240], rate: [2.55], pierce: [99],
       ignoreResist: true,
       blurb: "Dr. Nebula's dark-energy beam. Pierces a line and ignores shields and resists. One per map.",
+      tip: {
+        role: 'Heavy dark-energy beam. Ignores shields and resistances.',
+        effect: 'Pierces a whole line. One per map.',
+        vs: 'Effective against every hull, including bosses.',
+        resist: 'Unlocks on Level 3.',
+      },
     },
   },
   abilities: {
@@ -90,12 +132,12 @@ SD.CONFIG = {
     oakens: {
       id: 'oakens', name: 'OAKENS', rgb: '80,170,255',
       hp: 110, range: 102, damage: 14, rate: 0.34, moveCd: 3.2, moveSpeed: 230,
-      specialCd: 16, special: 'burst', specialDmg: 55, specialR: 70, respawn: 12,
+      specialCd: 28, special: 'missiles', specialDmg: 32, specialR: 70, respawn: 12,
     },
     nebula: {
       id: 'nebula', name: 'NEBULA', rgb: '255,70,70',
       hp: 95, range: 122, damage: 20, rate: 0.62, moveCd: 3.2, moveSpeed: 210,
-      specialCd: 18, special: 'beam', specialDmg: 90, specialRange: 200, respawn: 12,
+      specialCd: 32, special: 'lightning', specialDmg: 40, specialRange: 200, respawn: 12,
     },
   },
   enemies: {
@@ -347,16 +389,22 @@ SD.store = {
 SD.pad = (n, len = 2) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 
 SD.Progress = {
-  load() {
+  empty() {
     const n = (SD.CONFIG.levels && SD.CONFIG.levels.length) || 6;
-    const zeros = () => Array.from({ length: n }, () => 0);
+    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [] };
+  },
+  load() {
+    const base = SD.Progress.empty();
     try {
       const v = JSON.parse(SD.store.get(SD.CONFIG.storage.progress, ''));
       if (v && typeof v === 'object') {
-        return { unlocked: Math.max(1, v.unlocked | 0), stars: zeros().map((_, i) => (v.stars && v.stars[i]) || 0) };
+        base.unlocked = Math.max(1, v.unlocked | 0);
+        base.stars = base.stars.map((_, i) => (v.stars && v.stars[i]) || 0);
+        const ids = new Set(SD.StarShop.items.map(it => it.id));
+        base.bought = Array.isArray(v.bought) ? v.bought.filter(id => ids.has(id)) : [];
       }
     } catch (e) {}
-    return { unlocked: 1, stars: zeros() };
+    return base;
   },
   save(p) { SD.store.set(SD.CONFIG.storage.progress, JSON.stringify(p)); },
   record(levelIndex, stars) {
@@ -367,3 +415,95 @@ SD.Progress = {
     return p;
   },
 };
+
+SD.StarShop = {
+  kinds: ['laser', 'missile', 'ice', 'railgun', 'tesla', 'pulse'],
+  mk4: {
+    laser:   { name: 'FOCUS FIRE',   blurb: 'Damage ramps on the same target, up to +40%.' },
+    missile: { name: 'BARRAGE',      blurb: 'Every 4th volley fires a second rocket.' },
+    ice:     { name: 'SHATTER',      blurb: 'Slowed ships take +20% damage from all turrets.' },
+    railgun: { name: 'CHARGED SLUG', blurb: 'First shot at a target, or every 8s, deals +50%.' },
+    tesla:   { name: 'OVERVOLT',     blurb: '+1 chain jump. The primary hit shreds some shield.' },
+    pulse:   { name: 'VIRULENT',     blurb: '+1 poison stack and +1s. A light spread at every MK.' },
+  },
+  items: [],
+  item(id) { return this.items.find(it => it.id === id) || null; },
+  owns(p, id) { return !!(p && p.bought && p.bought.indexOf(id) >= 0); },
+  earned(p) { return (p.stars || []).reduce((a, s) => a + (s | 0), 0); },
+  spent(p) { return (p.bought || []).reduce((a, id) => { const it = this.item(id); return a + (it ? it.cost : 0); }, 0); },
+  available(p) { return this.earned(p) - this.spent(p); },
+  locked(p, it) { return !!this.lockReason(p, it); },
+  lockReason(p, it) {
+    if (!it) return '';
+    const missing = (it.req || []).filter(r => !this.owns(p, r));
+    if (missing.length) {
+      return 'NEED ' + missing.map(r => (this.item(r) && this.item(r).name) || r).join(' + ');
+    }
+    const taken = (it.mutex || []).filter(r => this.owns(p, r));
+    if (taken.length) return 'RESPEC TO SWITCH';
+    return '';
+  },
+  canBuy(p, id) {
+    const it = this.item(id);
+    if (!it || this.owns(p, id) || this.locked(p, it)) return false;
+    return this.available(p) >= it.cost;
+  },
+  buy(p, id) {
+    if (!this.canBuy(p, id)) return false;
+    p.bought = (p.bought || []).concat([id]);
+    SD.Progress.save(p);
+    return true;
+  },
+  respec(p) {
+    p.bought = [];
+    SD.Progress.save(p);
+    return p;
+  },
+  perksOf(p, kind) {
+    const bits = [];
+    if (kind !== 'nebula') {
+      if (this.owns(p, kind + '-power')) bits.push('POWER');
+      if (this.owns(p, kind + '-reach')) bits.push('REACH');
+      if (this.owns(p, kind + '-economy')) bits.push('ECONOMY');
+      if (this.owns(p, kind + '-mk4')) bits.push((this.mk4[kind] && this.mk4[kind].name) || 'MK IV');
+    } else if (this.owns(p, 'nebula-core')) bits.push('DARK CORE');
+    return bits;
+  },
+};
+
+(function buildStarShop() {
+  const items = [];
+  const blurbs = {
+    power: '+15% damage',
+    reach: '+12% range',
+    economy: '−15% build cost',
+  };
+  for (const kind of SD.StarShop.kinds) {
+    const name = (SD.CONFIG.turrets[kind] && SD.CONFIG.turrets[kind].short) || kind.toUpperCase();
+    items.push({ id: kind + '-power',   col: kind, name: 'POWER',   cost: 1, blurb: name + '  ' + blurbs.power });
+    items.push({ id: kind + '-reach',   col: kind, name: 'REACH',   cost: 1, blurb: name + '  ' + blurbs.reach });
+    items.push({ id: kind + '-economy', col: kind, name: 'ECONOMY', cost: 2, blurb: name + '  ' + blurbs.economy });
+    const mk = SD.StarShop.mk4[kind];
+    items.push({
+      id: kind + '-mk4', col: kind, name: 'MK IV', perk: mk.name, cost: 3,
+      req: [kind + '-power', kind + '-reach'],
+      blurb: name + '  ' + mk.name + '  —  ' + mk.blurb,
+    });
+  }
+  items.push({ id: 'nebula-core', col: 'station', name: 'DARK CORE', cost: 2, blurb: 'NEBULA  +15% damage. Still one per map.' });
+  items.push({ id: 'funds',  col: 'station', name: 'RESERVE FUNDS',    cost: 2, blurb: 'Start every level with 230 credits (was 180).' });
+  items.push({ id: 'hull',   col: 'station', name: 'REINFORCED HULL',  cost: 2, blurb: 'Start every level with 24 hull (was 20).' });
+  items.push({ id: 'charge', col: 'station', name: 'RAPID CHARGE',     cost: 3, blurb: 'ORBITAL, DRONES and EMP cooldown −18%.' });
+  items.push({ id: 'hero',   col: 'station', name: 'HERO PROTOCOL',    cost: 3, blurb: 'Hero +25 HP, +15% damage, special −3s, respawn −2s. Unlocks a specialization.' });
+  items.push({
+    id: 'hero-freeze', col: 'station', name: 'FREEZE', cost: 3,
+    req: ['hero'], mutex: ['hero-overload'],
+    blurb: 'FREEZE  —  The hero special also freezes every ship for 2.5s. Bosses freeze for 1s.',
+  });
+  items.push({
+    id: 'hero-overload', col: 'station', name: 'OVERLOAD', cost: 3,
+    req: ['hero'], mutex: ['hero-freeze'],
+    blurb: 'OVERLOAD  —  Hero special damage +50%. Pick Freeze or Overload; respec to switch.',
+  });
+  SD.StarShop.items = items;
+})();

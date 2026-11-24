@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.3.2
+STARLIGHT: LAST STATION v0.4.0
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -42,6 +42,7 @@ Game music: Space Shooter Music pack by Oblidivm
   License: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
   Tracks (re-encoded to a lower-bitrate Ogg Vorbis for phones):
     SkyFire (Title Screen)     — intro crawl          assets/skyfire.ogg
+    Brave Pilots (Menu Screen) — build / planning     assets/brave-pilots.ogg
     Without Fear               — odd numbered waves   assets/without-fear.ogg
     Battle in the Stars        — even numbered waves  assets/battle-in-the-stars.ogg
     DeathMatch (Boss Theme)    — Edisar flagship wave assets/deathmatch.ogg
@@ -135,3 +136,22 @@ the battle running, shows a TAP TO TARGET reticle, and cancels with Esc,
 right-click, or the same button. A large red boss health bar appears at
 the top of the screen when an Edisar ship is on the field.
 
+
+v0.4.0
+------
+An ARMORY on the level-select screen spends earned stars on permanent
+turret and station upgrades, drawn as a sci-fi tech tree and run by
+Bazooka Joe, a mad-scientist weapons inventor. After HERO
+PROTOCOL you pick one specialization for the hero special: FREEZE
+(also freezes every ship for 2.5s, bosses for 1s) or OVERLOAD
+(+50% special damage). Only one can be owned at a time; RESPEC
+returns every star and lets you switch.
+The build bar shows a picture of each turret. Hover or long-press
+a button for a short description of what it does; a long-press does
+not place the turret.
+The hero special (R / SPECIAL) now hits every ship on the field:
+Oakens rains a missile onto each one, Nebula strikes each with red
+lightning. Bosses take reduced special damage, and the cooldown is
+longer so it cannot be spammed.
+Between waves, and before the first wave, Brave Pilots loops as a
+calmer build-phase track and crossfades into the battle music.

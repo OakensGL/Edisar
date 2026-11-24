@@ -35,6 +35,11 @@
     SD.state = 'levels';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.playTitle) SD.Audio.playTitle();
+  } else if (shot && (shot[1] === 'armory' || shot[1] === 'joe' || shot[1] === 'bazooka' || shot[1] === 'bazookajoe')) {
+    SD.game = new SD.Armory({ shot: shot[1] === 'armory' ? 'armory' : 'joe' });
+    SD.state = 'armory';
+    if (credit) credit.style.display = 'none';
+    if (SD.Audio.playTitle) SD.Audio.playTitle();
   } else if (shot && shot[1] !== 'title') {
     SD.game = new SD.Defense({ shot: shot[1] });
     SD.state = 'play';
@@ -53,6 +58,11 @@
     } else if (s === 'levels') {
       SD.state = 'levels';
       SD.game = new SD.LevelSelect();
+      if (credit) credit.style.display = 'none';
+      if (SD.Audio.playTitle) SD.Audio.playTitle();
+    } else if (s === 'armory') {
+      SD.state = 'armory';
+      SD.game = new SD.Armory();
       if (credit) credit.style.display = 'none';
       if (SD.Audio.playTitle) SD.Audio.playTitle();
     } else if (s === 'crawl') {

@@ -11,6 +11,7 @@ SD.Audio = (() => {
     crawl:  { src: 'assets/skyfire.ogg',                 loop: false, vol: 0.48, duration: 53.355 },
     fear:   { src: 'assets/without-fear.ogg',            loop: true,  vol: 0.24 },
     battle: { src: 'assets/battle-in-the-stars.ogg',     loop: true,  vol: 0.24 },
+    build:  { src: 'assets/brave-pilots.ogg',            loop: true,  vol: 0.32 },
     boss:   { src: 'assets/deathmatch.ogg',              loop: true,  vol: 0.30 },
     score:  { src: 'assets/space-heroes.ogg',            loop: true,  vol: 0.42 },
     win:    { src: 'assets/victory-tune.ogg',            loop: false, vol: 0.50 },
@@ -108,9 +109,10 @@ SD.Audio = (() => {
   function stopTitle() { if (want === 'title' || !want) stopMusic(); }
   function playCrawl() { playMusic('crawl', { restart: true }); }
   function playWave(index) {
-    if (index >= 9) playMusic('boss');
-    else playMusic(index % 2 === 0 ? 'fear' : 'battle');
+    if (index >= 9) playMusic('boss', { dur: 1.0 });
+    else playMusic(index % 2 === 0 ? 'fear' : 'battle', { dur: 1.0 });
   }
+  function playBuild() { playMusic('build', { dur: 1.0 }); }
   function playScore() { playMusic('score'); }
   function playWin() { playMusic('win', { restart: true, dur: 0.7 }); }
   function playLose() { playMusic('lose', { restart: true, dur: 0.7 }); }
@@ -177,11 +179,30 @@ SD.Audio = (() => {
     win() { if (!ok()) return; [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 1.02, 0.28, 0.12), i * 140)); },
     lose() { if (!ok()) return; tone('sawtooth', 300, 60, 0.8, 0.16); tone('sine', 140, 40, 0.9, 0.2); },
     coin() { if (!ok()) return; tone('triangle', 990, 1320, 0.07, 0.07); },
+    heroMissiles() {
+      if (!ok()) return;
+      noise(0.55, 1800, 180, 0.22);
+      tone('sawtooth', 280, 90, 0.45, 0.12);
+      for (let i = 0; i < 6; i++) {
+        const k = i;
+        setTimeout(() => { if (!ok()) return; tone('sawtooth', 420 - k * 28, 880, 0.16, 0.06); noise(0.12, 1600, 300, 0.08); }, k * 55);
+      }
+    },
+    heroLightning() {
+      if (!ok()) return;
+      noise(0.55, 3200, 90, 0.32, 0.4);
+      tone('square', 90, 36, 0.5, 0.16);
+      tone('sawtooth', 1400, 220, 0.22, 0.1);
+      for (let i = 0; i < 4; i++) {
+        const k = i;
+        setTimeout(() => { if (!ok()) return; tone('square', 980 - k * 80, 140, 0.1, 0.07); noise(0.1, 2600, 200, 0.12, 0.6); }, 40 + k * 70);
+      }
+    },
   };
 
   return {
     unlock, toggleMute, setMuted,
-    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playWave, playScore, playWin, playLose,
+    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playWave, playBuild, playScore, playWin, playLose,
     trackDuration: (id) => (TRACKS[id] && TRACKS[id].duration) || 0,
     get muted() { return muted; },
     get started() { return started; },

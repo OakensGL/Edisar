@@ -1,5 +1,5 @@
-/* Starlight: Last Station v0.3.2 — cache the app shell for offline / PWA play. */
-const CACHE = 'starlight-td-v0.3.2';
+/* Starlight: Last Station v0.4.0 — cache the app shell for offline / PWA play. */
+const CACHE = 'starlight-td-v0.4.0';
 const ASSETS = [
   './',
   './index.html',
@@ -20,9 +20,11 @@ const ASSETS = [
   './assets/title-bg.jpg',
   './assets/crawl-bg.jpg',
   './assets/edisar-scarred.jpg',
+  './assets/bazooka-joe.jpg',
   './assets/space-dimensions-retro.ogg',
   './assets/skyfire.ogg',
   './assets/without-fear.ogg',
+  './assets/brave-pilots.ogg',
   './assets/battle-in-the-stars.ogg',
   './assets/deathmatch.ogg',
   './assets/space-heroes.ogg',

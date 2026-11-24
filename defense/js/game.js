@@ -11,6 +11,17 @@ if (!SD.Portraits.edisar) {
   im.src = 'assets/edisar-scarred.jpg';
   SD.Portraits.edisar = im;
 }
+if (!SD.Portraits.joe) {
+  const joe = new Image();
+  joe.src = 'assets/bazooka-joe.jpg';
+  SD.Portraits.joe = joe;
+}
+SD.JOE_LINES = {
+  open: 'Ah, a customer! Mind the vials, half of them explode.',
+  buy: "Hehehe! She'll shoot straighter now... probably.",
+  mk4: 'Now THAT is science!',
+  respec: 'Back to the drawing board! I love the drawing board.',
+};
 
 function tileCenter(tx, ty) { return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }; }
 function tileAt(x, y) { return { tx: Math.floor(x / TILE), ty: Math.floor(y / TILE) }; }
@@ -228,6 +239,7 @@ SD.Title = class {
     const lines = [
       'Six levels, ten waves each. Credits and turrets reset every level. Later maps use two entrance gates.',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
+      'ARMORY on the level select spends earned stars on permanent turret and station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
       'NEBULA · Level 3 and later, one per map. A red dark-energy beam that ignores shields and resists.',
       'Upgrade twice for MK III specials (twin beams, cluster, freeze, full pierce, longer chains, spreading toxin).',
@@ -235,8 +247,8 @@ SD.Title = class {
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
       'Each turret can target First, Last, Strongest, Weakest or Closest — toggle it in the turret panel.',
       'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then the field. Esc or right-click cancels.',
-      'Bring Oakens or Nebula. Tap them, then a tile to move. R or the SPECIAL button fires their power.',
-      'Drag a turret from the build bar onto a pad to place it. T retries the level (with a confirm).',
+      'Bring Oakens or Nebula. Tap them, then a tile to move. R or SPECIAL hits every ship (Oakens: missile rain, Nebula: red lightning).',
+      'Hover or long-press a turret in the build bar to see what it does. Long-press does not place it. Drag a turret onto a pad to build. T retries the level (with a confirm).',
       'The HUD speed button (or F) cycles x1 / x2 / x3. It only speeds the battle, not the music.',
       '',
       SD.Input.touchMode
@@ -271,7 +283,7 @@ SD.Title = class {
       ['Game music  ·  Space Shooter Music pack', '180,210,255', 13],
       ['Music by Oblidivm  —  oblidivmmusic.blogspot.com', '230,235,245', 15],
       ['CC-BY 3.0', '230,235,245', 15],
-      ['SkyFire  ·  Without Fear  ·  Battle in the Stars', '200,210,230', 13],
+      ['SkyFire  ·  Brave Pilots  ·  Without Fear  ·  Battle in the Stars', '200,210,230', 13],
       ['Space Heroes  ·  DeathMatch  ·  Victory Tune  ·  Defeated', '200,210,230', 13],
       ['', '', 8],
       ['Sound effects are synthesized in-game.', '180,200,220', 13],
@@ -476,6 +488,7 @@ SD.LevelSelect = class {
     this.stars = new SD.Starfield(1.1);
     this.progress = opt.shot ? { unlocked: 6, stars: [3, 3, 1, 2, 1, 0] } : SD.Progress.load();
     this.back = { x: 70, y: 28, w: 100, h: 32, label: 'MENU', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.armoryBtn = { x: 200, y: 28, w: 130, h: 32, label: 'ARMORY', rgb: '255,220,120', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.cards = SD.CONFIG.levels.map((lv, i) => ({
       i, lv,
@@ -492,6 +505,7 @@ SD.LevelSelect = class {
     for (const p of SD.Input.takeClicks()) {
       if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
       else if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('title'); }
+      else if (SD.inBtn(this.armoryBtn, p)) { SD.Audio.click(); SD.start('armory'); }
       else {
         for (const c of this.cards) {
           if (Math.abs(p.x - c.x) <= c.w / 2 && Math.abs(p.y - c.y) <= c.h / 2) {
@@ -511,8 +525,12 @@ SD.LevelSelect = class {
     g.fillStyle = top; g.fillRect(0, 0, W, 160);
     SD.neonText(g, 'STARLIGHT', W / 2, 54, 28, '210,230,255', { blur: 12 });
     SD.neonText(g, 'SELECT LEVEL', W / 2, 92, 22, '255,220,140', { blur: 10 });
+    const earned = SD.StarShop.earned(this.progress);
+    const left = SD.StarShop.available(this.progress);
+    SD.neonText(g, '★  ' + left + ' / ' + earned, 340, 32, 14, '255,220,120', { blur: 6 });
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
+    SD.drawButton(g, this.armoryBtn, mouse.over && SD.inBtn(this.armoryBtn, mouse), this.T);
     SD.drawButton(g, this.mute, SD.Audio.muted || (mouse.over && SD.inBtn(this.mute, mouse)), this.T);
     this.cards.forEach((c, i) => {
       const locked = i >= this.progress.unlocked;
@@ -553,6 +571,684 @@ SD.LevelSelect = class {
   }
 };
 
+
+/* ============================================================== Armory */
+SD.Armory = class {
+  constructor(opt = {}) {
+    this.T = 0;
+    this.stars = new SD.Starfield(1.1);
+    this.shot = opt.shot || false;
+    this.progress = this.shot ? this.shotProgress() : SD.Progress.load();
+    this.hover = null;
+    this.focus = (this.shot === true || this.shot === 'armory') ? 'hero-freeze' : null;
+    this.joeLine = SD.JOE_LINES.open;
+    this.joePop = 0.4;
+    this.respecAsk = false;
+    this.respecSel = 0;
+    this.back = { x: 70, y: 26, w: 100, h: 30, label: 'BACK', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.respec = { x: W - 70, y: 26, w: 110, h: 30, label: 'RESPEC', rgb: '255,160,120', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.spr = this.prepSprites();
+    this.layout = this.buildLayout();
+    if (this.shot) this.T = 0.48;
+  }
+  shotProgress() {
+    return {
+      unlocked: 6,
+      stars: [3, 3, 3, 3, 3, 3],
+      bought: ['laser-power', 'laser-reach', 'laser-economy', 'laser-mk4', 'ice-power', 'ice-reach', 'ice-mk4', 'hero'],
+    };
+  }
+  prepSprites() {
+    const turret = {};
+    for (const k of SD.StarShop.kinds.concat(['nebula'])) {
+      const lv = k === 'nebula' ? 1 : 3;
+      try { turret[k] = { base: SD.Sprites.turretBase(k, lv), head: SD.Sprites.turretHead(k, lv) }; }
+      catch (e) { turret[k] = null; }
+    }
+    let station = null, oakens = null, nebula = null;
+    try { station = SD.Sprites.station(); } catch (e) {}
+    try { oakens = SD.Sprites.hero('oakens'); nebula = SD.Sprites.hero('nebula'); } catch (e) {}
+    return { turret, station, hero: { oakens, nebula } };
+  }
+  buildLayout() {
+    const kinds = SD.StarShop.kinds;
+    const chassis = { x: 14, y: 92, w: 996, h: 368 };
+    const pad = 10, gap = 6;
+    const innerW = chassis.w - pad * 2;
+    const w = Math.floor((innerW - gap * 6) / 7);
+    const x0 = chassis.x + pad + Math.floor((innerW - (w * 7 + gap * 6)) / 2);
+    const y0 = chassis.y + 8;
+    const map = {};
+    const bays = [];
+    kinds.forEach((col, i) => {
+      const x = x0 + i * (w + gap);
+      const cx = x + w / 2;
+      bays.push({ col, x, y: y0, w, h: chassis.h - 16, cx });
+      const power = { x: cx - 30, y: y0 + 132, w: 58, h: 62 };
+      const reach = { x: cx + 30, y: y0 + 132, w: 58, h: 62 };
+      const mk4 = { x: cx, y: y0 + 224, w: 68, h: 72 };
+      const econ = { x: cx, y: y0 + 314, w: 58, h: 62 };
+      const byId = { power, reach, economy: econ, mk4 };
+      ['power', 'reach', 'economy', 'mk4'].forEach(key => {
+        const it = SD.StarShop.item(col + '-' + key);
+        const pos = byId[key];
+        map[it.id] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h, it, r: key === 'mk4' ? 26 : 22 };
+      });
+    });
+    const sx = x0 + 6 * (w + gap);
+    const scx = sx + w / 2;
+    bays.push({ col: 'station', x: sx, y: y0, w, h: chassis.h - 16, cx: scx });
+    const stations = {
+      funds:  { x: scx - 30, y: y0 + 108, w: 54, h: 54, r: 19 },
+      hull:   { x: scx + 30, y: y0 + 108, w: 54, h: 54, r: 19 },
+      charge: { x: scx - 30, y: y0 + 168, w: 54, h: 54, r: 19 },
+      'nebula-core': { x: scx + 30, y: y0 + 168, w: 54, h: 54, r: 19 },
+      hero:   { x: scx, y: y0 + 236, w: 58, h: 58, r: 21 },
+      'hero-freeze': { x: scx - 30, y: y0 + 306, w: 54, h: 56, r: 20 },
+      'hero-overload': { x: scx + 30, y: y0 + 306, w: 54, h: 56, r: 20 },
+    };
+    Object.keys(stations).forEach(id => {
+      const it = SD.StarShop.item(id);
+      const pos = stations[id];
+      map[it.id] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h, it, r: pos.r };
+    });
+    this.chassis = chassis;
+    this.bays = bays;
+    this.tipBox = { x: 14, y: 466, w: 996, h: 100 };
+    return map;
+  }
+  yesNo() {
+    return {
+      yes: { x: W / 2 - 100, y: 330, w: 180, h: 50, label: 'YES', rgb: '255,80,220', size: 22 },
+      no:  { x: W / 2 + 100, y: 330, w: 180, h: 50, label: 'NO',  rgb: '70,160,255', size: 22 },
+    };
+  }
+  hitItem(p) {
+    for (const id of Object.keys(this.layout)) {
+      const b = this.layout[id];
+      if (Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.y - b.y) <= b.h / 2) return b;
+    }
+    return null;
+  }
+  stateOf(it) {
+    const p = this.progress;
+    const owned = SD.StarShop.owns(p, it.id);
+    const lock = SD.StarShop.locked(p, it);
+    const afford = SD.StarShop.canBuy(p, it.id);
+    const hot = (this.hover && this.hover.it.id === it.id) || this.focus === it.id;
+    return { owned, lock, afford, hot };
+  }
+  tryBuy(id) {
+    if (this.shot) { this.focus = id; SD.Audio.click(); return; }
+    const p = this.progress;
+    if (SD.StarShop.owns(p, id)) { this.focus = id; SD.Audio.click(); return; }
+    if (SD.StarShop.canBuy(p, id)) {
+      SD.StarShop.buy(p, id);
+      this.progress = SD.Progress.load();
+      this.focus = id;
+      this.sayJoe((id && id.indexOf('-mk4') >= 0) ? 'mk4' : 'buy');
+      SD.Audio.upgrade();
+    } else {
+      this.focus = id;
+      SD.Audio.deny();
+    }
+  }
+  confirmRespec() {
+    if (this.shot) { this.respecAsk = false; return; }
+    SD.StarShop.respec(this.progress);
+    this.progress = SD.Progress.load();
+    this.respecAsk = false;
+    this.focus = null;
+    this.sayJoe('respec');
+    SD.Audio.sell();
+  }
+  sayJoe(kind) {
+    this.joeLine = (SD.JOE_LINES && SD.JOE_LINES[kind]) || SD.JOE_LINES.open;
+    this.joePop = 0;
+  }
+  wrapJoe(g, text, maxW) {
+    const words = String(text || '').split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? cur + ' ' + w : w;
+      if (cur && g.measureText(next).width > maxW) { lines.push(cur); cur = w; }
+      else cur = next;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  update(dt) {
+    this.T += dt;
+    this.joePop = (this.joePop || 0) + dt;
+    this.stars.update(dt);
+    const mouse = SD.Input.mouse;
+    this.hover = mouse.over ? this.hitItem(mouse) : null;
+    if (this.respecAsk) {
+      const b = this.yesNo();
+      if (SD.Input.hitAny('Escape', 'Backspace', 'KeyN')) { this.respecAsk = false; SD.Audio.click(); return; }
+      if (SD.Input.hitAny('ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD')) { this.respecSel = 1 - this.respecSel; SD.Audio.click(); }
+      if (SD.Input.hit('KeyY') || (SD.Input.confirm() && this.respecSel === 0)) { this.confirmRespec(); return; }
+      if (SD.Input.confirm() && this.respecSel === 1) { this.respecAsk = false; SD.Audio.click(); return; }
+      for (const p of SD.Input.takeClicks()) {
+        if (SD.inBtn(b.yes, p)) this.confirmRespec();
+        else if (SD.inBtn(b.no, p)) { this.respecAsk = false; SD.Audio.click(); }
+      }
+      return;
+    }
+    if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('levels'); return; }
+    for (const p of SD.Input.takeClicks()) {
+      if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('levels'); }
+      else if (SD.inBtn(this.respec, p)) {
+        if ((this.progress.bought || []).length) { this.respecAsk = true; this.respecSel = 0; SD.Audio.click(); }
+        else SD.Audio.deny();
+      } else {
+        const hit = this.hitItem(p);
+        if (hit) this.tryBuy(hit.it.id);
+      }
+    }
+  }
+
+  /* ---------- chrome ---------- */
+  drawChassis(g, x, y, w, h) {
+    g.save();
+    SD.roundRect(g, x, y, w, h, 14);
+    const well = g.createLinearGradient(x, y, x, y + h);
+    well.addColorStop(0, 'rgba(18,22,34,0.94)');
+    well.addColorStop(0.18, 'rgba(10,12,20,0.92)');
+    well.addColorStop(1, 'rgba(6,8,14,0.94)');
+    g.fillStyle = well; g.fill();
+    // top light
+    const shine = g.createLinearGradient(x, y, x, y + 70);
+    shine.addColorStop(0, 'rgba(200,215,240,0.10)');
+    shine.addColorStop(1, 'rgba(200,215,240,0)');
+    SD.roundRect(g, x, y, w, h, 14);
+    g.fillStyle = shine; g.fill();
+    const frame = g.createLinearGradient(x, y, x, y + h);
+    frame.addColorStop(0, 'rgba(220,230,245,0.85)');
+    frame.addColorStop(0.4, 'rgba(80,90,110,0.9)');
+    frame.addColorStop(1, 'rgba(160,170,190,0.55)');
+    g.strokeStyle = frame; g.lineWidth = 2; g.stroke();
+    // corner brackets
+    g.strokeStyle = 'rgba(230,235,245,0.7)'; g.lineWidth = 2.2; g.lineCap = 'square';
+    const L = 16;
+    [[x + 8, y + 8, 1, 1], [x + w - 8, y + 8, -1, 1], [x + 8, y + h - 8, 1, -1], [x + w - 8, y + h - 8, -1, -1]].forEach(([bx, by, sx, sy]) => {
+      g.beginPath(); g.moveTo(bx + L * sx, by); g.lineTo(bx, by); g.lineTo(bx, by + L * sy); g.stroke();
+    });
+    g.restore();
+  }
+  drawBay(g, bay) {
+    g.save();
+    SD.roundRect(g, bay.x, bay.y, bay.w, bay.h, 10);
+    g.fillStyle = 'rgba(4,6,12,0.45)'; g.fill();
+    g.strokeStyle = 'rgba(140,160,190,0.16)'; g.lineWidth = 1; g.stroke();
+    // soft inner light at the portrait well
+    const lg = g.createRadialGradient(bay.cx, bay.y + 40, 4, bay.cx, bay.y + 40, 54);
+    const rgb = bay.col === 'station' ? '255,220,140' : ((SD.CONFIG.turrets[bay.col] && SD.CONFIG.turrets[bay.col].rgb) || '180,200,220');
+    lg.addColorStop(0, `rgba(${rgb},0.16)`);
+    lg.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = lg; g.beginPath(); g.arc(bay.cx, bay.y + 40, 54, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  drawPortrait(g, bay) {
+    const labels = { laser: 'LASER', missile: 'MISSILE', ice: 'ICE', railgun: 'RAIL', tesla: 'TESLA', pulse: 'PULSE', station: 'STATION' };
+    const rgb = bay.col === 'station' ? '255,220,140' : ((SD.CONFIG.turrets[bay.col] && SD.CONFIG.turrets[bay.col].rgb) || '200,210,230');
+    const cx = bay.cx, cy = bay.y + 40;
+    // pedestal
+    g.save();
+    g.beginPath(); g.ellipse(cx, cy + 22, 28, 7, 0, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fill();
+    g.restore();
+    if (bay.col === 'station') {
+      if (this.spr.station) SD.blit(g, this.spr.station, cx, bay.y + 32, 0, 0.72);
+    } else {
+      const spr = this.spr.turret[bay.col];
+      if (spr) {
+        const sweep = -Math.PI / 2 + 0.28 * Math.sin(this.T * 0.85 + bay.x * 0.01);
+        SD.blit(g, spr.base, cx, cy + 2, 0, 0.95);
+        SD.blit(g, spr.head, cx, cy + 2, sweep + Math.PI / 2, 0.95);
+      }
+    }
+    SD.neonText(g, labels[bay.col] || bay.col.toUpperCase(), cx, bay.col === 'station' ? bay.y + 66 : bay.y + 84, 11, rgb, { blur: 6 });
+  }
+  drawConnectors(g, bay) {
+    const p = this.progress;
+    if (bay.col === 'station') {
+      const funds = this.layout.funds, hull = this.layout.hull, charge = this.layout.charge;
+      const core = this.layout['nebula-core'], hero = this.layout.hero;
+      const fr = this.layout['hero-freeze'], ov = this.layout['hero-overload'];
+      const owned = (id) => SD.StarShop.owns(p, id);
+      this.rail(g, funds.x, funds.y + 20, funds.x, charge.y - 20, owned('funds'));
+      this.rail(g, hull.x, hull.y + 20, hull.x, core.y - 20, owned('hull'));
+      this.rail(g, charge.x, charge.y + 20, hero.x - 8, hero.y - 22, owned('charge') || owned('hero'));
+      this.rail(g, core.x, core.y + 20, hero.x + 8, hero.y - 22, owned('nebula-core') || owned('hero'));
+      // specialization fork
+      this.rail(g, hero.x, hero.y + 22, fr.x, fr.y - 22, owned('hero') || owned('hero-freeze'));
+      this.rail(g, hero.x, hero.y + 22, ov.x, ov.y - 22, owned('hero') || owned('hero-overload'));
+      const midY = (hero.y + 22 + fr.y - 22) / 2;
+      const forkNote = (owned('hero-freeze') || owned('hero-overload')) ? 'RESPEC TO SWITCH' : 'PICK ONE';
+      SD.neonText(g, forkNote, hero.x, midY - 1, 8, '200,220,255', { blur: 3, alpha: owned('hero') ? 0.9 : 0.55 });
+      return;
+    }
+    const pow = this.layout[bay.col + '-power'];
+    const rea = this.layout[bay.col + '-reach'];
+    const mk = this.layout[bay.col + '-mk4'];
+    const eco = this.layout[bay.col + '-economy'];
+    const ownP = SD.StarShop.owns(p, pow.it.id);
+    const ownR = SD.StarShop.owns(p, rea.it.id);
+    const ownM = SD.StarShop.owns(p, mk.it.id);
+    const ownE = SD.StarShop.owns(p, eco.it.id);
+    // from portrait down to the pair
+    this.rail(g, bay.cx, bay.y + 90, pow.x, pow.y - 24, ownP);
+    this.rail(g, bay.cx, bay.y + 90, rea.x, rea.y - 24, ownR);
+    // merge into MK IV
+    this.rail(g, pow.x, pow.y + 24, mk.x, mk.y - 28, ownP);
+    this.rail(g, rea.x, rea.y + 24, mk.x, mk.y - 28, ownR);
+    // optional economy branch off the trunk
+    this.rail(g, mk.x, mk.y + 28, eco.x, eco.y - 24, ownM || ownE, true);
+  }
+  rail(g, x0, y0, x1, y1, on, optional) {
+    g.save();
+    g.strokeStyle = on ? 'rgba(255,210,120,0.85)' : (optional ? 'rgba(120,140,170,0.28)' : 'rgba(120,150,190,0.4)');
+    g.lineWidth = on ? 2.2 : 1.4;
+    g.lineCap = 'round';
+    if (optional && !on) g.setLineDash([3, 4]);
+    if (on) { g.shadowColor = 'rgba(255,200,100,0.7)'; g.shadowBlur = 6 * (SD.view ? SD.view.scale : 1); }
+    g.beginPath(); g.moveTo(x0, y0);
+    if (Math.abs(x0 - x1) > 4 && Math.abs(y0 - y1) > 4) {
+      const midY = (y0 + y1) / 2;
+      g.lineTo(x0, midY); g.lineTo(x1, midY); g.lineTo(x1, y1);
+    } else g.lineTo(x1, y1);
+    g.stroke();
+    g.restore();
+  }
+
+  /* ---------- nodes / icons ---------- */
+  drawNode(g, b) {
+    const st = this.stateOf(b.it);
+    const r = b.r || 22;
+    const pulse = 0.5 + 0.5 * Math.sin(this.T * 3.15);
+    g.save();
+    // glow for affordable
+    if (st.afford) {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      SD.glow(g, b.x, b.y, r + 10, r + 10, '120,210,255', 0.18 + 0.22 * pulse);
+      g.restore();
+    } else if (st.owned) {
+      SD.glow(g, b.x, b.y, r + 8, r + 8, '255,200,100', 0.18);
+    }
+    g.beginPath(); g.arc(b.x, b.y, r, 0, Math.PI * 2);
+    if (st.owned) {
+      const fill = g.createRadialGradient(b.x - 4, b.y - 5, 2, b.x, b.y, r);
+      fill.addColorStop(0, '#3a3220'); fill.addColorStop(1, '#141014');
+      g.fillStyle = fill;
+    } else if (st.lock) {
+      g.fillStyle = 'rgba(8,10,14,0.92)';
+    } else {
+      const fill = g.createRadialGradient(b.x - 4, b.y - 5, 2, b.x, b.y, r);
+      fill.addColorStop(0, '#1c2430'); fill.addColorStop(1, '#0a0e14');
+      g.fillStyle = fill;
+    }
+    g.fill();
+    let stroke, lw;
+    if (st.owned) { stroke = 'rgba(255,210,120,0.95)'; lw = 2; }
+    else if (st.afford) { stroke = `rgba(140,220,255,${0.55 + 0.45 * pulse})`; lw = 2.1; }
+    else if (st.hot) { stroke = 'rgba(200,220,255,0.8)'; lw = 1.8; }
+    else if (st.lock) { stroke = 'rgba(90,100,120,0.45)'; lw = 1.2; }
+    else { stroke = 'rgba(150,170,200,0.4)'; lw = 1.3; }
+    g.strokeStyle = stroke; g.lineWidth = lw;
+    if (st.afford || st.owned) {
+      g.shadowColor = st.owned ? 'rgba(255,200,100,0.8)' : 'rgba(120,210,255,0.9)';
+      g.shadowBlur = (st.afford ? 10 + 6 * pulse : 8) * (SD.view ? SD.view.scale : 1);
+    }
+    g.stroke();
+    g.shadowBlur = 0;
+    g.restore();
+
+    const rgb = st.owned ? '255,220,140' : st.lock ? '120,130,150' : st.afford ? '210,235,255' : '180,195,215';
+    const alpha = st.lock && !st.owned ? 0.8 : 1;
+    this.drawIcon(g, b.it, b.x, b.y - 1, st.lock ? 16 : 17, rgb, alpha);
+
+    if (st.lock) this.drawLock(g, b.x + r - 7, b.y - r + 7);
+    if (st.owned) this.drawCheck(g, b.x + r - 6, b.y - r + 7);
+    else this.drawCostBadge(g, b.x, b.y + r + 3, b.it.cost, st.afford, st.lock);
+
+    const shorts = { funds: 'FUNDS', hull: 'HULL', charge: 'CHARGE', hero: 'PROTOCOL', 'nebula-core': 'DARK CORE', 'hero-freeze': 'FREEZE', 'hero-overload': 'OVERLOAD' };
+    const label = shorts[b.it.id] || (b.it.perk ? b.it.perk : b.it.name);
+    SD.neonText(g, label, b.x, b.y + r + 14, b.it.perk ? 8 : 9, rgb, { blur: 3, alpha: (st.lock ? 0.7 : 0.95) });
+  }
+  drawCostBadge(g, x, y, cost, afford, lock) {
+    const w = 26, h = 11;
+    g.save();
+    SD.roundRect(g, x - w / 2, y - h / 2, w, h, 3);
+    g.fillStyle = afford ? 'rgba(20,28,40,0.95)' : 'rgba(10,12,16,0.9)';
+    g.fill();
+    g.strokeStyle = afford ? 'rgba(255,220,120,0.8)' : (lock ? 'rgba(100,110,130,0.4)' : 'rgba(180,190,210,0.35)');
+    g.lineWidth = 0.8; g.stroke();
+    g.restore();
+    SD.neonText(g, cost + '★', x, y + 0.5, 8, afford ? '255,220,120' : (lock ? '140,150,165' : '200,210,230'), { blur: 2, alpha: 0.95 });
+  }
+  drawCheck(g, x, y) {
+    g.save();
+    g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(40,32,10,0.95)'; g.fill();
+    g.strokeStyle = 'rgba(255,220,120,0.95)'; g.lineWidth = 1.1; g.stroke();
+    g.strokeStyle = 'rgba(255,230,160,1)'; g.lineWidth = 1.7; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(x - 3.2, y); g.lineTo(x - 0.6, y + 2.8); g.lineTo(x + 3.6, y - 2.6); g.stroke();
+    g.restore();
+  }
+  drawLock(g, x, y) {
+    g.save();
+    g.translate(x, y);
+    g.fillStyle = 'rgba(16,18,24,0.9)';
+    g.beginPath(); g.arc(0, 0, 7, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(180,190,210,0.7)'; g.lineWidth = 1; g.stroke();
+    g.strokeStyle = 'rgba(200,210,230,0.85)'; g.lineWidth = 1.3;
+    g.beginPath(); g.arc(0, -1.6, 2.2, Math.PI, 0); g.stroke();
+    g.fillStyle = 'rgba(190,200,220,0.9)';
+    SD.roundRect(g, -2.4, -1.1, 4.8, 4.2, 0.8); g.fill();
+    g.restore();
+  }
+  drawIcon(g, it, x, y, s, rgb, a = 1) {
+    const id = it.id;
+    const kind = it.col;
+    const perk = it.perk;
+    g.save();
+    g.translate(x, y);
+    g.globalAlpha = a;
+    g.strokeStyle = `rgba(${rgb},0.95)`;
+    g.fillStyle = `rgba(${rgb},0.9)`;
+    g.lineWidth = 1.5;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.shadowColor = `rgba(${rgb},0.8)`;
+    g.shadowBlur = 4 * (SD.view ? SD.view.scale : 1);
+    if (id.endsWith('-power')) this.iconPower(g, s);
+    else if (id.endsWith('-reach')) this.iconReach(g, s);
+    else if (id.endsWith('-economy')) this.iconEconomy(g, s);
+    else if (perk === 'FOCUS FIRE') this.iconFocus(g, s);
+    else if (perk === 'BARRAGE') this.iconBarrage(g, s);
+    else if (perk === 'SHATTER') this.iconShatter(g, s);
+    else if (perk === 'CHARGED SLUG') this.iconSlug(g, s);
+    else if (perk === 'OVERVOLT') this.iconVolt(g, s);
+    else if (perk === 'VIRULENT') this.iconVirulent(g, s);
+    else if (id === 'funds') this.iconEconomy(g, s);
+    else if (id === 'hull') this.iconHull(g, s);
+    else if (id === 'charge') this.iconClock(g, s);
+    else if (id === 'hero') this.iconHero(g, s);
+    else if (id === 'hero-freeze') this.iconHeroFreeze(g, s);
+    else if (id === 'hero-overload') this.iconHeroOverload(g, s);
+    else if (id === 'nebula-core') this.iconCore(g, s);
+    g.restore();
+  }
+  iconPower(g, s) {
+    // bursting bullet / energy bolt
+    g.beginPath();
+    g.moveTo(s * 0.55, 0); g.lineTo(-s * 0.1, -s * 0.28); g.lineTo(-s * 0.05, -s * 0.08);
+    g.lineTo(-s * 0.55, 0); g.lineTo(-s * 0.05, s * 0.08); g.lineTo(-s * 0.1, s * 0.28);
+    g.closePath(); g.fill(); g.stroke();
+    g.globalCompositeOperation = 'lighter';
+    g.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -0.7 + i * 0.35;
+      g.moveTo(Math.cos(a) * s * 0.2, Math.sin(a) * s * 0.2);
+      g.lineTo(Math.cos(a) * s * 0.7, Math.sin(a) * s * 0.55);
+    }
+    g.stroke();
+  }
+  iconReach(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.32, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(0, 0, s * 0.55, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(0, 0, 1.6, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * s * 0.62, Math.sin(a) * s * 0.62);
+      g.lineTo(Math.cos(a) * s * 0.78, Math.sin(a) * s * 0.78);
+      g.stroke();
+    }
+  }
+  iconEconomy(g, s) {
+    g.save();
+    SD.roundRect(g, -s * 0.46, -s * 0.32, s * 0.92, s * 0.64, 3);
+    g.fill(); g.stroke();
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(20,16,8,0.9)';
+    g.font = `bold ${Math.round(s * 0.42)}px ${SD.CONFIG.font}`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('CR', 0, 1);
+    g.restore();
+  }
+  iconFocus(g, s) {
+    // ramping twin beams
+    g.beginPath(); g.moveTo(-s * 0.55, -s * 0.22); g.lineTo(s * 0.6, -s * 0.08); g.lineTo(s * 0.6, -s * 0.22); g.lineTo(-s * 0.55, -s * 0.36); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(-s * 0.55, s * 0.22); g.lineTo(s * 0.6, s * 0.08); g.lineTo(s * 0.6, s * 0.22); g.lineTo(-s * 0.55, s * 0.36); g.closePath(); g.fill();
+    g.beginPath(); g.arc(-s * 0.15, 0, s * 0.16, 0, Math.PI * 2); g.stroke();
+  }
+  iconBarrage(g, s) {
+    const rocket = (ox, oy) => {
+      g.beginPath(); g.moveTo(ox + s * 0.55, oy); g.lineTo(ox - s * 0.2, oy - s * 0.2); g.lineTo(ox - s * 0.2, oy + s * 0.2); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(ox - s * 0.2, oy - s * 0.12); g.lineTo(ox - s * 0.55, oy); g.lineTo(ox - s * 0.2, oy + s * 0.12); g.stroke();
+    };
+    rocket(-s * 0.02, -s * 0.26); rocket(s * 0.08, s * 0.26);
+  }
+  iconShatter(g, s) {
+    g.beginPath();
+    g.moveTo(0, -s * 0.6); g.lineTo(s * 0.42, -s * 0.12); g.lineTo(s * 0.26, s * 0.5); g.lineTo(-s * 0.28, s * 0.5); g.lineTo(-s * 0.48, -s * 0.08);
+    g.closePath(); g.stroke();
+    g.beginPath(); g.moveTo(0, -s * 0.15); g.lineTo(s * 0.1, s * 0.08); g.lineTo(-s * 0.02, s * 0.5); g.stroke();
+    g.beginPath(); g.moveTo(s * 0.06, -s * 0.2); g.lineTo(s * 0.42, -s * 0.12); g.stroke();
+  }
+  iconSlug(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.7, 0); g.lineTo(s * 0.15, -s * 0.2); g.lineTo(-s * 0.55, -s * 0.16);
+    g.lineTo(-s * 0.55, s * 0.16); g.lineTo(s * 0.15, s * 0.2); g.closePath();
+    g.fill(); g.stroke();
+    g.beginPath(); g.arc(-s * 0.15, 0, s * 0.32, 0, Math.PI * 2); g.stroke();
+    g.globalCompositeOperation = 'lighter';
+    g.beginPath(); g.arc(s * 0.42, 0, s * 0.12, 0, Math.PI * 2); g.fill();
+  }
+  iconVolt(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.1, -s * 0.6); g.lineTo(-s * 0.05, -s * 0.08); g.lineTo(s * 0.28, -s * 0.08);
+    g.lineTo(-s * 0.15, s * 0.6); g.lineTo(0, s * 0.08); g.lineTo(-s * 0.32, s * 0.08);
+    g.closePath(); g.fill(); g.stroke();
+  }
+  iconVirulent(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.26, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(0, 0, s * 0.12, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(0, 0, s * 0.52, 0, Math.PI * 2); g.stroke();
+    for (let i = 0; i < 3; i++) {
+      const a = i * Math.PI * 2 / 3 - 0.4;
+      g.beginPath(); g.arc(Math.cos(a) * s * 0.58, Math.sin(a) * s * 0.58, s * 0.12, 0, Math.PI * 2); g.fill();
+    }
+  }
+  iconHull(g, s) {
+    g.beginPath();
+    g.moveTo(0, -s * 0.6); g.lineTo(s * 0.52, -s * 0.18); g.lineTo(s * 0.38, s * 0.4);
+    g.lineTo(0, s * 0.58); g.lineTo(-s * 0.38, s * 0.4); g.lineTo(-s * 0.52, -s * 0.18);
+    g.closePath(); g.stroke(); g.globalAlpha *= 0.35; g.fill();
+  }
+  iconClock(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.52, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -s * 0.28); g.moveTo(0, 0); g.lineTo(s * 0.22, s * 0.08); g.stroke();
+    // refresh arrow
+    g.beginPath(); g.arc(0, 0, s * 0.7, 0.4, 2.2); g.stroke();
+    g.beginPath(); g.moveTo(Math.cos(2.2) * s * 0.7, Math.sin(2.2) * s * 0.7);
+    g.lineTo(Math.cos(2.2) * s * 0.52, Math.sin(2.2) * s * 0.85);
+    g.stroke();
+  }
+  iconHero(g, s) {
+    if (this.spr.hero && this.spr.hero.oakens) {
+      g.shadowBlur = 0; g.globalAlpha = 1;
+      SD.blit(g, this.spr.hero.oakens, 0, 1, 0, 0.48);
+      return;
+    }
+    g.beginPath(); g.arc(0, -s * 0.12, s * 0.28, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(-s * 0.4, s * 0.5); g.quadraticCurveTo(0, s * 0.1, s * 0.4, s * 0.5); g.stroke();
+  }
+  iconHeroFreeze(g, s) {
+    g.beginPath();
+    g.moveTo(0, -s * 0.62); g.lineTo(s * 0.2, -s * 0.12); g.lineTo(s * 0.55, -s * 0.2);
+    g.lineTo(s * 0.18, s * 0.1); g.lineTo(s * 0.32, s * 0.55); g.lineTo(0, s * 0.22);
+    g.lineTo(-s * 0.32, s * 0.55); g.lineTo(-s * 0.18, s * 0.1); g.lineTo(-s * 0.55, -s * 0.2);
+    g.lineTo(-s * 0.2, -s * 0.12); g.closePath();
+    g.stroke(); g.globalAlpha *= 0.4; g.fill();
+  }
+  iconHeroOverload(g, s) {
+    g.beginPath();
+    g.moveTo(s * 0.08, -s * 0.62); g.lineTo(-s * 0.08, -s * 0.08); g.lineTo(s * 0.32, -s * 0.08);
+    g.lineTo(-s * 0.12, s * 0.62); g.lineTo(s * 0.06, s * 0.1); g.lineTo(-s * 0.34, s * 0.1);
+    g.closePath(); g.fill(); g.stroke();
+  }
+  iconCore(g, s) {
+    g.beginPath(); g.arc(0, 0, s * 0.38, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(0, 0, s * 0.58, 0, Math.PI * 2); g.stroke();
+    g.globalCompositeOperation = 'lighter';
+    g.beginPath(); g.moveTo(-s * 0.12, -s * 0.5); g.lineTo(s * 0.08, 0); g.lineTo(-s * 0.06, 0); g.lineTo(s * 0.16, s * 0.5); g.stroke();
+  }
+
+  drawJoePortrait(g, px, py, por) {
+    const im = SD.Portraits && SD.Portraits.joe;
+    g.save();
+    SD.roundRect(g, px, py, por, por, 10);
+    g.fillStyle = 'rgba(8,4,16,0.95)'; g.fill();
+    g.clip();
+    if (im && im.complete && im.naturalWidth) {
+      g.drawImage(im, px, py, por, por);
+      g.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let sy = py; sy < py + por; sy += 4) g.fillRect(px, sy, por, 1.2);
+    }
+    g.restore();
+    g.save();
+    SD.roundRect(g, px, py, por, por, 10);
+    g.strokeStyle = 'rgba(255,210,120,0.95)'; g.lineWidth = 2;
+    g.shadowColor = 'rgba(80,220,255,0.55)'; g.shadowBlur = 10 * (SD.view && SD.view.scale || 1);
+    g.stroke();
+    g.restore();
+  }
+  drawJoeBubble(g, x, y, w, h) {
+    const pop = Math.min(1, (this.joePop || 0) * 5);
+    const line = this.joeLine || SD.JOE_LINES.open;
+    g.save();
+    g.globalAlpha = 0.4 + 0.6 * pop;
+    // tail pointing at the portrait
+    g.beginPath();
+    g.moveTo(x + 2, y + h * 0.45);
+    g.lineTo(x - 10, y + h * 0.55);
+    g.lineTo(x + 2, y + h * 0.68);
+    g.fillStyle = 'rgba(10,14,22,0.94)'; g.fill();
+    SD.roundRect(g, x, y, w, h, 12);
+    g.fillStyle = 'rgba(10,14,22,0.94)'; g.fill();
+    const stroke = g.createLinearGradient(x, y, x + w, y + h);
+    stroke.addColorStop(0, 'rgba(120,220,255,0.7)');
+    stroke.addColorStop(1, 'rgba(255,210,120,0.55)');
+    g.strokeStyle = stroke; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+    SD.neonText(g, 'BAZOOKA JOE', x + 14, y + 16, 11, '255,220,140', { blur: 5, align: 'left', alpha: 0.95 });
+    g.save();
+    g.font = 'bold 14px ' + (SD.CONFIG.font || 'sans-serif');
+    const wrapped = this.wrapJoe(g, line, w - 28);
+    g.restore();
+    const size = wrapped.length > 2 ? 12 : 14;
+    wrapped.forEach((ln, i) => {
+      SD.neonText(g, ln, x + 14, y + 38 + i * (size + 4), size, '220,235,250', { blur: 5, align: 'left' });
+    });
+  }
+  drawTooltip(g) {
+    const box = this.tipBox;
+    this.drawChassis(g, box.x, box.y, box.w, box.h);
+    const por = 80;
+    const px = box.x + 10, py = box.y + (box.h - por) / 2;
+    this.drawJoePortrait(g, px, py, por);
+    const shown = this.hover || (this.focus && this.layout[this.focus]);
+    const textX = px + por + 18;
+    const bubbleW = shown ? 312 : (box.x + box.w - 14 - textX);
+    this.drawJoeBubble(g, textX, box.y + 8, bubbleW, box.h - 16);
+    if (!shown) return;
+    const tip = { x: textX + bubbleW + 10, y: box.y, w: box.x + box.w - (textX + bubbleW + 10), h: box.h };
+    const it = shown.it;
+    const st = this.stateOf(it);
+    const ix = tip.x + 28, iy = tip.y + tip.h / 2;
+    g.save();
+    g.beginPath(); g.arc(ix, iy, 22, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(8,10,16,0.9)'; g.fill();
+    g.strokeStyle = st.owned ? 'rgba(255,210,120,0.85)' : 'rgba(180,200,220,0.45)'; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+    this.drawIcon(g, it, ix, iy, 18, st.owned ? '255,220,140' : '210,230,255', 1);
+    const title = it.perk ? (it.name + '  ·  ' + it.perk) : it.name;
+    const colName = it.col === 'station' ? '' : ((((SD.CONFIG.turrets[it.col] || {}).short) || '') + '  ');
+    SD.neonText(g, (colName + title).trim(), tip.x + 58, tip.y + 28, 16, st.owned ? '255,220,140' : '230,235,250', { blur: 8, align: 'left' });
+    let desc = it.blurb || '';
+    const cut = desc.indexOf(' — ');
+    if (cut >= 0) desc = desc.slice(cut + 3);
+    else desc = desc.replace(/^[A-Z][A-Z0-9 \-]*\s+/, '').trim();
+    g.save();
+    g.font = 'bold 12px ' + (SD.CONFIG.font || 'sans-serif');
+    const dlines = this.wrapJoe(g, desc, tip.w - 78);
+    g.restore();
+    dlines.slice(0, 3).forEach((ln, i) => {
+      SD.neonText(g, ln, tip.x + 58, tip.y + 50 + i * 16, 12, '190,210,230', { blur: 5, align: 'left', alpha: 0.95 });
+    });
+    let status;
+    if (st.owned) status = 'OWNED';
+    else if (st.lock) status = 'LOCKED  ·  ' + (SD.StarShop.lockReason(this.progress, it) || 'LOCKED');
+    else if (st.afford) status = 'AVAILABLE  ·  ' + it.cost + '★';
+    else status = 'NEED  ' + it.cost + '★';
+    SD.neonText(g, status, tip.x + tip.w - 16, tip.y + 28, 12, st.owned ? '255,220,120' : (st.afford ? '120,220,255' : '200,180,140'), { blur: 6, align: 'right' });
+    if (st.lock && !st.owned && dlines.length < 3) {
+      const reason = SD.StarShop.lockReason(this.progress, it);
+      const hint = reason === 'RESPEC TO SWITCH'
+        ? 'Only one specialization at a time. Respec to change it.'
+        : (reason ? (reason + ' first.') : 'Locked.');
+      SD.neonText(g, hint, tip.x + 58, tip.y + 50 + dlines.length * 16, 11, '160,170,190', { blur: 4, align: 'left', alpha: 0.85 });
+    }
+  }
+
+  draw(g) {
+    SD.drawSpaceBg(g, 'orbital');
+    this.stars.draw(g, this.T);
+    const top = g.createLinearGradient(0, 0, 0, 110);
+    top.addColorStop(0, 'rgba(3,2,12,0.62)'); top.addColorStop(1, 'rgba(3,2,12,0)');
+    g.fillStyle = top; g.fillRect(0, 0, W, 110);
+    SD.neonText(g, 'ARMORY', W / 2, 28, 24, '255,220,140', { blur: 12 });
+    const earned = SD.StarShop.earned(this.progress);
+    const left = SD.StarShop.available(this.progress);
+    // star wallet badge
+    const wx = W / 2, wy = 62;
+    g.save();
+    SD.roundRect(g, wx - 170, wy - 14, 340, 28, 8);
+    g.fillStyle = 'rgba(8,10,18,0.8)'; g.fill();
+    const wg = g.createLinearGradient(wx, wy - 14, wx, wy + 14);
+    wg.addColorStop(0, 'rgba(220,210,160,0.7)'); wg.addColorStop(1, 'rgba(120,100,50,0.55)');
+    g.strokeStyle = wg; g.lineWidth = 1.3; g.stroke();
+    g.restore();
+    SD.neonText(g, '★  ' + left + ' AVAILABLE    ·    ' + earned + ' EARNED', wx, wy, 13, '255,220,120', { blur: 6 });
+    const mouse = SD.Input.mouse;
+    SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
+    const canRespec = (this.progress.bought || []).length > 0;
+    SD.drawButton(g, this.respec, canRespec && mouse.over && SD.inBtn(this.respec, mouse), this.T);
+
+    this.drawChassis(g, this.chassis.x, this.chassis.y, this.chassis.w, this.chassis.h);
+    for (const bay of this.bays) this.drawBay(g, bay);
+    for (const bay of this.bays) this.drawPortrait(g, bay);
+    for (const bay of this.bays) this.drawConnectors(g, bay);
+    for (const id of Object.keys(this.layout)) this.drawNode(g, this.layout[id]);
+    this.drawTooltip(g);
+
+    if (this.respecAsk) {
+      g.save(); g.fillStyle = 'rgba(4,2,12,0.72)'; g.fillRect(0, 0, W, H); g.restore();
+      SD.neonText(g, 'RESPEC?', W / 2, 210, 44, '255,160,120', { blur: 20 });
+      SD.neonText(g, 'ALL UPGRADES WILL BE CLEARED. STARS RETURN.', W / 2, 262, 15, '160,200,255', { blur: 8, alpha: 0.9 });
+      const b = this.yesNo();
+      SD.drawButton(g, b.yes, this.respecSel === 0 || (mouse.over && SD.inBtn(b.yes, mouse)), this.T);
+      SD.drawButton(g, b.no, this.respecSel === 1 || (mouse.over && SD.inBtn(b.no, mouse)), this.T);
+    }
+    SD.drawScanlines(g);
+  }
+};
+
+
 /* ============================================================== Defense */
 SD.Defense = class {
   constructor(opt = {}) {
@@ -562,6 +1258,7 @@ SD.Defense = class {
     this.shot = opt.shot || null;
     this.auto = !!opt.auto;
     this.heroKind = opt.hero || null;
+    this._armoryBought = Array.isArray(opt.bought) ? opt.bought.slice() : (SD.Progress.load().bought || []);
     this.setLevel(opt.levelIndex || 0);
     this.spr = {
       scout: SD.Sprites.scout(),
@@ -593,6 +1290,7 @@ SD.Defense = class {
     if (opt.shot) this.applyShot(opt.shot);
     else if (this.heroKind || this.auto) this.spawnHero(this.heroKind || 'oakens');
     else this.pickingHero = true;
+    if (!this.shot && SD.Audio.playBuild) SD.Audio.playBuild();
   }
 
   setLevel(index) {
@@ -615,9 +1313,10 @@ SD.Defense = class {
   padAt(tx, ty) { return (this.pads || []).find(p => p.tx === tx && p.ty === ty) || null; }
 
   reset() {
-    this.credits = C().startCredits;
-    this.hull = C().startHull;
-    this.maxHull = C().startHull;
+    this.bought = this._armoryBought || [];
+    this.credits = C().startCredits + (this.hasPerk('funds') ? 50 : 0);
+    this.hull = C().startHull + (this.hasPerk('hull') ? 4 : 0);
+    this.maxHull = this.hull;
     this.waveIndex = 0;
     this.waveActive = false;
     this.waveTimer = 0;
@@ -635,6 +1334,9 @@ SD.Defense = class {
     this.pulses = [];
     this.floaters = [];
     this.shop = null;
+    this.shopTip = null;
+    this.shopHold = null;
+    this.shopTipSticky = null;
     this.picked = null;
     this.inspected = null;
     this.paused = false;
@@ -658,6 +1360,7 @@ SD.Defense = class {
     this.bossBarOf = null;
     this.drones = [];
     this.strikes = [];
+    this.heroFx = null;
     this.initPads();
     this.showcase = false;
     this.score = null;
@@ -676,7 +1379,26 @@ SD.Defense = class {
   }
 
   /* ---------- economy / building ---------- */
-  costOf(kind) { return C().turrets[kind].cost; }
+  hasPerk(id) { return (this.bought || []).indexOf(id) >= 0; }
+  costOf(kind) {
+    let c = C().turrets[kind].cost;
+    if (this.hasPerk(kind + '-economy')) c = Math.round(c * 0.85);
+    return c;
+  }
+  heroVal(key, kind) {
+    const conf = this.heroConf(kind || (this.hero && this.hero.kind) || 'oakens');
+    const on = this.hasPerk('hero');
+    if (key === 'hp') return conf.hp + (on ? 25 : 0);
+    if (key === 'damage') return conf.damage * (on ? 1.15 : 1);
+    if (key === 'specialDmg') {
+      let d = conf.specialDmg * (on ? 1.15 : 1);
+      if (this.hasPerk('hero-overload')) d *= 1.5;
+      return d;
+    }
+    if (key === 'specialCd') return Math.max(1, conf.specialCd - (on ? 3 : 0));
+    if (key === 'respawn') return Math.max(1, conf.respawn - (on ? 2 : 0));
+    return conf[key];
+  }
   canBuild(kind) { return this.credits >= this.costOf(kind); }
   occupyKey(tx, ty) { return tx + ',' + ty; }
   occupied(tx, ty) { return this.turrets.some(t => t.tx === tx && t.ty === ty); }
@@ -726,7 +1448,7 @@ SD.Defense = class {
     const p = tileCenter(tx, ty);
     const t = {
       tx, ty, x: p.x, y: p.y, kind, level,
-      spent: conf.cost + (level > 1 ? conf.upCost : 0) + (level > 2 ? (conf.upCost2 || 0) : 0),
+      spent: this.costOf(kind) + (level > 1 ? conf.upCost : 0) + (level > 2 ? (conf.upCost2 || 0) : 0),
       cool: 0, ang: -Math.PI / 2, target: null, flash: 0, kick: 0,
       priority: 'first',
     };
@@ -964,7 +1686,7 @@ SD.Defense = class {
     }
     this.waveTimer = this.waveGap;
     this.banner = { text: 'WAVE ' + n + '  CLEARED', life: 2.4, rgb: '80,255,180' };
-    if (SD.Audio.stopMusic) SD.Audio.stopMusic({ dur: 0.8 });
+    if (SD.Audio.playBuild) SD.Audio.playBuild();
   }
 
   openLevelScore() {
@@ -1007,7 +1729,20 @@ SD.Defense = class {
   }
 
   /* ---------- combat ---------- */
-  stat(t, key) { return C().turrets[t.kind][key][t.level - 1]; }
+  stat(t, key) {
+    const conf = C().turrets[t.kind];
+    if (!conf || conf[key] == null) return 0;
+    let v = Array.isArray(conf[key]) ? conf[key][Math.max(0, (t.level || 1) - 1)] : conf[key];
+    if (v == null) v = 0;
+    if (key === 'range' && this.hasPerk(t.kind + '-reach')) v *= 1.12;
+    if (key === 'damage' && this.hasPerk(t.kind + '-power')) v *= 1.15;
+    if (key === 'damage' && t.kind === 'nebula' && this.hasPerk('nebula-core')) v *= 1.15;
+    if (key === 'chain' && this.hasPerk('tesla-mk4')) v += 1;
+    if (key === 'poisonTime' && this.hasPerk('pulse-mk4')) v += 1;
+    if (key === 'poisonMax' && this.hasPerk('pulse-mk4')) v += 1;
+    if (key === 'poisonSpread' && this.hasPerk('pulse-mk4') && !(v > 0)) v = 40;
+    return v;
+  }
 
   firstInRange(t) { return this.pickTarget(t); }
 
@@ -1064,10 +1799,15 @@ SD.Defense = class {
     t.kick = t.kind === 'nebula' ? 6 : t.kind === 'railgun' ? 5 : t.kind === 'missile' ? 3.2 : t.kind === 'laser' ? 1.6 : 1.2;
     const tip = this.muzzleTip(t);
     const ox = t.x + Math.cos(t.ang) * tip, oy = t.y + Math.sin(t.ang) * tip;
-    const dmg = this.stat(t, 'damage');
+    let dmg = this.stat(t, 'damage');
     if (t.kind === 'laser') this.fireLaser(t, e, ox, oy, dmg);
-    else if (t.kind === 'missile') this.launchMissile(t, e, ox, oy, dmg);
-    else if (t.kind === 'ice') {
+    else if (t.kind === 'missile') {
+      this.launchMissile(t, e, ox, oy, dmg);
+      if (this.hasPerk('missile-mk4')) {
+        t.volleys = (t.volleys || 0) + 1;
+        if (t.volleys % 4 === 0) this.launchMissile(t, e, ox, oy, dmg, true);
+      }
+    } else if (t.kind === 'ice') {
       this.shots.push({
         kind: 'ice', x: ox, y: oy, tx: e.x, ty: e.y, target: e, ang: t.ang, speed: 420,
         dmg, slow: this.stat(t, 'slow'), slowTime: this.stat(t, 'slowTime'),
@@ -1075,7 +1815,7 @@ SD.Defense = class {
         rgb: C().turrets.ice.rgb, life: 1.6, r: 4,
       });
       SD.Audio.ice();
-    } else if (t.kind === 'railgun') this.fireRail(t, ox, oy, dmg);
+    } else if (t.kind === 'railgun') this.fireRail(t, e, ox, oy, dmg);
     else if (t.kind === 'tesla') this.fireTesla(t, e, dmg);
     else if (t.kind === 'pulse') this.firePulse(t, dmg);
     else if (t.kind === 'nebula') this.fireNebula(t, ox, oy, dmg);
@@ -1083,8 +1823,14 @@ SD.Defense = class {
 
   fireLaser(t, e, ox, oy, dmg) {
     const rgb = C().turrets.laser.rgb;
+    let primary = dmg;
+    if (this.hasPerk('laser-mk4') && e) {
+      if (t.focusId !== e) { t.focusId = e; t.focusHits = 0; }
+      t.focusHits = (t.focusHits || 0) + 1;
+      primary = dmg * (1 + Math.min(0.40, Math.max(0, t.focusHits - 1) * 0.08));
+    }
     this.beams.push({ x0: ox, y0: oy, x1: e.x, y1: e.y, rgb, life: 0.1, max: 0.1 });
-    this.hurt(e, dmg, 'laser');
+    this.hurt(e, primary, 'laser');
     if (t.level >= 3) {
       const r = this.stat(t, 'range');
       const other = this.enemies.find(x => x !== e && x.hp > 0 && Math.hypot(x.x - t.x, x.y - t.y) <= r + x.r);
@@ -1092,38 +1838,49 @@ SD.Defense = class {
       const ox2 = t.x + Math.cos(t.ang + 0.2) * this.muzzleTip(t);
       const oy2 = t.y + Math.sin(t.ang + 0.2) * this.muzzleTip(t);
       this.beams.push({ x0: ox2, y0: oy2, x1: tgt.x, y1: tgt.y, rgb, life: 0.1, max: 0.1 });
-      this.hurt(tgt, dmg, 'laser');
+      this.hurt(tgt, tgt === e ? primary : dmg, 'laser');
     }
     SD.Audio.laser();
   }
 
-  launchMissile(t, e, ox, oy, dmg) {
+  launchMissile(t, e, ox, oy, dmg, extra) {
     const conf = C().turrets.missile;
+    const ang = t.ang + (extra ? 0.16 : 0);
     this.shots.push({
       kind: 'missile', x: ox, y: oy, tx: e.x, ty: e.y, target: e,
-      ang: t.ang, speed: conf.speed[t.level - 1], dmg, splash: conf.splash[t.level - 1],
+      ang, speed: conf.speed[t.level - 1], dmg, splash: conf.splash[t.level - 1],
       splashMul: conf.splashMul[t.level - 1], cluster: this.stat(t, 'cluster') || 0,
       rgb: conf.rgb, life: 2.4, r: 5,
     });
-    SD.Audio.missile();
+    if (!extra) SD.Audio.missile();
   }
 
-  fireRail(t, ox, oy, dmg) {
+  fireRail(t, e, ox, oy, dmg) {
     const pierce = this.stat(t, 'pierce') || 3;
     const range = this.stat(t, 'range');
     const ang = t.ang;
+    let shot = dmg, charged = false;
+    if (this.hasPerk('railgun-mk4')) {
+      const fresh = e && t.chargeTgt !== e;
+      if (fresh || t.chargeAt == null || this.T >= t.chargeAt) {
+        charged = true;
+        shot = dmg * 1.5;
+        t.chargeTgt = e || t.chargeTgt;
+        t.chargeAt = this.T + 8;
+      }
+    }
     const x1 = t.x + Math.cos(ang) * range, y1 = t.y + Math.sin(ang) * range;
     const hits = [];
-    for (const e of this.enemies) {
-      if (e.hp <= 0) continue;
-      if (this.distToSeg(e.x, e.y, ox, oy, x1, y1) > e.r + 7) continue;
-      const along = (e.x - t.x) * Math.cos(ang) + (e.y - t.y) * Math.sin(ang);
-      if (along > 0 && along <= range + e.r) hits.push({ e, along });
+    for (const en of this.enemies) {
+      if (en.hp <= 0) continue;
+      if (this.distToSeg(en.x, en.y, ox, oy, x1, y1) > en.r + 7) continue;
+      const along = (en.x - t.x) * Math.cos(ang) + (en.y - t.y) * Math.sin(ang);
+      if (along > 0 && along <= range + en.r) hits.push({ e: en, along });
     }
     hits.sort((a, b) => a.along - b.along);
     const n = pierce >= 90 ? hits.length : pierce;
-    hits.slice(0, n).forEach(h => this.hurt(h.e, dmg, 'railgun'));
-    this.beams.push({ x0: ox, y0: oy, x1, y1, rgb: C().turrets.railgun.rgb, life: 0.14, max: 0.14, thick: 3.2 });
+    hits.slice(0, n).forEach(h => this.hurt(h.e, shot, 'railgun'));
+    this.beams.push({ x0: ox, y0: oy, x1, y1, rgb: C().turrets.railgun.rgb, life: charged ? 0.2 : 0.14, max: charged ? 0.2 : 0.14, thick: charged ? 5 : 3.2 });
     SD.Audio.laser();
   }
 
@@ -1158,6 +1915,10 @@ SD.Defense = class {
     for (let i = 0; i < chain && cur; i++) {
       seen.add(cur);
       nodes.push({ x: cur.x, y: cur.y });
+      if (i === 0 && this.hasPerk('tesla-mk4') && cur.shield > 0) {
+        cur.shield = Math.max(0, cur.shield - Math.max(25, cur.shield * 0.25));
+        if (cur.shield <= 0) { cur.shield = 0; this.fx.ring(cur.x, cur.y, '80,220,255', cur.r + 16, 0.3); }
+      }
       this.hurt(cur, dmg, 'tesla');
       let best = null, bestD = jump;
       for (const o of this.enemies) {
@@ -1231,6 +1992,9 @@ SD.Defense = class {
     let mul = 1;
     if (!pure && kind && e.resist && e.resist[kind] != null) mul = e.resist[kind];
     let applied = dmg * mul;
+    if (this.hasPerk('ice-mk4') && ((e.slowT > 0 && (e.slow || 1) < 0.995) || (e.freezeT > 0))) {
+      applied *= 1.20;
+    }
     if (e.shield > 0 && !pure) {
       if (kind === 'tesla' || kind === 'pulse') {
         if (applied >= e.shield) {
@@ -1318,6 +2082,12 @@ SD.Defense = class {
   /* ---------- update ---------- */
   update(dt) {
     this.handleInput();
+    this.tickShopTip(dt);
+    if (this._freezeSim) {
+      this.T += dt;
+      this.stars.update(dt);
+      return;
+    }
     if (this.paused || this.over || this.score || this.pickingHero) {
       this.T += dt;
       this.stars.update(dt);
@@ -1350,6 +2120,7 @@ SD.Defense = class {
     this.tickBossBar(dt);
 
     this.fx.update(dt);
+    this.tickHeroFx(dt);
 
     if (!this.waveActive && this.waveTimer > 0 && !this.over) {
       this.waveTimer -= dt;
@@ -1477,7 +2248,7 @@ SD.Defense = class {
   fireAbility(id, x, y) {
     const conf = this.abilityConf(id);
     if (!conf || !this.abilityReady(id)) { SD.Audio.deny(); return; }
-    this.abCd[id] = conf.cd;
+    this.abCd[id] = conf.cd * (this.hasPerk('charge') ? 0.82 : 1);
     this.aim = null;
     if (id === 'orbital') {
       this.fx.ring(x, y, conf.rgb, conf.radius, 0.55);
@@ -1538,7 +2309,7 @@ SD.Defense = class {
     this.hero = {
       kind: id, name: conf.name, rgb: conf.rgb,
       x: home.x, y: home.y, homeX: home.x, homeY: home.y,
-      hp: conf.hp, max: conf.hp, ang: 0,
+      hp: this.heroVal('hp', id), max: this.heroVal('hp', id), ang: 0,
       cool: 0, moveCd: 0, specialCd: 0, respawn: 0,
       dead: false, moving: false, destX: home.x, destY: home.y, flash: 0,
     };
@@ -1579,7 +2350,7 @@ SD.Defense = class {
     if (dps > 0) {
       h.hp -= dps * dt; h.flash = 0.12;
       if (h.hp <= 0) {
-        h.hp = 0; h.dead = true; h.respawn = conf.respawn; this.pickedHero = false;
+        h.hp = 0; h.dead = true; h.respawn = this.heroVal('respawn', h.kind); this.pickedHero = false;
         this.fx.burst(h.x, h.y, h.rgb, 16, 120, 0.4, 2);
         this.banner = { text: h.name + ' DOWN', life: 1.8, rgb: '255,100,120' };
       }
@@ -1600,7 +2371,7 @@ SD.Defense = class {
       if (h.cool <= 0) {
         h.cool = conf.rate; h.flash = 0.12;
         this.beams.push({ x0: h.x, y0: h.y, x1: tgt.x, y1: tgt.y, rgb: h.rgb, life: 0.08, max: 0.08, thick: 1.4 });
-        this.hurt(tgt, conf.damage, h.kind === 'nebula' ? 'nebula' : 'laser');
+        this.hurt(tgt, this.heroVal('damage', h.kind), h.kind === 'nebula' ? 'nebula' : 'laser');
       }
     }
   }
@@ -1620,25 +2391,169 @@ SD.Defense = class {
     const h = this.hero; if (!h || h.dead) { SD.Audio.deny(); return; }
     const conf = this.heroConf(h.kind);
     if (h.specialCd > 0) { SD.Audio.deny(); return; }
-    h.specialCd = conf.specialCd;
-    h.flash = 0.25;
-    if (conf.special === 'beam') {
-      const ang = h.ang, reach = conf.specialRange || 200;
-      const x1 = h.x + Math.cos(ang) * reach, y1 = h.y + Math.sin(ang) * reach;
-      for (const e of this.enemies) {
-        if (e.dead || e.hp <= 0) continue;
-        if (this.distToSeg(e.x, e.y, h.x, h.y, x1, y1) <= e.r + 10) this.hurt(e, conf.specialDmg, 'nebula');
+    h.specialCd = this.heroVal('specialCd', h.kind);
+    h.flash = 0.35;
+    const dmg = this.heroVal('specialDmg', h.kind);
+    const targets = this.enemies.filter(e => !e.dead && e.hp > 0);
+    if (h.kind === 'nebula') this.castLightning(targets, dmg);
+    else this.castMissileRain(targets, dmg);
+  }
+  specialFreezeTime(e) {
+    if (!this.hasPerk('hero-freeze')) return 0;
+    return e && e.boss ? 1 : 2.5;
+  }
+  hurtHeroSpecial(e, dmg, style) {
+    if (!e || e.dead || e.hp <= 0 || dmg <= 0) return;
+    let amount = dmg;
+    if (e.boss) amount *= 0.4;
+    let mul = 1;
+    if (!e.boss && style && e.resist && e.resist[style] != null) mul = e.resist[style];
+    let applied = amount * mul;
+    // Ultimates punch shields the way Tesla / Pulse do.
+    if (e.shield > 0) {
+      if (applied >= e.shield) {
+        applied -= e.shield;
+        e.shield = 0;
+        this.fx.ring(e.x, e.y, '80,220,255', e.r + 16, 0.3);
+      } else {
+        e.shield -= applied;
+        applied = 0;
       }
-      this.beams.push({ x0: h.x, y0: h.y, x1, y1, rgb: h.rgb, life: 0.2, max: 0.2, thick: 5 });
-      SD.Audio.laser();
-    } else {
-      this.fx.ring(h.x, h.y, h.rgb, conf.specialR, 0.4);
-      this.fx.burst(h.x, h.y, h.rgb, 16, 140, 0.4, 2);
-      for (const e of this.enemies) {
-        if (e.dead || e.hp <= 0) continue;
-        if (Math.hypot(e.x - h.x, e.y - h.y) <= conf.specialR + e.r) this.hurt(e, conf.specialDmg, 'laser');
+    }
+    e.hitFlash = 0.16;
+    if (applied > 0) e.hp -= applied;
+    const freeze = this.specialFreezeTime(e);
+    if (freeze > 0) {
+      e.freezeT = Math.max(e.freezeT || 0, freeze);
+      this.floater(e, 'FREEZE', '140,230,255');
+    }
+    if (e.hp <= 0) this.kill(e, true);
+  }
+  castMissileRain(targets, dmg) {
+    const shots = targets.map((e, i) => ({
+      e,
+      x: e.x + (Math.random() - 0.5) * 36,
+      y: -20 - (i % 4) * 10 - Math.random() * 12,
+      tx: e.x, ty: e.y,
+      delay: (i % 5) * 0.008,
+      t: 0,
+      dur: 0.46 + (i % 3) * 0.03,
+      arrived: false,
+    }));
+    this.heroFx = { kind: 'missiles', life: 0.95, max: 0.95, flash: 0.28, rgb: '255,170,70', shots, dmg };
+    this.fx.burst(this.hero.x, this.hero.y, this.hero.rgb, 14, 120, 0.35, 1.8);
+    if (SD.Audio.heroMissiles) SD.Audio.heroMissiles(); else SD.Audio.explode(1.2);
+  }
+  castLightning(targets, dmg) {
+    const bolts = targets.map((e, i) => {
+      const x0 = e.x + (Math.random() - 0.5) * 24;
+      const midX = (x0 + e.x) / 2 + (Math.random() - 0.5) * 28;
+      const midY = (30 + e.y) / 2 + (Math.random() - 0.5) * 22;
+      return {
+        e,
+        pts: [{ x: x0, y: 10 + Math.random() * 24 }, { x: midX, y: midY }, { x: e.x, y: e.y }],
+        fork: Math.random() < 0.7,
+        delay: i * 0.015,
+      };
+    });
+    this.heroFx = { kind: 'lightning', life: 0.7, max: 0.7, flash: 0.32, rgb: '255,70,70', bolts, struck: false, dmg };
+    if (SD.Audio.heroLightning) SD.Audio.heroLightning(); else { SD.Audio.laser(); SD.Audio.explode(1.1); }
+  }
+  tickHeroFx(dt) {
+    const fx = this.heroFx; if (!fx) return;
+    fx.life -= dt;
+    if (fx.kind === 'missiles') {
+      for (const s of fx.shots) {
+        if (s.delay > 0) { s.delay -= dt; continue; }
+        if (s.arrived) continue;
+        s.t += dt;
+        const e = s.e;
+        if (e && !e.dead) { s.tx = e.x; s.ty = e.y; }
+        const u = Math.min(1, s.t / s.dur);
+        const y0 = s.y, x0 = s.x;
+        s.cx = x0 + (s.tx - x0) * u;
+        s.cy = y0 + (s.ty - y0) * u;
+        if (u >= 1) {
+          s.arrived = true;
+          if (e && !e.dead && e.hp > 0) {
+            this.hurtHeroSpecial(e, fx.dmg, 'missile');
+            this.fx.ring(s.tx, s.ty, '255,170,70', 22, 0.28);
+            this.fx.burst(s.tx, s.ty, '255,140,40', 8, 90, 0.25, 1.4);
+          }
+        }
       }
-      SD.Audio.explode(0.9);
+    } else if (fx.kind === 'lightning' && !fx.struck) {
+      fx.struck = true;
+      for (const b of fx.bolts) {
+        const e = b.e;
+        if (e && !e.dead && e.hp > 0) {
+          this.hurtHeroSpecial(e, fx.dmg, 'tesla');
+          this.fx.burst(e.x, e.y, '255,70,70', 8, 80, 0.25, 1.3);
+        }
+      }
+    }
+    if (fx.life <= 0) this.heroFx = null;
+  }
+  drawHeroSpecial(g) {
+    const fx = this.heroFx; if (!fx) return;
+    const a = Math.max(0, fx.life / fx.max);
+    const flash = fx.flash ? Math.max(0, (fx.flash - (fx.max - fx.life)) / fx.flash) : 0;
+    if (flash > 0) {
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = fx.kind === 'lightning' ? `rgba(255,40,40,${0.16 * flash})` : `rgba(255,160,60,${0.14 * flash})`;
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    }
+    if (fx.kind === 'missiles') {
+      for (const s of fx.shots) {
+        if (s.delay > 0 || s.arrived || s.cx == null) continue;
+        const ang = Math.atan2(s.ty - (s.cy || s.y), s.tx - (s.cx || s.x));
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        g.translate(s.cx, s.cy); g.rotate(ang);
+        // long exhaust
+        const trail = g.createLinearGradient(-8, 0, -46, 0);
+        trail.addColorStop(0, 'rgba(255,200,80,0.95)');
+        trail.addColorStop(0.4, 'rgba(255,120,40,0.55)');
+        trail.addColorStop(1, 'rgba(255,80,20,0)');
+        g.strokeStyle = trail; g.lineWidth = 3.2; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-8, 0); g.lineTo(-46, 0); g.stroke();
+        g.strokeStyle = 'rgba(255,240,180,0.8)'; g.lineWidth = 1.4;
+        g.beginPath(); g.moveTo(-8, 0); g.lineTo(-28, 0); g.stroke();
+        SD.glow(g, -10, 0, 16, 8, '255,140,40', 0.85);
+        g.fillStyle = 'rgba(255,230,140,1)';
+        g.beginPath(); g.moveTo(14, 0); g.lineTo(-10, -5); g.lineTo(-8, 0); g.lineTo(-10, 5); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(255,90,50,1)';
+        g.beginPath(); g.moveTo(-8, -4.2); g.lineTo(-14, 0); g.lineTo(-8, 4.2); g.closePath(); g.fill();
+        g.restore();
+      }
+    } else if (fx.kind === 'lightning') {
+      const fade = 0.35 + 0.65 * a;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (const b of fx.bolts) {
+        if (b.delay > 0) continue;
+        const pts = b.pts;
+        g.strokeStyle = `rgba(255,80,80,${0.85 * fade})`;
+        g.lineWidth = 2.6; g.shadowColor = 'rgba(255,60,60,1)'; g.shadowBlur = 10 * (SD.view ? SD.view.scale : 1);
+        g.beginPath(); g.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+        g.stroke();
+        g.strokeStyle = `rgba(255,220,220,${0.7 * fade})`; g.lineWidth = 1.1; g.shadowBlur = 0;
+        g.beginPath(); g.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+        g.stroke();
+        if (b.fork && pts.length >= 2) {
+          const mid = pts[1];
+          g.strokeStyle = `rgba(255,90,90,${0.55 * fade})`; g.lineWidth = 1.4;
+          g.beginPath(); g.moveTo(mid.x, mid.y);
+          g.lineTo(mid.x + 16, mid.y + 18); g.stroke();
+        }
+        const e = b.e;
+        if (e && !e.dead) SD.glow(g, e.x, e.y, 18, 18, '255,70,70', 0.35 * fade);
+      }
+      g.restore();
     }
   }
 
@@ -1705,7 +2620,17 @@ SD.Defense = class {
     if (SD.Input.hit('Space') || SD.Input.hit('KeyG')) this.sendWaveEarly();
 
     this.updateDrag(downs, released);
-    if (this._dragConsumed) { this._dragConsumed = false; return; }
+    if (this._dragConsumed) {
+      this._dragConsumed = false;
+      return;
+    }
+    if (clicks.length && this.shopTipSticky) {
+      const onTip = clicks.some(p => {
+        const b = this.tipBtnAt(p);
+        return b && b.id === this.shopTipSticky;
+      });
+      if (!onTip) { this.shopTipSticky = null; this.shopTip = null; }
+    }
 
     const ui = this.uiButtons();
     for (const p of clicks) {
@@ -1748,25 +2673,81 @@ SD.Defense = class {
     }
   }
 
-  shopBtnAt(p) {
+  shopBtnAt(p, any = false) {
     for (const b of this.uiButtons()) {
-      if (SHOP.includes(b.id) && !b.disabled && SD.inBtn(b, p)) return b;
+      if (SHOP.includes(b.id) && (any || !b.disabled) && SD.inBtn(b, p)) return b;
     }
     return null;
+  }
+  tipBtnAt(p) {
+    for (const b of this.uiButtons()) {
+      if (b.shop && SD.inBtn(b, p)) return b;
+    }
+    return null;
+  }
+  tickShopTip(dt) {
+    if (this._shotTip) { this.shopTip = this._shotTip; return; }
+    if (this.pickingHero || this.score || this.over || this.restartAsk) {
+      this.shopTip = null; return;
+    }
+    if (this.shopHold) {
+      const ptr = (this.shopHold.ptr != null && SD.Input.pointers.get(this.shopHold.ptr))
+        || (SD.Input.pointers.size ? SD.Input.pointers.values().next().value : null);
+      if (ptr) {
+        const dx = ptr.x - this.shopHold.ox, dy = ptr.y - this.shopHold.oy;
+        if (dx * dx + dy * dy >= 14 * 14) {
+          this.shopHold = null;
+        } else {
+          this.shopHold.t += dt;
+          if (this.shopHold.t >= 0.4) {
+            this.shopHold.shown = true;
+            this.shopTip = this.shopHold.kind;
+            this.shopTipSticky = SD.Input.touchMode ? this.shopHold.kind : null;
+          }
+        }
+      }
+    }
+    if (this.drag && this.drag.armed) {
+      this.shopTip = null;
+      this.shopTipSticky = null;
+      return;
+    }
+    if (!SD.Input.touchMode && SD.Input.mouse.over) {
+      const b = this.tipBtnAt(SD.Input.mouse);
+      this.shopTip = b ? b.id : null;
+      return;
+    }
+    if (this.shopHold && this.shopHold.shown) this.shopTip = this.shopHold.kind;
+    else if (this.shopTipSticky) this.shopTip = this.shopTipSticky;
+    else this.shopTip = null;
   }
   updateDrag(downs, released) {
     this._dragConsumed = false;
     if (!this.drag) {
       for (const d of downs) {
         if (d.button === 2) continue;
-        const b = this.shopBtnAt(d);
+        const b = this.shopBtnAt(d) || ((d.type === 'touch' || d.type === 'pen' || SD.Input.touchMode) && this.tipBtnAt(d));
+        // allow drag only from affordable buttons; still start a hold on any shop button for the tooltip
+        const hold = this.tipBtnAt(d);
+        if (hold) {
+          this.shopHold = { kind: hold.id, t: 0, shown: false, ptr: d.id, ox: d.x, oy: d.y };
+          if (SD.Input.touchMode) this.shopTipSticky = null;
+        }
         if (b) {
           this.drag = { kind: b.id, x: d.x, y: d.y, ox: d.x, oy: d.y, armed: false, ptr: d.id };
           break;
         }
       }
     }
-    if (!this.drag) return;
+    if (!this.drag) {
+      if (released.length && this.shopHold && this.shopHold.shown) {
+        this._dragConsumed = true;
+        this.shopTipSticky = this.shopHold.kind;
+        this.shopTip = this.shopHold.kind;
+        this.shopHold = null;
+      }
+      return;
+    }
     const ptr = (this.drag.ptr != null && SD.Input.pointers.get(this.drag.ptr))
       || (SD.Input.pointers.size ? SD.Input.pointers.values().next().value : null);
     if (ptr) { this.drag.x = ptr.x; this.drag.y = ptr.y; }
@@ -1779,14 +2760,23 @@ SD.Defense = class {
         this.drag.armed = true;
         this.shop = this.drag.kind;
         this.picked = null; this.pickedHero = false; this.aim = null;
+        this.shopHold = null;
+        this.shopTip = null;
+        this.shopTipSticky = null;
       }
     }
     if (released.length) {
       if (this.drag.armed) {
         this.finishDrag(released[0].x, released[0].y);
         this._dragConsumed = true;
+      } else if (this.shopHold && this.shopHold.shown) {
+        // long-press was a tooltip, not a select / place
+        this._dragConsumed = true;
+        this.shopTipSticky = this.shopHold.kind;
+        this.shopTip = this.shopHold.kind;
       }
       this.drag = null;
+      this.shopHold = null;
     }
   }
   finishDrag(x, y) {
@@ -1871,10 +2861,14 @@ SD.Defense = class {
       const conf = C().turrets[k];
       const locked = conf.minLevel != null && this.levelIndex < conf.minLevel;
       const used = !locked && conf.unique && this.turrets.some(t => t.kind === k);
-      const noGold = this.credits < conf.cost;
-      const sub = locked ? 'LEVEL 3' : used ? 'USED' : (conf.cost + ' CR');
-      const b = { x: 44 + i * 76, y, w: 72, h: 62, label: conf.short, sub, rgb: conf.rgb, size: 13, click: () => this.toggleShop(k), disabled: locked || used || noGold, id: k };
-      if (locked) b.tag = 'LEVEL 3';
+      const noGold = this.credits < this.costOf(k);
+      const sub = locked ? 'LEVEL 3' : used ? 'USED' : (this.costOf(k) + ' CR');
+      const b = {
+        x: 44 + i * 76, y, w: 72, h: 62, label: conf.short, sub, rgb: conf.rgb,
+        size: 11, subSize: 10, labelY: 8, subY: 21,
+        click: () => this.toggleShop(k), disabled: locked || used || noGold, id: k, shop: true,
+      };
+      if (locked) b.tag = 'LV3';
       btns.push(b);
     }
     if (this.picked) {
@@ -2000,6 +2994,7 @@ SD.Defense = class {
     for (const s of this.shots) this.drawShot(g, s);
     for (const e of this.enemies) this.drawEnemy(g, e);
     this.fx.draw(g);
+    this.drawHeroSpecial(g);
     this.drawFloaters(g);
     this.drawEnemyInfo(g);
 
@@ -2084,7 +3079,7 @@ SD.Defense = class {
       const p = tileCenter(hover.tx, hover.ty);
       const ok = this.canDrop(hover.tx, hover.ty, this.shop);
       const conf = C().turrets[this.shop];
-      const range = conf.range[0];
+      const range = this.stat({ kind: this.shop, level: 1 }, 'range');
       g.save();
       g.beginPath(); g.arc(p.x, p.y, range, 0, Math.PI * 2);
       g.fillStyle = ok ? `rgba(${conf.rgb},0.08)` : 'rgba(255,60,80,0.08)';
@@ -2259,8 +3254,8 @@ SD.Defense = class {
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.oakensBtn, mouse.over && SD.inBtn(this.oakensBtn, mouse), this.T);
     SD.drawButton(g, this.nebulaBtn, mouse.over && SD.inBtn(this.nebulaBtn, mouse), this.T);
-    SD.neonText(g, 'Cyan visor. Fast burst special.', W / 2 - 150, 370, 12, '180,210,255', { blur: 5 });
-    SD.neonText(g, 'Red beam. Ignores shields.', W / 2 + 150, 370, 12, '255,160,160', { blur: 5 });
+    SD.neonText(g, 'Cyan visor. Missile rain on every ship.', W / 2 - 150, 370, 12, '180,210,255', { blur: 5 });
+    SD.neonText(g, 'Red lightning on every ship.', W / 2 + 150, 370, 12, '255,160,160', { blur: 5 });
     SD.neonText(g, 'TAP A PILOT  ·  1 OAKENS  ·  2 NEBULA', W / 2, 440, 13, '180,200,220', { blur: 5, alpha: 0.8 });
   }
 
@@ -2433,8 +3428,8 @@ SD.Defense = class {
       ? 'Tap your hero, then tap a tile to move.'
       : 'Click your hero, then click a tile to move.';
     const l2 = touch
-      ? 'Tap SPECIAL to fire their power.'
-      : 'Press R or the SPECIAL button to fire their power.';
+      ? 'Tap SPECIAL to hit every ship on the field.'
+      : 'Press R or SPECIAL to hit every ship on the field.';
     const w = 560, h = 78, x = (W - w) / 2, y = 108;
     g.save();
     g.globalAlpha = 0.94 * a;
@@ -2495,6 +3490,69 @@ SD.Defense = class {
     SD.neonText(g, hint, tx, y + h - 16, 11, '180,200,220', { blur: 5, alpha: 0.55 * a, align: 'left' });
   }
 
+  drawShopIcon(g, b) {
+    const k = b.id;
+    const base = this.spr.turret[k + 'Base1'];
+    const head = this.spr.turret[k + 'Head1'];
+    const ix = b.x, iy = b.y - 12;
+    const sc = 0.38;
+    g.save();
+    if (b.disabled) g.globalAlpha = 0.55;
+    if (base) SD.blit(g, base, ix, iy, 0, sc);
+    if (head) SD.blit(g, head, ix, iy, -0.55, sc);
+    g.restore();
+    if (b.tag) SD.neonText(g, b.tag, b.x + 24, b.y - 24, 8, '255,210,90', { blur: 3 });
+  }
+  drawShopTip(g, kind) {
+    const conf = C().turrets[kind];
+    if (!conf) return;
+    const tip = conf.tip || {};
+    const cost = this.costOf(kind);
+    const title = (conf.name || conf.short || kind.toUpperCase()) + '  ·  ' + cost + ' CR';
+    const raw = [tip.role, tip.effect, tip.vs, tip.resist].filter(Boolean);
+    const btn = this.uiButtons().find(b => b.id === kind);
+    const bw = 320, pad = 12, lineH = 15, titleH = 20;
+    g.save();
+    g.font = 'bold 11px ' + (C().font || 'monospace');
+    const lines = [];
+    raw.forEach(ln => this.wrapLine(g, ln, bw - pad * 2).forEach(w => lines.push(w)));
+    g.restore();
+    const bh = pad + titleH + lines.length * lineH + pad;
+    let cx = btn ? btn.x : W / 2;
+    let x = cx - bw / 2;
+    if (x < 8) x = 8;
+    if (x + bw > W - 8) x = W - 8 - bw;
+    // Sit just above the build bar so the card does not cover shop buttons
+    // or steal placement taps on the field any longer than a hover lasts.
+    const barTop = H - C().hud.bottom;
+    let y = barTop - bh - 6;
+    if (y < 52) y = 52;
+    g.save();
+    SD.roundRect(g, x, y, bw, bh, 8);
+    g.fillStyle = 'rgba(6,8,16,0.94)'; g.fill();
+    const rgb = conf.rgb || '200,220,255';
+    g.strokeStyle = `rgba(${rgb},0.75)`; g.lineWidth = 1.4;
+    g.shadowColor = `rgba(${rgb},0.6)`; g.shadowBlur = 10 * (SD.view && SD.view.scale || 1);
+    g.stroke();
+    g.restore();
+    // caret toward the button
+    if (btn) {
+      const bx = Math.max(x + 16, Math.min(x + bw - 16, btn.x));
+      const by = y + bh;
+      const barY = btn.y - btn.h / 2;
+      if (by <= barY + 2) {
+        g.save();
+        g.fillStyle = 'rgba(6,8,16,0.94)';
+        g.strokeStyle = `rgba(${rgb},0.75)`; g.lineWidth = 1.4;
+        g.beginPath(); g.moveTo(bx - 7, by); g.lineTo(bx, by + 8); g.lineTo(bx + 7, by); g.closePath(); g.fill(); g.stroke();
+        g.restore();
+      }
+    }
+    SD.neonText(g, title, x + pad, y + pad + 10, 14, rgb, { blur: 6, align: 'left' });
+    lines.forEach((ln, i) => {
+      SD.neonText(g, ln, x + pad, y + pad + titleH + i * lineH + 8, 11, '210,225,240', { blur: 4, align: 'left', alpha: 0.95 });
+    });
+  }
   drawHud(g) {
     // top bar
     g.save();
@@ -2531,13 +3589,24 @@ SD.Defense = class {
     for (const b of this.uiButtons()) {
       const cap = this.picked ? ((C().turrets[this.picked.kind].maxLevel) || 3) : 3;
       const selected = (b.id && b.id === this.shop) || (b.id === 'up' && this.picked && this.picked.level < cap && SD.inBtn(b, mouse)) || (b.id === 'speed' && (this.timeScale || 1) > 1) || (b.id && b.id.startsWith('ab-') && this.aim && b.id === 'ab-' + this.aim) || (b.id === 'pri');
-      const hover = mouse.over && SD.inBtn(b, mouse);
+      const hover = (mouse.over && SD.inBtn(b, mouse)) || (b.shop && this.shopTip === b.id);
       SD.drawButton(g, b, selected || hover, this.T);
-      if (b.tag) SD.neonText(g, b.tag, b.x, b.y - 20, 8, '255,210,90', { blur: 3 });
+      if (b.shop) this.drawShopIcon(g, b);
+      else if (b.tag) SD.neonText(g, b.tag, b.x, b.y - 20, 8, '255,210,90', { blur: 3 });
     }
+    if (this.shopTip) this.drawShopTip(g, this.shopTip);
     if (this.picked && !this.shop) {
       const t = this.picked, conf = C().turrets[t.kind];
-      SD.neonText(g, conf.name + '  MK ' + (t.level === 3 ? 'III' : t.level === 2 ? 'II' : 'I'), 650, H - 78, 11, conf.rgb, { blur: 4, alpha: 0.8 });
+      const mk = t.level === 3 ? 'III' : t.level === 2 ? 'II' : 'I';
+      const perks = SD.StarShop.perksOf({ bought: this.bought }, t.kind);
+      const line = conf.name + '  MK ' + mk + (perks.length ? '   ·   ' + perks.join('  ·  ') : '');
+      const y = H - C().hud.bottom - 14;
+      const tw = Math.min(560, line.length * 7.2);
+      g.save();
+      SD.roundRect(g, 512 - tw / 2 - 10, y - 12, tw + 20, 22, 6);
+      g.fillStyle = 'rgba(6,8,16,0.78)'; g.fill();
+      g.restore();
+      SD.neonText(g, line, 512, y, 12, conf.rgb, { blur: 5, alpha: 0.95 });
     }
     this.drawBossBar(g);
   }
@@ -2723,7 +3792,25 @@ SD.Defense = class {
       pads.forEach((p, i) => this.place(p.tx, p.ty, mixKinds[i % 6], 1 + (i % 3)));
     };
 
-    if (id === 'build') {
+    if (id === 'buildtip' || id === 'buildbar') {
+      this._armoryBought = [];
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 6, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
+      this.credits = 240;
+      this.waveIndex = 0;
+      this.shop = null;
+      this.picked = null;
+      this.heroHint = null;
+      this.banner = null;
+      this.shopTip = 'tesla';
+      this._shotTip = 'tesla';
+      const tesla = this.uiButtons().find(b => b.id === 'tesla');
+      if (tesla && SD.Input && SD.Input.mouse) {
+        SD.Input.mouse.x = tesla.x; SD.Input.mouse.y = tesla.y; SD.Input.mouse.over = true;
+      }
+      this._freezeSim = true;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'build') {
       plant([[4, 6, 'laser', 1], [8, 9, 'ice', 1], [11, 9, 'tesla', 1], [15, 6, 'railgun', 2], [18, 8, 'pulse', 1]]);
       this.credits = 210;
       this.waveIndex = 2;
@@ -3091,6 +4178,53 @@ SD.Defense = class {
       this.banner = null;
       this.floaters = [];
       if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'mk4') {
+      this._armoryBought = ['laser-power', 'laser-reach', 'laser-economy', 'laser-mk4', 'ice-power', 'ice-reach', 'ice-mk4', 'funds'];
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 3], [8, 10, 'ice', 3], [15, 5, 'tesla', 2], [19, 8, 'railgun', 1]]);
+      this.credits = 240;
+      this.waveIndex = 4;
+      this.startWave();
+      this.enemies = [];
+      ['fighter', 'armored', 'scout', 'fighter', 'armored', 'shielded'].forEach((tp, i) => this.spawn(tp, 180 + i * 90));
+      const ice = this.turrets.find(t => t.kind === 'ice');
+      const laser = this.turrets.find(t => t.kind === 'laser');
+      if (ice && this.enemies[1]) {
+        this.fire(ice, this.enemies[1]);
+        if (this.enemies[1]) { this.applySlow(this.enemies[1], 0.38, 4); this.applyFreeze(this.enemies[1], 1); }
+      }
+      if (laser && this.enemies[1]) {
+        laser.focusId = this.enemies[1];
+        laser.focusHits = 6;
+        this.fire(laser, this.enemies[1]);
+      }
+      this.sim(0.45);
+      this.picked = laser || this.turrets[0];
+      this.shop = null;
+      this.heroHint = null;
+      this.banner = null;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'heroglobal' || id === 'hero-global') {
+      this._armoryBought = [];
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      plant([[4, 5, 'laser', 2], [8, 10, 'ice', 2], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
+      this.credits = 240;
+      this.waveIndex = 4;
+      this.startWave();
+      this.groups = [];
+      this.enemies = [];
+      ['scout', 'fighter', 'armored', 'shielded', 'interceptor', 'cryo', 'fighter', 'scout', 'armored', 'juggernaut', 'fighter', 'scout'].forEach((tp, i) => this.spawn(tp, 80 + i * 95));
+      const h = this.hero;
+      const mid = this.path.pts[2] || this.path.pts[1];
+      h.x = mid.x + 24; h.y = mid.y + 30; h.homeX = h.x; h.homeY = h.y;
+      this.heroHint = null;
+      this.banner = null;
+      this.turrets.forEach(t => { t.cool = 99; t.kick = 0; });
+      this.enemies.forEach(e => { e.stunT = 99; });
+      this.heroSpecial();
+      this.sim(0.26);
+      this._freezeSim = true;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
     } else if (id === 'title') {
       // unused here
     }
@@ -3102,8 +4236,9 @@ SD.Defense = class {
   }
 };
 
-SD.runBalance = function (mode, levelIndex) {
-  const d = new SD.Defense({ levelIndex: levelIndex || 0, hero: 'oakens', auto: true });
+SD.runBalance = function (mode, levelIndex, opt) {
+  opt = opt || {};
+  const d = new SD.Defense({ levelIndex: levelIndex || 0, hero: 'oakens', auto: true, bought: Array.isArray(opt.bought) ? opt.bought : [] });
   const nebulaMix = mode === 'mixed+nebula' || mode === 'mixednebula';
   const kinds = (mode === 'mixed' || nebulaMix) ? ['pulse', 'laser', 'tesla', 'missile', 'railgun', 'ice'] : [mode];
   const cap = (levelIndex || 0) === 0 ? 8 : 10;

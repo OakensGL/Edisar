@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.3.2
+# Starlight: Last Station v0.4.0
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -26,16 +26,28 @@ early-send bonus scales with the time you save. The auto timer still runs
 when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
+Stars are kept as the best result on each level (18 maximum across six
+levels). An ARMORY on the level-select screen spends those stars on
+permanent turret and station upgrades, sold by Bazooka Joe, the station's
+mad-scientist weapons inventor. After HERO PROTOCOL, a fork lets
+you specialize the hero special as FREEZE (also freezes every ship) or
+OVERLOAD (+50% special damage). Only one can be owned at a time; a free
+respec returns every star and lets you switch.
+
 Turrets can only be built on marked pads. A few gold premium pads sit on
 the best chokepoints and must be unlocked with match credits (about 60–120)
 before you can build there.
 
 A HUD speed button (and the F key) cycles x1 / x2 / x3. It only speeds the
-simulation; music is unaffected.
+simulation; music is unaffected. Between waves, and before you start the
+first wave, a calmer build track (Brave Pilots) loops and crossfades into
+the battle music when a wave begins.
 
 At the start of a level you choose a hero, Oakens or Nebula. They stand at
 the path edge, auto-attack, move on a short cooldown when you tap a
-destination, and have one special ability. If they go down they respawn.
+destination, and have one special ability that hits every ship on the
+field: Oakens calls a missile rain, Nebula calls down red lightning.
+Bosses take reduced special damage. If they go down they respawn.
 
 Three active abilities sit on the HUD: Orbital Strike (area damage), Drones
 (briefly hold ships), and EMP (drops shields in an area). Tap the button,
@@ -66,7 +78,9 @@ resistances.
 ## Controls
 
 Desktop: click a turret in the build bar, then click a pad to place it,
-or press and drag a turret from the bar onto a pad. A ghost and range
+or press and drag a turret from the bar onto a pad. Each button shows
+the turret itself; hover (or long-press on a phone, without placing)
+for a short description. A ghost and range
 preview follow the cursor; dropping off a valid pad cancels. Click a
 placed turret to upgrade or sell. Space or the Start / Send Wave button
 begins the next wave, or sends the next one early (during the countdown,
@@ -74,7 +88,8 @@ or mid-wave once the 3-second call window opens).
 P / Esc pauses, M mutes, F cycles battle speed. Keys 1–7 pick turret types
 (7 is Nebula). Q / W / E arm Orbital, Drones and EMP (a TAP TO TARGET reticle follows the cursor; Esc or right-click cancels). The turret panel
 cycles targeting priority. R or the on-screen SPECIAL button fires the
-hero power (no need to select the hero first). T retries the current
+hero special at every ship on the field (no need to select the hero first).
+T retries the current
 level, with a Yes/No confirm, from play, the pause menu, or the defeat
 screen. U upgrades, X sells.
 
