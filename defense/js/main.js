@@ -30,6 +30,11 @@
     SD.state = 'crawl';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.playCrawl) SD.Audio.playCrawl();
+  } else if (shot && shot[1] === 'help') {
+    SD.game = new SD.Title({ shot: 'help' });
+    SD.state = 'title';
+    if (credit) credit.style.display = 'none';
+    if (SD.Audio.playTitle) SD.Audio.playTitle();
   } else if (shot && shot[1] === 'levelselect') {
     SD.game = new SD.LevelSelect({ shot: true });
     SD.state = 'levels';

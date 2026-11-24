@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.2
+STARLIGHT: LAST STATION v0.4.3
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -179,3 +179,19 @@ Each turret now has its own ARMORY upgrades. The tree shape and
 star costs are the same, and older saves keep every purchased node;
 only the effects, names, and icons changed. MK IV perks are
 unchanged and still need the two 1-star nodes in that column.
+
+
+v0.4.3
+------
+HOW TO PLAY text now wraps inside the help box, and the copy covers
+all nine levels and maps with two or three entrance gates.
+Edisar's flagships ignore the winding path and fly a smooth straight
+line from their own gate, through the mid-field, to the station.
+Ice still slows regular ships the same way, but bosses keep a higher
+speed floor, freeze for half as long, and stay immune longer. This
+includes DEEP FREEZE, RIMEFIELD, WHITEOUT (range only), and the
+FREEZE hero fork.
+Three new maps: Wreck Yard, Storm Needle, and Shatter Gate. Shatter
+Gate has three entrances. New ships: Wraith and Hive Pod (which
+bursts into Swarmers). Level select is a compact 3x3 grid. Max stars
+are 27.

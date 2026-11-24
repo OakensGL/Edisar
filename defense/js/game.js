@@ -106,25 +106,67 @@ function posOnPathSmooth(path, dist, radius) {
   return p;
 }
 
+function makeBossFlight(route) {
+  const a = route.spawn, b = route.base;
+  const mid = { x: W * 0.5, y: H * 0.52 };
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+  const t = Math.max(0, Math.min(1, ((mid.x - a.x) * dx + (mid.y - a.y) * dy) / (len * len)));
+  const cx = a.x + dx * t, cy = a.y + dy * t;
+  const hugs = Math.hypot(mid.x - cx, mid.y - cy) > 90;
+  const pts = hugs ? [a, mid, b] : [a, b];
+  const seg = [];
+  let total = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const sl = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y) || 1;
+    seg.push({ a: pts[i], b: pts[i + 1], len: sl, start: total });
+    total += sl;
+  }
+  return { a, b, mid: hugs ? mid : null, seg, total, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+}
+
+function posOnFlight(flight, dist) {
+  if (!flight || !flight.seg || !flight.seg.length) return { x: 0, y: 0, ang: 0 };
+  const d = Math.max(0, Math.min(flight.total, dist));
+  let s = flight.seg[flight.seg.length - 1];
+  for (const seg of flight.seg) { if (d <= seg.start + seg.len) { s = seg; break; } }
+  const t = (d - s.start) / (s.len || 1);
+  const x = s.a.x + (s.b.x - s.a.x) * t;
+  const y = s.a.y + (s.b.y - s.a.y) * t;
+  return { x, y, ang: Math.atan2(flight.b.y - y, flight.b.x - x) };
+}
+
+function wrapText(g, text, maxW) {
+  const words = String(text).split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (g.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+    else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+
 function inHud(p) {
   return p.y < C().hud.top || p.y > H - C().hud.bottom;
 }
 
 /* ================================================================== Title */
 SD.Title = class {
-  constructor() {
+  constructor(opt = {}) {
     this.T = 0;
     this.stars = new SD.Starfield(1.1);
     this.bg = null;
     this.bgReady = false;
-    this.help = false;
+    this.help = !!(opt.help || opt.shot === 'help');
     this.play = { x: 304, y: 182, w: 180, h: 48, label: 'PLAY', rgb: '80,170,255', size: 22, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.armoryBtn = { x: 502, y: 182, w: 180, h: 48, label: 'ARMORY', rgb: '255,220,120', size: 20, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.helpBtn = { x: 710, y: 182, w: 200, h: 48, label: 'HOW TO PLAY', rgb: '180,210,255', size: 17, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.story = { x: W / 2 - 90, y: 236, w: 150, h: 28, label: 'STORY', rgb: '255,210,90', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.creditsBtn = { x: W / 2 + 90, y: 236, w: 150, h: 28, label: 'CREDITS', rgb: '200,210,230', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13 };
-    this.closeHelp = { x: W / 2, y: 500, w: 180, h: 42, label: 'CLOSE', rgb: '80,170,255', size: 18 };
+    this.closeHelp = { x: W / 2, y: 522, w: 180, h: 36, label: 'CLOSE', rgb: '80,170,255', size: 16 };
     this.showCredits = false;
     this.loadBg();
     this.prepAmbient();
@@ -152,6 +194,9 @@ SD.Title = class {
         flagship4: SD.Sprites.flagship4(),
         flagship5: SD.Sprites.flagship5(),
         flagship6: SD.Sprites.flagship6(),
+        flagship7: SD.Sprites.flagship7(),
+        flagship8: SD.Sprites.flagship8(),
+        flagship9: SD.Sprites.flagship9(),
         turret: {
           laser: { base: SD.Sprites.turretBase('laser', 2), head: SD.Sprites.turretHead('laser', 2) },
           missile: { base: SD.Sprites.turretBase('missile', 1), head: SD.Sprites.turretHead('missile', 1) },
@@ -192,7 +237,7 @@ SD.Title = class {
   }
 
   inHelpPanel(p) {
-    return Math.abs(p.x - W / 2) <= 360 && p.y >= 70 && p.y <= 530;
+    return Math.abs(p.x - W / 2) <= 360 && p.y >= 36 && p.y <= 560;
   }
 
   draw(g) {
@@ -262,22 +307,23 @@ SD.Title = class {
   }
 
   drawHelp(g) {
+    this.closeHelp.y = 522;
     g.save(); g.fillStyle = 'rgba(4,2,12,0.62)'; g.fillRect(0, 0, W, H); g.restore();
-    const x = W / 2 - 360, y = 56, w = 720, h = 470;
+    const x = W / 2 - 360, y = 36, w = 720, h = 524;
     g.save();
     SD.roundRect(g, x, y, w, h, 14);
     g.fillStyle = 'rgba(8,10,20,0.92)'; g.fill();
     g.strokeStyle = 'rgba(180,200,220,0.4)'; g.lineWidth = 1.4; g.stroke();
     g.restore();
-    SD.neonText(g, 'HOW TO PLAY', W / 2, 148, 28, '200,230,255', { blur: 12 });
-    const lines = [
-      'Six levels, ten waves each. Credits and turrets reset every level. Later maps use two entrance gates.',
+    SD.neonText(g, 'HOW TO PLAY', W / 2, 68, 24, '200,230,255', { blur: 12 });
+    const raw = [
+      'Nine levels, ten waves each. Credits and turrets reset every level. Later maps use two or three entrance gates.',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
-      'ARMORY on the title or level select spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
+      'ARMORY on the title or level select (or A in a match) spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
       'NEBULA · Level 3 and later, one per map. A red dark-energy beam that ignores shields and resists.',
       'Upgrade twice for MK III specials (twin beams, cluster, freeze, full pierce, longer chains, spreading toxin).',
-      'Tap a ship to see HP, weaknesses and resistances. Edisar flagships fire an ion EMP that briefly disables nearby turrets.',
+      'Tap a ship to see HP, weaknesses and resistances. Edisar flagships fly a straight line at the station and fire an ion EMP that briefly disables nearby turrets.',
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
       'Each turret can target First, Last, Strongest, Weakest or Closest — toggle it in the turret panel.',
       'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then the field. Esc or right-click cancels.',
@@ -289,14 +335,23 @@ SD.Title = class {
         ? 'PHONE  ·  DRAG A TURRET ONTO A PAD  ·  SPECIAL AND SEND WAVE ARE ON THE HUD  ·  LANDSCAPE'
         : 'DESKTOP  ·  1–7 SELECT  ·  DRAG TO PLACE  ·  R SPECIAL  ·  T RETRY  ·  U UPGRADE  ·  F SPEED  ·  P PAUSE',
     ];
-    lines.forEach((ln, i) => {
-      const small = i >= lines.length - 1;
-      SD.neonText(g, ln, W / 2, 168 + i * 20, small ? 12 : 13, small ? '180,210,255' : '220,230,245', { blur: 5, alpha: 0.92 });
+    g.font = 'bold 12px ' + C().font;
+    const wrapped = [];
+    raw.forEach(ln => {
+      if (!ln) { wrapped.push({ text: '', small: false }); return; }
+      const small = ln === raw[raw.length - 1];
+      wrapText(g, ln, w - 48).forEach(part => wrapped.push({ text: part, small }));
+    });
+    const top = 92, bot = 500;
+    const lh = Math.min(17, (bot - top) / Math.max(1, wrapped.length - 1));
+    wrapped.forEach((ln, i) => {
+      if (!ln.text) return;
+      SD.neonText(g, ln.text, W / 2, top + i * lh, ln.small ? 11 : 12, ln.small ? '180,210,255' : '220,230,245', { blur: 5, alpha: 0.92 });
     });
     SD.drawButton(g, this.closeHelp, SD.Input.mouse.over && SD.inBtn(this.closeHelp, SD.Input.mouse), this.T);
   }
-
   drawCredits(g) {
+    this.closeHelp.y = 500;
     g.save(); g.fillStyle = 'rgba(4,2,12,0.62)'; g.fillRect(0, 0, W, H); g.restore();
     const x = W / 2 - 360, y = 56, w = 720, h = 464;
     g.save();
@@ -520,14 +575,14 @@ SD.LevelSelect = class {
   constructor(opt = {}) {
     this.T = 0;
     this.stars = new SD.Starfield(1.1);
-    this.progress = opt.shot ? { unlocked: 6, stars: [3, 3, 1, 2, 1, 0] } : SD.Progress.load();
+    this.progress = opt.shot ? { unlocked: 9, stars: [3, 3, 1, 2, 1, 0, 2, 1, 0] } : SD.Progress.load();
     this.back = { x: 70, y: 28, w: 100, h: 32, label: 'MENU', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.armoryBtn = { x: 200, y: 28, w: 130, h: 32, label: 'ARMORY', rgb: '255,220,120', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.cards = SD.CONFIG.levels.map((lv, i) => ({
       i, lv,
-      x: 200 + (i % 3) * 312, y: 230 + Math.floor(i / 3) * 230,
-      w: 284, h: 210,
+      x: 242 + (i % 3) * 270, y: 186 + Math.floor(i / 3) * 154,
+      w: 252, h: 142,
     }));
   }
   update(dt) {
@@ -575,26 +630,28 @@ SD.LevelSelect = class {
       g.fillStyle = hover ? 'rgba(12,16,28,0.92)' : 'rgba(8,10,20,0.88)'; g.fill();
       g.strokeStyle = hover ? 'rgba(255,220,140,0.7)' : 'rgba(180,200,220,0.35)'; g.lineWidth = hover ? 2 : 1.2; g.stroke();
       g.restore();
+      const prevH = 62;
       g.save();
-      SD.roundRect(g, x + 14, y + 12, c.w - 28, 96, 8); g.clip();
+      SD.roundRect(g, x + 10, y + 8, c.w - 20, prevH, 7); g.clip();
       SD.drawSpaceBg(g, c.lv.variant);
       const routes = c.lv.paths || [c.lv.path];
+      const cols = ['80,200,255', '255,90,200', '255,200,80'];
       routes.forEach((path, pi) => {
         g.beginPath();
         path.forEach((pt, k) => {
-          const px = x + 14 + (pt[0] / 31) * (c.w - 28);
-          const py = y + 12 + (pt[1] / 17) * 96;
+          const px = x + 10 + (pt[0] / 31) * (c.w - 20);
+          const py = y + 8 + (pt[1] / 17) * prevH;
           k ? g.lineTo(px, py) : g.moveTo(px, py);
         });
-        g.strokeStyle = pi ? 'rgba(255,90,200,0.9)' : 'rgba(80,200,255,0.9)';
+        g.strokeStyle = `rgba(${cols[pi % 3]},0.9)`;
         g.lineWidth = 2; g.stroke();
       });
       g.restore();
-      SD.neonText(g, 'LEVEL ' + (i + 1), c.x, y + 122, 12, '180,210,255', { blur: 5 });
-      SD.neonText(g, c.lv.name, c.x, y + 144, 15, '230,235,245', { blur: 7 });
+      SD.neonText(g, 'LEVEL ' + (i + 1), c.x, y + 80, 10, '180,210,255', { blur: 5 });
+      SD.neonText(g, c.lv.name, c.x, y + 96, 13, '230,235,245', { blur: 7 });
       const stars = this.progress.stars[i] || 0;
       const starStr = locked ? 'LOCKED' : (stars ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'NO STARS YET');
-      SD.neonText(g, starStr, c.x, y + 172, locked ? 13 : 18, locked ? '160,160,180' : '255,220,120', { blur: 6 });
+      SD.neonText(g, starStr, c.x, y + 118, locked ? 11 : 14, locked ? '160,160,180' : '255,220,120', { blur: 6 });
       if (locked) {
         g.save(); g.fillStyle = 'rgba(4,2,12,0.45)';
         SD.roundRect(g, x, y, c.w, c.h, 14); g.fill(); g.restore();
@@ -1479,6 +1536,12 @@ SD.Defense = class {
       flagship4: SD.Sprites.flagship4(),
       flagship5: SD.Sprites.flagship5(),
       flagship6: SD.Sprites.flagship6(),
+      flagship7: SD.Sprites.flagship7(),
+      flagship8: SD.Sprites.flagship8(),
+      flagship9: SD.Sprites.flagship9(),
+      wraith: SD.Sprites.wraith(),
+      hive: SD.Sprites.hive(),
+      swarmer: SD.Sprites.swarmer(),
       shielded: SD.Sprites.shielded(),
       cryo: SD.Sprites.cryo(),
       interceptor: SD.Sprites.interceptor(),
@@ -1736,9 +1799,11 @@ SD.Defense = class {
     let remain = 0;
     for (const e of this.enemies) {
       if (e.dead || e.hp <= 0) continue;
-      const spd = Math.max(10, e.speed * (e.slow || 1));
       const route = e.route || this.paths[e.pathI || 0] || this.path;
-      remain = Math.max(remain, (route.total - e.dist) / spd);
+      const total = (e.boss && e.flight) ? e.flight.total : route.total;
+      let spd = e.speed * (e.slow || 1);
+      if (e.boss) spd = Math.max(C().bossMinSpeed || 12, e.speed * Math.max(C().bossSlowFloor || 0.75, e.slow || 1)) * (e.flightPace || 1);
+      remain = Math.max(remain, (total - e.dist) / Math.max(10, spd));
     }
     for (const g of this.groups) {
       if (g.left <= 0) continue;
@@ -1757,10 +1822,14 @@ SD.Defense = class {
       const type = g[0], left = g[1], gap = g[2], gate = g[3];
       const wait = 0.12 + i * 0.85;
       if (n < 2) { out.push({ type, left, gap, wait, pathI: 0 }); return; }
-      if (gate === 0 || gate === 1) { out.push({ type, left, gap, wait, pathI: gate }); return; }
-      const a = Math.ceil(left / n), b = left - a;
-      out.push({ type, left: a, gap, wait, pathI: 0 });
-      if (b > 0) out.push({ type, left: b, gap, wait: wait + 0.2, pathI: 1 });
+      if (Number.isInteger(gate) && gate >= 0 && gate < n) { out.push({ type, left, gap, wait, pathI: gate }); return; }
+      let remain = left;
+      for (let pth = 0; pth < n; pth++) {
+        const share = Math.ceil(remain / (n - pth));
+        if (share <= 0) continue;
+        remain -= share;
+        out.push({ type, left: share, gap, wait: wait + pth * 0.18, pathI: pth });
+      }
     });
     return out;
   }
@@ -1821,6 +1890,16 @@ SD.Defense = class {
       empCd: def.emp ? (def.emp.delay || def.emp.cd) : 0, empSaid: false, wp: p.wp || 0,
       poison: [],
     };
+    if (def.splitOnDeath) e.splitOnDeath = { type: def.splitOnDeath.type, count: def.splitOnDeath.count || 3 };
+    if (def.phase) { e.phaseT = def.phase.visible * (0.4 + Math.random() * 0.7); e.phased = false; }
+    if (e.boss) {
+      e.flight = makeBossFlight(route);
+      e.flightPace = e.flight.total / Math.max(1, route.total);
+      const frac = route.total > 0 ? Math.max(0, Math.min(0.9, dist / route.total)) : 0;
+      e.dist = e.flight.total * frac;
+      const fp = posOnFlight(e.flight, e.dist);
+      e.x = fp.x; e.y = fp.y; e.ang = fp.ang;
+    }
     this.enemies.push(e);
     if (e.boss && def.line) this.showBossLine(e.name, def.line);
     return e;
@@ -1853,6 +1932,14 @@ SD.Defense = class {
       this.levelStats.earned += e.reward;
       this.fx.float(e.x, e.y - 10, '+' + e.reward, '255,220,90');
       if (!this._sfxCoin || this.T - this._sfxCoin > 0.04) { SD.Audio.coin(); this._sfxCoin = this.T; }
+    }
+    if (paid && e.splitOnDeath && e.splitOnDeath.count > 0 && e.splitOnDeath.type) {
+      const typ = e.splitOnDeath.type, n = e.splitOnDeath.count;
+      for (let i = 0; i < n; i++) {
+        const baby = this.spawn(typ, Math.max(0, (e.dist || 0) - 8 + i * 10), e.pathI || 0);
+        baby.x = e.x + (i - (n - 1) / 2) * 8;
+        baby.y = e.y + (i % 2 ? 6 : -6);
+      }
     }
   }
 
@@ -1985,16 +2072,17 @@ SD.Defense = class {
     const mode = t.priority || 'first';
     let best = null, bestS = null;
     for (const e of this.enemies) {
-      if (e.dead || e.hp <= 0) continue;
+      if (e.dead || e.hp <= 0 || e.phased) continue;
       const d = Math.hypot(e.x - t.x, e.y - t.y);
       if (d > r + e.r * 0.3) continue;
       const route = e.route || this.paths[e.pathI || 0] || this.path;
+      const total = (e.boss && e.flight) ? e.flight.total : (route.total || 1);
       let score;
-      if (mode === 'last') score = -(e.dist / (route.total || 1));
+      if (mode === 'last') score = -(e.dist / (total || 1));
       else if (mode === 'closest') score = -d;
       else if (mode === 'strongest') score = (e.hp + (e.shield || 0));
       else if (mode === 'weakest') score = -(e.hp + (e.shield || 0));
-      else score = e.dist / (route.total || 1);
+      else score = e.dist / (total || 1);
       if (bestS == null || score > bestS) { best = e; bestS = score; }
     }
     return best;
@@ -2330,7 +2418,7 @@ SD.Defense = class {
       f = 1 - (1 - factor) * mul;
       f = Math.max(0.12, Math.min(1, f));
     }
-    if (e.boss) f = Math.max(0.55, f);
+    if (e.boss) f = Math.max(C().bossSlowFloor || 0.75, f);
     if (f < e.slow) e.slow = f;
     e.slowT = Math.max(e.slowT, time);
   }
@@ -2346,13 +2434,13 @@ SD.Defense = class {
     if (e.boss) {
       if (hero) {
         if (e.freezeHeroCd > 0) return false;
-        time = Math.min(time, 1.0);
-        e.freezeHeroCd = 2.5;
+        time = Math.min(time, C().bossHeroFreeze || 0.5);
+        e.freezeHeroCd = C().bossHeroFreezeCd || 4;
       } else {
         if (e.freezeCd > 0) return false;
         if (e.iceSlowMul && e.iceSlowMul < 1) time *= e.iceSlowMul;
-        time = Math.min(time, 0.6);
-        e.freezeCd = 1.2;
+        time = Math.min(time, C().bossIceFreezeCap || 0.3);
+        e.freezeCd = C().bossIceFreezeCd || 2.4;
       }
     } else if (!hero && e.iceSlowMul && e.iceSlowMul < 1) {
       time *= e.iceSlowMul;
@@ -2363,10 +2451,25 @@ SD.Defense = class {
 
   moveEnemy(e, dt) {
     const route = e.route || this.paths[e.pathI || 0] || this.path;
+    if (e.boss) {
+      if (!e.flight) e.flight = makeBossFlight(route);
+      const flight = e.flight;
+      const locked = (e.freezeT > 0 || e.stunT > 0 || e.holdT > 0);
+      if (!locked) {
+        const floor = C().bossSlowFloor || 0.75;
+        const minSpd = C().bossMinSpeed || 12;
+        const pace = e.flightPace || 1;
+        const spd = Math.max(minSpd, e.speed * Math.max(floor, e.slow || 1)) * pace;
+        e.dist += spd * dt;
+      }
+      const p = posOnFlight(flight, e.dist);
+      e.x = p.x; e.y = p.y; e.ang = p.ang; e.wp = 0;
+      if (e.dist >= flight.total) this.leak(e);
+      return;
+    }
     const locked = (e.freezeT > 0 || e.stunT > 0 || e.holdT > 0);
     if (!locked) {
       let spd = e.speed * (e.slow || 1);
-      if (e.boss) spd = Math.max(12, e.speed * Math.max(0.55, e.slow || 1));
       let left = spd * dt;
       // Overshoot-safe walk along segments so a large step cannot hang on a vertex.
       while (left > 0 && e.dist < route.total) {
@@ -2387,17 +2490,8 @@ SD.Defense = class {
       }
       if (left > 0) e.dist = Math.min(route.total + left, e.dist + left);
     }
-    let p;
-    if (e.boss) {
-      p = posOnPathSmooth(route, e.dist, 44);
-      const look = posOnPathSmooth(route, Math.min(route.total, e.dist + 56), 44);
-      const dx = look.x - p.x, dy = look.y - p.y;
-      e.x = p.x; e.y = p.y;
-      e.ang = (Math.hypot(dx, dy) > 1) ? Math.atan2(dy, dx) : p.ang;
-    } else {
-      p = posOnPath(route, e.dist);
-      e.x = p.x; e.y = p.y; e.ang = p.ang;
-    }
+    const p = posOnPath(route, e.dist);
+    e.x = p.x; e.y = p.y; e.ang = p.ang;
     e.wp = p.wp || 0;
     if (e.dist >= route.total) this.leak(e);
   }
@@ -2569,6 +2663,14 @@ SD.Defense = class {
       if (e.stunT > 0) e.stunT -= dt;
       if (e.stunCd > 0) e.stunCd -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
+      if (e.type === 'wraith' || e.phaseT != null) {
+        const ph = (C().enemies[e.type] && C().enemies[e.type].phase) || { visible: 2.6, hidden: 1.15 };
+        e.phaseT = (e.phaseT || 0) - dt;
+        if (e.phaseT <= 0) {
+          e.phased = !e.phased;
+          e.phaseT = e.phased ? ph.hidden : ph.visible;
+        }
+      }
       if (e.poison && e.poison.length) {
         let dps = 0;
         for (const p of e.poison) { p.life -= dt; dps += p.dps; }
@@ -2821,7 +2923,7 @@ SD.Defense = class {
   }
   specialFreezeTime(e) {
     if (!this.hasPerk('hero-freeze')) return 0;
-    return e && e.boss ? 1 : 2.5;
+    return e && e.boss ? (C().bossHeroFreeze || 0.5) : 2.5;
   }
   hurtHeroSpecial(e, dmg, style) {
     if (!e || e.dead || e.hp <= 0 || dmg <= 0) return;
@@ -3437,10 +3539,12 @@ SD.Defense = class {
     const routes = this.paths || [this.path];
     routes.forEach((route, ri) => {
       const pts = route.pts;
-      const rgb = ri ? '255,90,200' : '80,200,255';
+      const cols = ['80,200,255', '255,90,200', '255,200,80'];
+      const rgb = cols[ri % 3];
+      const halo = ri === 1 ? 'rgba(255,90,200,0.16)' : ri === 2 ? 'rgba(255,200,80,0.16)' : 'rgba(80,140,255,0.18)';
       g.save();
       g.lineJoin = 'round'; g.lineCap = 'round';
-      g.strokeStyle = ri ? 'rgba(255,90,200,0.16)' : 'rgba(80,140,255,0.18)'; g.lineWidth = 36;
+      g.strokeStyle = halo; g.lineWidth = 36;
       g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
       g.strokeStyle = 'rgba(20,16,48,0.72)'; g.lineWidth = 26;
       g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
@@ -3450,6 +3554,20 @@ SD.Defense = class {
       g.setLineDash([]);
       g.restore();
     });
+    for (const e of this.enemies) {
+      if (!e.boss || e.dead || !e.flight) continue;
+      const f = e.flight;
+      g.save();
+      g.setLineDash([8, 10]);
+      g.strokeStyle = 'rgba(255,200,80,0.34)';
+      g.lineWidth = 2.2;
+      g.beginPath();
+      g.moveTo(f.a.x, f.a.y);
+      if (f.mid) g.lineTo(f.mid.x, f.mid.y);
+      g.lineTo(f.b.x, f.b.y);
+      g.stroke();
+      g.restore();
+    }
   }
 
   hoverTile() {
@@ -3800,9 +3918,18 @@ SD.Defense = class {
       g.beginPath(); g.arc(e.x, e.y, e.r + 8, 0, Math.PI * 2); g.fill();
       g.restore();
     }
+    if (e.phased) {
+      g.save();
+      g.globalAlpha = 0.32 + 0.08 * Math.sin(this.T * 8);
+      g.setLineDash([4, 5]);
+      g.strokeStyle = `rgba(${e.rgb || '180,120,255'},0.7)`;
+      g.lineWidth = 1.3;
+      g.beginPath(); g.arc(e.x, e.y, e.r + 8, 0, Math.PI * 2); g.stroke();
+    }
     if (e.hitFlash > 0) { g.save(); g.globalCompositeOperation = 'lighter'; }
     SD.blit(g, spr, e.x, e.y, e.ang, scale);
     if (e.hitFlash > 0) g.restore();
+    if (e.phased) g.restore();
     const bw = e.boss ? 86 : Math.max(18, e.r * 2.2), bh = e.boss ? 5 : 3;
     const bx = e.x - bw / 2, by = e.y - (e.boss ? 44 * (e.scale || 1) : e.r + 12);
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
@@ -4684,12 +4811,51 @@ SD.Defense = class {
       this.heroHint = null;
       this.banner = null;
       this.enemies = [];
-      const boss = this.spawn('flagship1', 1472);
+      const boss = this.spawn('flagship1', 0);
+      if (boss.flight) {
+        boss.dist = boss.flight.total * 0.78;
+        const fp = posOnFlight(boss.flight, boss.dist);
+        boss.x = fp.x; boss.y = fp.y; boss.ang = fp.ang;
+      }
       boss.freezeT = 0; boss.stunT = 0; boss.holdT = 0; boss.slow = 1; boss.slowT = 0;
       this.fireBossEmp(boss, (C().enemies.flagship1 && C().enemies.flagship1.emp) || { radius: 100, duration: 3, max: 1, cd: 10 });
       this.sim(0.18);
       this._freezeSim = true;
       if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'bossflight' || id === 'bossline') {
+      this._armoryBought = [];
+      this.setLevel(8); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      plant([[14, 8, 'laser', 3], [16, 8, 'ice', 3], [20, 8, 'railgun', 2], [17, 8, 'tesla', 2], [21, 8, 'missile', 2]]);
+      this.turrets.forEach(t => { t.cool = 99; t.kick = 0; });
+      this.credits = 240;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null;
+      this.groups = []; this.waveActive = true; this.waveIndex = 10;
+      this.enemies = [];
+      const boss = this.spawn('flagship9', 0, 1);
+      if (boss.flight) {
+        boss.dist = boss.flight.total * 0.48;
+        const fp = posOnFlight(boss.flight, boss.dist);
+        boss.x = fp.x; boss.y = fp.y; boss.ang = fp.ang;
+      }
+      boss.hp = Math.round(boss.max * 0.72);
+      boss.freezeT = 0; boss.stunT = 0; boss.holdT = 0; boss.slow = 1; boss.slowT = 0;
+      this._freezeSim = true;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'l7' || id === 'l8' || id === 'l9') {
+      const idx = id === 'l7' ? 6 : id === 'l8' ? 7 : 8;
+      this._armoryBought = [];
+      this.setLevel(idx); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      this.credits = 260;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null;
+      this.groups = []; this.waveActive = true;
+      this.enemies = [];
+      const types = id === 'l7' ? ['wraith', 'fighter', 'armored'] : id === 'l8' ? ['hive', 'fighter', 'wraith'] : ['wraith', 'hive', 'armored', 'scout'];
+      (this.paths || [this.path]).forEach((route, pi) => {
+        types.forEach((tp, i) => this.spawn(tp, route.total * (0.22 + i * 0.16), pi));
+      });
+      this._freezeSim = true;
     } else if (id === 'title') {
       // unused here
     }
@@ -4706,7 +4872,7 @@ SD.runBalance = function (mode, levelIndex, opt) {
   const d = new SD.Defense({ levelIndex: levelIndex || 0, hero: 'oakens', auto: true, bought: Array.isArray(opt.bought) ? opt.bought : [] });
   const nebulaMix = mode === 'mixed+nebula' || mode === 'mixednebula';
   const kinds = (mode === 'mixed' || nebulaMix) ? ['pulse', 'laser', 'tesla', 'missile', 'railgun', 'ice'] : [mode];
-  const cap = (levelIndex || 0) === 0 ? 8 : 10;
+  const cap = (levelIndex || 0) >= 6 ? 14 : (levelIndex || 0) === 0 ? 8 : 10;
   const maxLv = (t) => (C().turrets[t.kind] && C().turrets[t.kind].maxLevel) || 3;
   const spend = () => {
     // Unlock one nearby premium pad only after a core is standing, and only if a turret can still be afforded.

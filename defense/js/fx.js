@@ -687,6 +687,40 @@ function drawEdisarShip(g, kind) {
       canopy: [18, 0, 13, 6.5], emblem: [-4, 0, 7.2],
       dark: true,
     },
+
+    harbinger: {
+      body: [[104, 0], [62, 10], [18, 16], [-28, 16], [-66, 12], [-88, 7], [-88, -7], [-66, -12], [-28, -16], [18, -16], [62, -10]],
+      wing: [[10, 14], [-18, 30], [-52, 36], [-78, 28], [-74, 16], [-40, 13], [10, 13]],
+      inner: [[80, 0], [40, 6], [-12, 7], [-52, 5], [-72, 3], [-72, -3], [-52, -5], [-12, -7], [40, -6]],
+      stripe: [[96, 0], [50, 2], [-60, 2], [-60, -2], [50, -2]],
+      span: 16, wingSpan: 36, plates: [-62, -28, 8, 40, 70], plateY: 15,
+      turrets: [[32, 16], [-8, 20], [-44, 22]],
+      engines: { x: -94, ys: [-20, -7, 7, 20], rx: 3.6, ry: 2.8 },
+      canopy: [26, 0, 12, 5.8], emblem: [-6, 0, 6.4],
+      spears: true,
+    },
+    tempest: {
+      body: [[108, 0], [64, 7], [20, 11], [-24, 11], [-62, 8], [-90, 5], [-90, -5], [-62, -8], [-24, -11], [20, -11], [64, -7]],
+      wing: [[4, 10], [-20, 24], [-56, 26], [-76, 16], [-58, 9], [4, 9]],
+      inner: [[86, 0], [42, 4], [-10, 5], [-54, 3.5], [-74, 2.4], [-74, -2.4], [-54, -3.5], [-10, -5], [42, -4]],
+      stripe: [[100, 0], [56, 1.6], [-66, 1.6], [-66, -1.6], [56, -1.6]],
+      span: 11, wingSpan: 26, plates: [-58, -22, 16, 52, 82], plateY: 10,
+      turrets: [[36, 12], [-20, 14], [-52, 12]],
+      engines: { x: -96, ys: [-14, 0, 14], rx: 3.4, ry: 2.4 },
+      canopy: [30, 0, 10, 4.6], emblem: [-2, 0, 5.6],
+      dark: true,
+    },
+    sovereign: {
+      body: [[100, 0], [54, 18], [12, 26], [-28, 28], [-68, 22], [-94, 12], [-94, -12], [-68, -22], [-28, -28], [12, -26], [54, -18]],
+      wing: [[14, 24], [-10, 50], [-48, 58], [-84, 48], [-90, 26], [-58, 22], [14, 22]],
+      inner: [[74, 0], [32, 10], [-10, 13], [-50, 11], [-76, 6], [-76, -6], [-50, -11], [-10, -13], [32, -10]],
+      stripe: [[86, 0], [42, 2.4], [-60, 2.4], [-60, -2.4], [42, -2.4]],
+      span: 28, wingSpan: 58, plates: [-68, -32, 0, 36, 64], plateY: 24,
+      turrets: [[40, 24], [8, 32], [-28, 30], [-62, 26]],
+      engines: { x: -100, ys: [-34, -18, 0, 18, 34], rx: 4.0, ry: 3.0 },
+      canopy: [16, 0, 14, 6.8], emblem: [-2, 0, 7.6],
+      spears: true, dark: true,
+    },
   };
   const H = hulls[kind] || hulls.flagship;
 
@@ -852,6 +886,54 @@ function drawCryoBody(g) {
   coreGlow(g, -18, 0, 3.5, '180,245,255');
 }
 
+
+function drawWraithBody(g) {
+  const hull = [[28, 0], [14, -3.2], [2, -4.2], [-14, -3], [-22, -2], [-22, 2], [-14, 3], [2, 4.2], [14, 3.2]];
+  const wingL = [[8, -3], [-6, -15], [-16, -13], [-8, -3]];
+  const wingR = [[8, 3], [-6, 15], [-16, 13], [-8, 3]];
+  dropShadow(g, hull, -1, 3, 0.28);
+  const steel = [[0, '#d0c8e8'], [0.4, '#4a3a68'], [1, '#181020']];
+  metalPoly(g, wingL, -8, -16, -8, -2, steel);
+  metalPoly(g, wingR, -8, 2, -8, 16, steel);
+  metalPoly(g, hull, 0, -6, 0, 6, [[0, '#e8e0f8'], [0.4, '#5a4878'], [1, '#1a1228']]);
+  const stripe = [[20, 0], [6, -1.5], [-14, -1.2], [-14, 1.2], [6, 1.5]];
+  metalPoly(g, stripe, 0, -2, 0, 2, [[0, '#c090ff'], [0.5, '#6030a0'], [1, '#2a1048']]);
+  canopy(g, 10, 0, 4.4, 2.4, '180,120,255');
+  engineNozzle(g, -21, -3.2, 2.0, 1.8, '180,100,255');
+  engineNozzle(g, -21, 3.2, 2.0, 1.8, '180,100,255');
+  coreGlow(g, -8, 0, 3.2, '180,120,255');
+}
+
+function drawHiveBody(g) {
+  const pod = [[24, 0], [14, -10], [0, -13], [-16, -10], [-24, -4], [-24, 4], [-16, 10], [0, 13], [14, 10]];
+  dropShadow(g, pod, -1, 3, 0.36);
+  metalPoly(g, pod, 0, -14, 0, 14, [[0, '#d8e8b0'], [0.4, '#5a6a30'], [1, '#1c2410']]);
+  clipPoly(g, pod, g => {
+    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.55;
+    g.beginPath(); g.arc(-2, -4, 4.2, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(-2, 4, 4.2, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(10, 0, 3.4, 0, Math.PI * 2); g.stroke();
+  });
+  coreGlow(g, -2, -4, 3.2, '160,220,80');
+  coreGlow(g, -2, 4, 3.2, '160,220,80');
+  coreGlow(g, 10, 0, 2.6, '200,255,90');
+  metalBox(g, -24, -5, 8, 10, 1.6, ['#c8d890', '#4a5828', '#1a2010']);
+  engineNozzle(g, -23, 0, 2.4, 2.2, '160,220,80');
+}
+
+function drawSwarmerBody(g) {
+  const hull = [[16, 0], [8, -2.4], [0, -3], [-8, -2], [-12, -1.4], [-12, 1.4], [-8, 2], [0, 3], [8, 2.4]];
+  const wingL = [[4, -2], [-2, -8], [-8, -7], [-4, -2]];
+  const wingR = [[4, 2], [-2, 8], [-8, 7], [-4, 2]];
+  dropShadow(g, hull, -1, 2, 0.28);
+  const steel = [[0, '#e8f0a8'], [0.4, '#6a7828'], [1, '#20280c']];
+  metalPoly(g, wingL, -4, -8, -4, -1, steel);
+  metalPoly(g, wingR, -4, 1, -4, 8, steel);
+  metalPoly(g, hull, 0, -4, 0, 4, [[0, '#f0f8c0'], [0.4, '#748030'], [1, '#222c10']]);
+  canopy(g, 6, 0, 2.8, 1.6, '200,255,90');
+  engineNozzle(g, -11, 0, 1.8, 1.5, '200,255,90');
+}
+
 SD.Sprites = {
   /* Modern metallic enemy ships, nose to the right. Glow is engine/canopy accent only. */
   scout() {
@@ -869,6 +951,12 @@ SD.Sprites = {
   flagship4() { return partCanvas(240, g => drawEdisarShip(g, 'frigate')); },
   flagship5() { return partCanvas(240, g => drawEdisarShip(g, 'vanguard')); },
   flagship6() { return partCanvas(240, g => drawEdisarShip(g, 'eclipse')); },
+  flagship7() { return partCanvas(240, g => drawEdisarShip(g, 'harbinger')); },
+  flagship8() { return partCanvas(240, g => drawEdisarShip(g, 'tempest')); },
+  flagship9() { return partCanvas(240, g => drawEdisarShip(g, 'sovereign')); },
+  wraith() { return partCanvas(80, g => drawWraithBody(g)); },
+  hive() { return partCanvas(96, g => drawHiveBody(g)); },
+  swarmer() { return partCanvas(48, g => drawSwarmerBody(g)); },
   shielded() {
     return partCanvas(90, g => drawShieldedBody(g));
   },
@@ -1184,6 +1272,28 @@ SD.drawSpaceBg = (g, variant = 'orbital') => {
       SD.glow(b, 200, 120, 300, 240, '160,20,40', 0.14);
       SD.glow(b, 850, 400, 320, 240, '80,0,20', 0.16);
       SD.glow(b, 512, 80, 200, 120, '255,60,60', 0.08);
+    } else if (variant === 'wreck') {
+      gr.addColorStop(0, '#140c06'); gr.addColorStop(0.55, '#1a1008'); gr.addColorStop(1, '#100806');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 180, 140, 300, 220, '220,120,40', 0.16);
+      SD.glow(b, 820, 420, 280, 200, '180,70,20', 0.14);
+      SD.glow(b, 520, 60, 340, 140, '255,160,60', 0.10);
+      paintAsteroids(b);
+    } else if (variant === 'storm') {
+      gr.addColorStop(0, '#060814'); gr.addColorStop(0.55, '#0a1020'); gr.addColorStop(1, '#080c18');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 200, 80, 280, 220, '80,140,255', 0.16);
+      SD.glow(b, 780, 360, 320, 240, '140,80,255', 0.14);
+      SD.glow(b, 512, 200, 200, 260, '180,220,255', 0.10);
+      b.strokeStyle = 'rgba(160,200,255,0.18)'; b.lineWidth = 1.2;
+      b.beginPath(); b.moveTo(140, 40); b.lineTo(200, 160); b.lineTo(170, 220); b.stroke();
+      b.beginPath(); b.moveTo(860, 80); b.lineTo(780, 200); b.lineTo(820, 280); b.stroke();
+    } else if (variant === 'apex') {
+      gr.addColorStop(0, '#10060a'); gr.addColorStop(0.55, '#18080c'); gr.addColorStop(1, '#0c0408');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 160, 160, 280, 220, '255,80,60', 0.14);
+      SD.glow(b, 860, 380, 300, 220, '255,160,40', 0.14);
+      SD.glow(b, 512, 60, 360, 140, '255,200,80', 0.12);
     } else {
       gr.addColorStop(0, '#05010f'); gr.addColorStop(0.55, '#090218'); gr.addColorStop(1, '#0b0320');
       b.fillStyle = gr; b.fillRect(0, 0, W, H);

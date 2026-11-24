@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.2';
+SD.VERSION = '0.4.3';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -14,6 +14,12 @@ SD.CONFIG = {
   callAfter: 3,
   bossLineTime: 6,
   bossEmpLine: "Power down. Let's see those towers fight in the dark.",
+  bossSlowFloor: 0.75,
+  bossMinSpeed: 12,
+  bossIceFreezeCap: 0.3,
+  bossIceFreezeCd: 2.4,
+  bossHeroFreeze: 0.5,
+  bossHeroFreezeCd: 4,
   crawlTrack: 53.355,
   storage: { muted: 'starlight-td.muted', progress: 'starlight-td.progress' },
   hud: { top: 48, bottom: 92 },
@@ -59,7 +65,7 @@ SD.CONFIG = {
       upBlurb2: 'Brief hard freeze',
       tip: {
         role: 'Crowd control. Ice damage.',
-        effect: 'Slows ships in range. Brief hard freeze at MK III. Armory can deepen the slow and add a rime field. Bosses resist the worst of it.',
+        effect: 'Slows ships in range. Brief hard freeze at MK III. Armory can deepen the slow and add a rime field. Bosses strongly resist slow and freeze.',
         vs: 'Interceptors are slowed hard.',
         resist: 'Cryo ships are immune. Juggernauts barely slow.',
       },
@@ -238,6 +244,54 @@ SD.CONFIG = {
       boss: true, scale: 1.08, sprite: 'flagship6',
       line: "This is the fleet I hid in the dark. Avrill's light doesn't reach this far, Oakens. Step into the eclipse and be extinguished.",
     },
+    wraith: {
+      name: 'Wraith', hp: 70, speed: 62, reward: 11, hull: 2, r: 13, rgb: '180,120,255',
+      resist: { laser: 1.1, missile: 0.85, ice: 0.9, railgun: 1, tesla: 1.15, pulse: 1.1 },
+      weak: ['TESLA', 'MISSILES'], resists: ['LOCK-ON'],
+      iceSlowMul: 0.85,
+      phase: { visible: 2.6, hidden: 1.15 },
+      notes: 'Phases out of turret lock for a moment, then reappears.',
+    },
+    hive: {
+      name: 'Hive Pod', hp: 110, speed: 38, reward: 14, hull: 2, r: 16, rgb: '160,220,80',
+      resist: { laser: 0.9, missile: 1.2, ice: 1, railgun: 1.15, tesla: 1, pulse: 0.95 },
+      weak: ['MISSILES', 'RAILGUN'], resists: ['LASER'],
+      splitOnDeath: { type: 'swarmer', count: 3 },
+      notes: 'Bursts into three Swarmers when destroyed.',
+    },
+    swarmer: {
+      name: 'Swarmer', hp: 16, speed: 96, reward: 2, hull: 1, r: 8, rgb: '200,255,90',
+      resist: { laser: 1.35, missile: 0.75, ice: 1.2, railgun: 1, tesla: 1.4, pulse: 1 },
+      weak: ['LASER', 'TESLA', 'ICE'], resists: ['MISSILES'],
+      notes: 'Tiny and fast. Hatches from a destroyed Hive Pod.',
+    },
+    flagship7: {
+      name: 'Comet Reaver', hp: 7000, shield: 1600, speed: 20, reward: 220, hull: 24, r: 48, rgb: '255,180,90',
+      resist: { laser: 0.6, missile: 1.2, ice: 0.85, railgun: 1.3, tesla: 1.2, pulse: 1.2 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
+      iceSlowMul: 0.4,
+      emp: { cd: 7.5, radius: 165, duration: 4.1, max: 2, delay: 3.2 },
+      boss: true, scale: 1.10, sprite: 'flagship7',
+      line: "Your scrap will decorate my hull. I combed this wreck yard for a reason — to watch you join it.",
+    },
+    flagship8: {
+      name: 'Storm Lance', hp: 7600, shield: 1680, speed: 19, reward: 240, hull: 22, r: 50, rgb: '200,220,255',
+      resist: { laser: 0.6, missile: 1.2, ice: 0.85, railgun: 1.3, tesla: 1.15, pulse: 1.2 },
+      weak: ['RAILGUN', 'PULSE'], resists: ['LASER'],
+      iceSlowMul: 0.4,
+      emp: { cd: 7.5, radius: 170, duration: 4.0, max: 2, delay: 3 },
+      boss: true, scale: 1.12, sprite: 'flagship8',
+      line: "The ion storm is already inside your grid. Three bolts. No shelters. Hold still.",
+    },
+    flagship9: {
+      name: 'The Triad', hp: 7200, shield: 1600, speed: 18, reward: 265, hull: 24, r: 52, rgb: '255,210,120',
+      resist: { laser: 0.55, missile: 1.25, ice: 0.8, railgun: 1.35, tesla: 1.2, pulse: 1.25 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER'],
+      iceSlowMul: 0.4,
+      emp: { cd: 7.2, radius: 180, duration: 4.1, max: 2, delay: 3 },
+      boss: true, scale: 1.16, sprite: 'flagship9',
+      line: "Three gates. One grave. This is the last station, and I will take it from every heading at once.",
+    },
   },
   levels: [
     {
@@ -390,6 +444,87 @@ SD.CONFIG = {
         { name: 'RIM WING',             groups: [['shielded', 24, 0.38], ['armored', 20, 0.40], ['cryo', 16, 0.38]] },
         { name: 'ECLIPSE TIDE',         groups: [['armored', 20, 0.38], ['shielded', 20, 0.38], ['juggernaut', 6, 1.06], ['interceptor', 18, 0.18], ['cryo', 14, 0.36]] },
         { name: 'THE ECLIPSE',          groups: [['flagship6', 1, 0.10], ['armored', 14, 0.52], ['shielded', 14, 0.44], ['juggernaut', 5, 1.12], ['interceptor', 16, 0.22], ['cryo', 12, 0.40]] },
+      ],
+    },
+    {
+      id: 'wreck', name: 'WRECK YARD', short: 'Wreck Yard', variant: 'wreck',
+      blurb: 'A debris field of dead hulls. Wraiths hunt the lanes.',
+      paths: [
+        [[0, 3], [6, 3], [6, 8], [14, 8], [14, 4], [22, 4], [22, 11], [31, 11]],
+        [[0, 13], [8, 13], [8, 9], [16, 9], [16, 13], [24, 13], [24, 11], [31, 11]],
+      ],
+      pads: [
+        {tx:3,ty:5},{tx:4,ty:8},{tx:8,ty:5},{tx:9,ty:6},{tx:10,ty:11},{tx:12,ty:6},
+        {tx:12,ty:11},{tx:15,ty:6},{tx:18,ty:6},{tx:18,ty:11},{tx:19,ty:8},{tx:20,ty:8},
+        {tx:4,ty:11},{tx:9,ty:11},{tx:26,ty:8},{tx:26,ty:13},{tx:20,ty:2},
+        {tx:13,ty:6,premium:1,cost:110},{tx:21,ty:8,premium:1,cost:120},{tx:26,ty:9,premium:1,cost:120},
+      ],
+      hpMul: 1.92, waves: [
+        { name: 'YARD SCOUTS',          groups: [['scout', 24, 0.30], ['fighter', 16, 0.42]] },
+        { name: 'SALVAGE WING',         groups: [['fighter', 22, 0.32], ['interceptor', 16, 0.20]] },
+        { name: 'PHANTOM WATCH',        groups: [['wraith', 10, 0.50], ['scout', 18, 0.22]] },
+        { name: 'RUST ARMOR',           groups: [['armored', 16, 0.44], ['cryo', 12, 0.42], ['wraith', 8, 0.48]] },
+        { name: 'DEBRIS MIX',           groups: [['fighter', 22, 0.30], ['shielded', 16, 0.40], ['wraith', 10, 0.46]] },
+        { name: 'GHOST SWARM',          groups: [['scout', 28, 0.16], ['interceptor', 18, 0.16], ['wraith', 12, 0.42]] },
+        { name: 'HEAVY SALVAGE',        groups: [['armored', 18, 0.40], ['juggernaut', 5, 1.10], ['wraith', 10, 0.44], ['fighter', 14, 0.30]] },
+        { name: 'HAUNT WING',           groups: [['shielded', 20, 0.38], ['armored', 16, 0.40], ['wraith', 14, 0.40], ['cryo', 12, 0.38]] },
+        { name: 'YARD TIDE',            groups: [['armored', 18, 0.38], ['shielded', 18, 0.38], ['juggernaut', 5, 1.08], ['interceptor', 16, 0.20], ['wraith', 12, 0.40]] },
+        { name: 'COMET REAVER',         groups: [['flagship7', 1, 0.10], ['armored', 12, 0.52], ['shielded', 12, 0.44], ['juggernaut', 4, 1.12], ['wraith', 10, 0.42], ['interceptor', 14, 0.22]] },
+      ],
+    },
+    {
+      id: 'storm', name: 'STORM NEEDLE', short: 'Storm Needle', variant: 'storm',
+      blurb: 'Crossing paths under an ion storm. Hive Pods seed the choke.',
+      paths: [
+        [[0, 3], [18, 3], [18, 13], [24, 13], [24, 11], [31, 11]],
+        [[0, 13], [10, 13], [10, 6], [26, 6], [26, 11], [31, 11]],
+      ],
+      pads: [
+        {tx:4,ty:5},{tx:8,ty:5},{tx:12,ty:5},{tx:16,ty:5},{tx:6,ty:8},{tx:8,ty:8},
+        {tx:12,ty:8},{tx:14,ty:8},{tx:16,ty:8},{tx:4,ty:11},{tx:7,ty:11},{tx:13,ty:11},
+        {tx:16,ty:11},{tx:20,ty:8},{tx:20,ty:11},{tx:22,ty:8},{tx:22,ty:4},{tx:28,ty:8},
+        {tx:28,ty:13},
+        {tx:17,ty:8,premium:1,cost:120},{tx:21,ty:8,premium:1,cost:120},{tx:25,ty:8,premium:1,cost:130},
+      ],
+      hpMul: 2.06, waves: [
+        { name: 'NEEDLE SCOUTS',        groups: [['scout', 26, 0.28], ['fighter', 16, 0.40]] },
+        { name: 'ION WING',             groups: [['fighter', 24, 0.30], ['interceptor', 18, 0.18]] },
+        { name: 'POD BURST',            groups: [['hive', 6, 0.74], ['scout', 20, 0.20]] },
+        { name: 'STORM ARMOR',          groups: [['armored', 16, 0.44], ['hive', 6, 0.70], ['cryo', 12, 0.40]] },
+        { name: 'CROSSFIRE',            groups: [['fighter', 22, 0.30], ['shielded', 16, 0.40], ['wraith', 8, 0.46]] },
+        { name: 'SWARM NEEDLE',         groups: [['hive', 8, 0.64], ['scout', 26, 0.16], ['interceptor', 16, 0.16]] },
+        { name: 'HEAVY CELL',           groups: [['armored', 18, 0.40], ['juggernaut', 5, 1.10], ['hive', 6, 0.68], ['wraith', 8, 0.44]] },
+        { name: 'THUNDER WING',         groups: [['shielded', 18, 0.38], ['armored', 16, 0.40], ['hive', 8, 0.64], ['cryo', 12, 0.38]] },
+        { name: 'STORM TIDE',           groups: [['armored', 16, 0.38], ['shielded', 16, 0.38], ['hive', 7, 0.62], ['juggernaut', 5, 1.08], ['interceptor', 14, 0.20], ['wraith', 8, 0.42]] },
+        { name: 'STORM LANCE',          groups: [['flagship8', 1, 0.10], ['armored', 12, 0.52], ['hive', 6, 0.66], ['shielded', 12, 0.44], ['juggernaut', 4, 1.12], ['interceptor', 14, 0.22], ['wraith', 8, 0.42]] },
+      ],
+    },
+    {
+      id: 'apex', name: 'SHATTER GATE', short: 'Shatter Gate', variant: 'apex',
+      blurb: 'Three invasion gates converge on the last station.',
+      paths: [
+        [[0, 2], [8, 2], [8, 6], [18, 6], [18, 11], [31, 11]],
+        [[0, 8], [12, 8], [12, 4], [22, 4], [22, 11], [31, 11]],
+        [[0, 13], [8, 13], [8, 10], [16, 10], [16, 13], [24, 13], [24, 11], [31, 11]],
+      ],
+      pads: [
+        {tx:3,ty:4},{tx:5,ty:4},{tx:11,ty:2},{tx:14,ty:2},{tx:16,ty:2},
+        {tx:4,ty:10},{tx:6,ty:10},{tx:9,ty:4},{tx:14,ty:8},{tx:16,ty:8},
+        {tx:3,ty:11},{tx:5,ty:11},{tx:11,ty:12},{tx:13,ty:12},{tx:20,ty:8},
+        {tx:20,ty:12},{tx:26,ty:8},{tx:26,ty:13},{tx:28,ty:8},{tx:28,ty:13},
+        {tx:17,ty:8,premium:1,cost:130},{tx:21,ty:8,premium:1,cost:140},{tx:25,ty:9,premium:1,cost:140},
+      ],
+      hpMul: 2.18, waves: [
+        { name: 'TRIPLE SCOUTS',        groups: [['scout', 30, 0.26], ['fighter', 18, 0.38]] },
+        { name: 'THREE SPEARS',         groups: [['fighter', 26, 0.28], ['interceptor', 20, 0.16]] },
+        { name: 'PHASE AND POD',        groups: [['wraith', 10, 0.46], ['hive', 6, 0.68], ['scout', 20, 0.18]] },
+        { name: 'GATE ARMOR',           groups: [['armored', 18, 0.42], ['hive', 6, 0.66], ['cryo', 12, 0.40], ['wraith', 8, 0.44]] },
+        { name: 'CROWN MIX',            groups: [['fighter', 24, 0.28], ['shielded', 18, 0.38], ['hive', 8, 0.62], ['wraith', 8, 0.44]] },
+        { name: 'SWARM CROWN',          groups: [['scout', 30, 0.16], ['interceptor', 20, 0.16], ['hive', 8, 0.60], ['wraith', 8, 0.42]] },
+        { name: 'HEAVY TRIAD',          groups: [['armored', 18, 0.38], ['juggernaut', 5, 1.08], ['hive', 8, 0.62], ['wraith', 8, 0.42], ['cryo', 12, 0.38]] },
+        { name: 'APEX WING',            groups: [['shielded', 20, 0.36], ['armored', 18, 0.38], ['hive', 9, 0.58], ['wraith', 10, 0.40]] },
+        { name: 'SHATTER TIDE',         groups: [['armored', 18, 0.36], ['shielded', 18, 0.36], ['juggernaut', 5, 1.04], ['hive', 9, 0.58], ['interceptor', 16, 0.18], ['wraith', 10, 0.40], ['cryo', 12, 0.36]] },
+        { name: 'THE TRIAD',            groups: [['flagship9', 1, 0.10], ['armored', 12, 0.50], ['shielded', 12, 0.42], ['hive', 7, 0.60], ['juggernaut', 5, 1.08], ['interceptor', 16, 0.20], ['wraith', 10, 0.40], ['cryo', 10, 0.40]] },
       ],
     },
   ],
@@ -549,7 +684,7 @@ SD.StarShop = {
   items.push({
     id: 'hero-freeze', col: 'station', name: 'FREEZE', cost: 3,
     req: ['hero'], mutex: ['hero-overload'],
-    blurb: 'FREEZE  —  The hero special also freezes every ship for 2.5s. Bosses freeze for 1s.',
+    blurb: 'FREEZE  —  The hero special also freezes every ship for 2.5s. Bosses freeze for 0.5s.',
   });
   items.push({
     id: 'hero-overload', col: 'station', name: 'OVERLOAD', cost: 3,

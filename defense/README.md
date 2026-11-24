@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.2
+# Starlight: Last Station v0.4.3
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -6,12 +6,16 @@ Hold the last station against Commander Edisar Starlight's fleet.
 Open `index.html` in a browser (a local static server is best; a PWA install
 is available over http). No build step.
 
-Play opens the level select. There are six levels of ten waves, each with
+Play opens the level select. There are nine levels of ten waves, each with
 its own map: Orbital Station, Asteroid Belt, Moon Base, Solar Drydock,
-Twin Gates, and Eclipse Rim. Twin Gates and Eclipse Rim have two
-entrances; ships spawn from both sides and the paths may merge. Credits and
-turrets reset at the start of every level. The last wave of each level is a
-boss. The Nebula turret unlocks on Level 3 and later.
+Twin Gates, Eclipse Rim, Wreck Yard, Storm Needle, and Shatter Gate.
+Twin Gates, Eclipse Rim, Wreck Yard, and Storm Needle have two entrances;
+Shatter Gate has three. Ships spawn from every gate and the paths may
+merge. Credits and turrets reset at the start of every level. The last
+wave of each level is a boss. The Nebula turret unlocks on Level 3 and
+later. Later maps introduce Wraiths (ships that briefly drop turret lock)
+and Hive Pods (which burst into Swarmers when destroyed). Edisar's
+flagships ignore the winding path and fly a straight line at the station.
 Waves are denser than in v0.2: about twice the ships on Level 1, and up
 to three times as many on Levels 2 and 3.
 
@@ -26,7 +30,7 @@ early-send bonus scales with the time you save. The auto timer still runs
 when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
-Stars are kept as the best result on each level (18 maximum across six
+Stars are kept as the best result on each level (27 maximum across nine
 levels). An ARMORY on the title screen and the level-select screen spends those stars on
 permanent turret and station upgrades, sold by Bazooka Joe, the station's
 mad-scientist weapons inventor. Each turret has its own upgrades
