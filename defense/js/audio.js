@@ -198,6 +198,17 @@ SD.Audio = (() => {
         setTimeout(() => { if (!ok()) return; tone('square', 980 - k * 80, 140, 0.1, 0.07); noise(0.1, 2600, 200, 0.12, 0.6); }, 40 + k * 70);
       }
     },
+    bossEmp() {
+      if (!ok()) return;
+      noise(0.45, 2800, 80, 0.28, 0.55);
+      tone('square', 70, 28, 0.4, 0.18);
+      tone('sawtooth', 980, 180, 0.28, 0.1);
+      tone('triangle', 520, 140, 0.22, 0.08);
+      for (let i = 0; i < 3; i++) {
+        const k = i;
+        setTimeout(() => { if (!ok()) return; tone('square', 740 - k * 90, 90, 0.1, 0.06); noise(0.1, 2200, 160, 0.1, 0.5); }, 30 + k * 55);
+      }
+    },
   };
 
   return {

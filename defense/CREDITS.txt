@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.0
+STARLIGHT: LAST STATION v0.4.1
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -155,3 +155,19 @@ lightning. Bosses take reduced special damage, and the cooldown is
 longer so it cannot be spammed.
 Between waves, and before the first wave, Brave Pilots loops as a
 calmer build-phase track and crossfades into the battle music.
+
+
+v0.4.1
+------
+The title screen has an ARMORY button next to PLAY and HOW TO PLAY.
+BACK from that door returns to the title; from the level select it
+returns to the level select.
+Edisar flagships no longer stall at the first curve: they cut the
+corner instead of snapping a long hull on a sharp vertex, and
+crowd-control on bosses is capped so ice and FREEZE cannot pin
+them in place.
+Each Edisar ship now fires an ion EMP that briefly disables the
+nearest one or two turrets. Disabled towers sit dark, spark, and
+show a timer ring until they come back online.
+Kill bounties are about 28% lower so later levels ask for more
+careful spending. Early-send bonuses are unchanged.

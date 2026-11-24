@@ -70,10 +70,40 @@ function posOnPath(path, dist) {
         x: s.a.x + (s.b.x - s.a.x) * t,
         y: s.a.y + (s.b.y - s.a.y) * t,
         ang: Math.atan2(s.b.y - s.a.y, s.b.x - s.a.x),
+        wp: i,
       };
     }
   }
-  return { x: path.base.x, y: path.base.y, ang: 0 };
+  return { x: path.base.x, y: path.base.y, ang: 0, wp: path.seg.length };
+}
+
+/* Bosses fillet sharp vertices so a long hull does not pin on a 90-degree tile corner. */
+function posOnPathSmooth(path, dist, radius) {
+  const p = posOnPath(path, dist);
+  if (!radius || !path.seg || path.seg.length < 2) return p;
+  for (let i = 0; i < path.seg.length - 1; i++) {
+    const s = path.seg[i];
+    const nxt = path.seg[i + 1];
+    const rad = Math.min(radius, s.len * 0.45, nxt.len * 0.45);
+    if (rad < 8) continue;
+    const corner = s.start + s.len;
+    if (Math.abs(dist - corner) >= rad) continue;
+    const b = s.b;
+    const inL = Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y) || 1;
+    const outL = Math.hypot(nxt.b.x - nxt.a.x, nxt.b.y - nxt.a.y) || 1;
+    const ux = (s.b.x - s.a.x) / inL, uy = (s.b.y - s.a.y) / inL;
+    const vx = (nxt.b.x - nxt.a.x) / outL, vy = (nxt.b.y - nxt.a.y) / outL;
+    const t = (dist - corner + rad) / (2 * rad);
+    const mt = 1 - t;
+    const p0x = b.x - ux * rad, p0y = b.y - uy * rad;
+    const p2x = b.x + vx * rad, p2y = b.y + vy * rad;
+    const x = mt * mt * p0x + 2 * mt * t * b.x + t * t * p2x;
+    const y = mt * mt * p0y + 2 * mt * t * b.y + t * t * p2y;
+    const tx = 2 * mt * (b.x - p0x) + 2 * t * (p2x - b.x);
+    const ty = 2 * mt * (b.y - p0y) + 2 * t * (p2y - b.y);
+    return { x, y, ang: Math.atan2(ty, tx), wp: i };
+  }
+  return p;
 }
 
 function inHud(p) {
@@ -88,8 +118,9 @@ SD.Title = class {
     this.bg = null;
     this.bgReady = false;
     this.help = false;
-    this.play = { x: W / 2 - 132, y: 182, w: 200, h: 48, label: 'PLAY', rgb: '80,170,255', size: 22, fill: 'rgba(6,8,16,0.88)', drop: true };
-    this.helpBtn = { x: W / 2 + 132, y: 182, w: 220, h: 48, label: 'HOW TO PLAY', rgb: '180,210,255', size: 18, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.play = { x: 304, y: 182, w: 180, h: 48, label: 'PLAY', rgb: '80,170,255', size: 22, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.armoryBtn = { x: 502, y: 182, w: 180, h: 48, label: 'ARMORY', rgb: '255,220,120', size: 20, fill: 'rgba(6,8,16,0.88)', drop: true };
+    this.helpBtn = { x: 710, y: 182, w: 200, h: 48, label: 'HOW TO PLAY', rgb: '180,210,255', size: 17, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.story = { x: W / 2 - 90, y: 236, w: 150, h: 28, label: 'STORY', rgb: '255,210,90', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.creditsBtn = { x: W / 2 + 90, y: 236, w: 150, h: 28, label: 'CREDITS', rgb: '200,210,230', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13 };
@@ -149,9 +180,11 @@ SD.Title = class {
     if (SD.Input.confirm()) { SD.Audio.click(); SD.start('levels'); return; }
     if (SD.Input.hit('Escape') || SD.Input.hit('KeyH')) { this.help = true; SD.Audio.click(); }
     if (SD.Input.hit('KeyC')) { this.showCredits = true; SD.Audio.click(); }
+    if (SD.Input.hit('KeyA')) { SD.Audio.click(); SD.start('armory', { from: 'title' }); return; }
     for (const p of SD.Input.takeClicks()) {
       if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
       else if (SD.inBtn(this.play, p)) { SD.Audio.click(); SD.start('levels'); }
+      else if (SD.inBtn(this.armoryBtn, p)) { SD.Audio.click(); SD.start('armory', { from: 'title' }); }
       else if (SD.inBtn(this.story, p)) { SD.Audio.click(); SD.start('crawl'); }
       else if (SD.inBtn(this.creditsBtn, p)) { this.showCredits = true; SD.Audio.click(); }
       else if (SD.inBtn(this.helpBtn, p)) { this.help = true; SD.Audio.click(); }
@@ -195,6 +228,7 @@ SD.Title = class {
 
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.play, mouse.over && SD.inBtn(this.play, mouse), this.T);
+    SD.drawButton(g, this.armoryBtn, mouse.over && SD.inBtn(this.armoryBtn, mouse), this.T);
     SD.drawButton(g, this.helpBtn, mouse.over && SD.inBtn(this.helpBtn, mouse), this.T);
     SD.drawButton(g, this.story, mouse.over && SD.inBtn(this.story, mouse), this.T);
     SD.drawButton(g, this.creditsBtn, mouse.over && SD.inBtn(this.creditsBtn, mouse), this.T);
@@ -239,11 +273,11 @@ SD.Title = class {
     const lines = [
       'Six levels, ten waves each. Credits and turrets reset every level. Later maps use two entrance gates.',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
-      'ARMORY on the level select spends earned stars on permanent turret and station upgrades. Respec is free.',
+      'ARMORY on the title screen or the level select spends earned stars on permanent turret and station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
       'NEBULA · Level 3 and later, one per map. A red dark-energy beam that ignores shields and resists.',
       'Upgrade twice for MK III specials (twin beams, cluster, freeze, full pierce, longer chains, spreading toxin).',
-      'Tap a ship to see HP, weaknesses and resistances. Pulse no longer stuns.',
+      'Tap a ship to see HP, weaknesses and resistances. Edisar flagships fire an ion EMP that briefly disables nearby turrets.',
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
       'Each turret can target First, Last, Strongest, Weakest or Closest — toggle it in the turret panel.',
       'Abilities: Orbital Strike, Drones (brief hold), EMP (drops shields). Tap the button, then the field. Esc or right-click cancels.',
@@ -505,7 +539,7 @@ SD.LevelSelect = class {
     for (const p of SD.Input.takeClicks()) {
       if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
       else if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('title'); }
-      else if (SD.inBtn(this.armoryBtn, p)) { SD.Audio.click(); SD.start('armory'); }
+      else if (SD.inBtn(this.armoryBtn, p)) { SD.Audio.click(); SD.start('armory', { from: 'levels' }); }
       else {
         for (const c of this.cards) {
           if (Math.abs(p.x - c.x) <= c.w / 2 && Math.abs(p.y - c.y) <= c.h / 2) {
@@ -578,6 +612,7 @@ SD.Armory = class {
     this.T = 0;
     this.stars = new SD.Starfield(1.1);
     this.shot = opt.shot || false;
+    this.from = opt.from === 'title' ? 'title' : 'levels';
     this.progress = this.shot ? this.shotProgress() : SD.Progress.load();
     this.hover = null;
     this.focus = (this.shot === true || this.shot === 'armory') ? 'hero-freeze' : null;
@@ -590,6 +625,9 @@ SD.Armory = class {
     this.spr = this.prepSprites();
     this.layout = this.buildLayout();
     if (this.shot) this.T = 0.48;
+  }
+  leave() {
+    SD.start(this.from === 'title' ? 'title' : 'levels');
   }
   shotProgress() {
     return {
@@ -736,9 +774,9 @@ SD.Armory = class {
       }
       return;
     }
-    if (SD.Input.hit('Escape')) { SD.Audio.click(); SD.start('levels'); return; }
+    if (SD.Input.hit('Escape')) { SD.Audio.click(); this.leave(); return; }
     for (const p of SD.Input.takeClicks()) {
-      if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('levels'); }
+      if (SD.inBtn(this.back, p)) { SD.Audio.click(); this.leave(); }
       else if (SD.inBtn(this.respec, p)) {
         if ((this.progress.bought || []).length) { this.respecAsk = true; this.respecSel = 0; SD.Audio.click(); }
         else SD.Audio.deny();
@@ -1361,6 +1399,7 @@ SD.Defense = class {
     this.drones = [];
     this.strikes = [];
     this.heroFx = null;
+    this.empFx = [];
     this.initPads();
     this.showcase = false;
     this.score = null;
@@ -1607,7 +1646,8 @@ SD.Defense = class {
       iceImmune: !!def.iceImmune, iceSlowMul: def.iceSlowMul, notes: def.notes || '',
       scale: def.scale || 1, sprite: def.sprite || type,
       pathI, route,
-      dist, x: p.x, y: p.y, ang: p.ang, slow: 1, slowT: 0, stunT: 0, stunCd: 0, freezeT: 0, holdT: 0, hitFlash: 0,
+      dist, x: p.x, y: p.y, ang: p.ang, slow: 1, slowT: 0, stunT: 0, stunCd: 0, freezeT: 0, freezeCd: 0, freezeHeroCd: 0, holdT: 0, hitFlash: 0,
+      empCd: def.emp ? (def.emp.delay || def.emp.cd) : 0, empSaid: false, wp: p.wp || 0,
       poison: [],
     };
     this.enemies.push(e);
@@ -1793,6 +1833,7 @@ SD.Defense = class {
   }
 
   fire(t, e) {
+    if (t.disabledT > 0) return;
     t.cool = this.stat(t, 'rate');
     if (e) t.ang = Math.atan2(e.y - t.y, e.x - t.x);
     t.flash = t.kind === 'nebula' ? 0.28 : t.kind === 'railgun' ? 0.18 : t.kind === 'missile' ? 0.16 : t.kind === 'tesla' ? 0.16 : t.kind === 'pulse' ? 0.22 : t.kind === 'ice' ? 0.14 : 0.10;
@@ -2061,15 +2102,155 @@ SD.Defense = class {
       f = 1 - (1 - factor) * mul;
       f = Math.max(0.12, Math.min(1, f));
     }
+    if (e.boss) f = Math.max(0.55, f);
     if (f < e.slow) e.slow = f;
     e.slowT = Math.max(e.slowT, time);
   }
 
-  applyFreeze(e, time) {
-    if (!e || time <= 0) return;
-    if (e.iceImmune) { this.floater(e, 'IMMUNE', '120,220,255'); return; }
-    if (e.iceSlowMul && e.iceSlowMul < 1) time *= e.iceSlowMul;
+  applyFreeze(e, time, opt) {
+    this.imposeFreeze(e, time, opt || null);
+  }
+
+  imposeFreeze(e, time, opt) {
+    if (!e || time <= 0) return false;
+    const hero = !!(opt && opt.hero);
+    if (e.iceImmune && !hero) { this.floater(e, 'IMMUNE', '120,220,255'); return false; }
+    if (e.boss) {
+      if (hero) {
+        if (e.freezeHeroCd > 0) return false;
+        time = Math.min(time, 1.0);
+        e.freezeHeroCd = 2.5;
+      } else {
+        if (e.freezeCd > 0) return false;
+        if (e.iceSlowMul && e.iceSlowMul < 1) time *= e.iceSlowMul;
+        time = Math.min(time, 0.6);
+        e.freezeCd = 1.2;
+      }
+    } else if (!hero && e.iceSlowMul && e.iceSlowMul < 1) {
+      time *= e.iceSlowMul;
+    }
     e.freezeT = Math.max(e.freezeT || 0, time);
+    return true;
+  }
+
+  moveEnemy(e, dt) {
+    const route = e.route || this.paths[e.pathI || 0] || this.path;
+    const locked = (e.freezeT > 0 || e.stunT > 0 || e.holdT > 0);
+    if (!locked) {
+      let spd = e.speed * (e.slow || 1);
+      if (e.boss) spd = Math.max(12, e.speed * Math.max(0.55, e.slow || 1));
+      let left = spd * dt;
+      // Overshoot-safe walk along segments so a large step cannot hang on a vertex.
+      while (left > 0 && e.dist < route.total) {
+        const info = posOnPath(route, e.dist);
+        const seg = route.seg[info.wp] || route.seg[route.seg.length - 1];
+        const rem = Math.max(0, (seg.start + seg.len) - e.dist);
+        if (rem <= 1e-6) {
+          e.dist = Math.min(route.total, seg.start + seg.len + 1e-4);
+          continue;
+        }
+        if (left >= rem) {
+          e.dist += rem;
+          left -= rem;
+        } else {
+          e.dist += left;
+          left = 0;
+        }
+      }
+      if (left > 0) e.dist = Math.min(route.total + left, e.dist + left);
+    }
+    let p;
+    if (e.boss) {
+      p = posOnPathSmooth(route, e.dist, 44);
+      const look = posOnPathSmooth(route, Math.min(route.total, e.dist + 56), 44);
+      const dx = look.x - p.x, dy = look.y - p.y;
+      e.x = p.x; e.y = p.y;
+      e.ang = (Math.hypot(dx, dy) > 1) ? Math.atan2(dy, dx) : p.ang;
+    } else {
+      p = posOnPath(route, e.dist);
+      e.x = p.x; e.y = p.y; e.ang = p.ang;
+    }
+    e.wp = p.wp || 0;
+    if (e.dist >= route.total) this.leak(e);
+  }
+
+  tickBossEmp(e, dt) {
+    if (!e || !e.boss || e.dead) return;
+    const def = C().enemies[e.type];
+    const emp = def && def.emp;
+    if (!emp) return;
+    if (e.empCd == null) e.empCd = emp.delay || emp.cd;
+    e.empCd -= dt;
+    if (e.empCd > 0) return;
+    e.empCd = emp.cd;
+    this.fireBossEmp(e, emp);
+  }
+
+  fireBossEmp(e, emp) {
+    if (!e || !emp) return [];
+    const r = emp.radius || 110;
+    const dur = emp.duration || 3.2;
+    const max = emp.max || 1;
+    const list = this.turrets
+      .map(t => ({ t, d: Math.hypot(t.x - e.x, t.y - e.y) }))
+      .sort((a, b) => a.d - b.d);
+    let hits = list.filter(x => x.d <= r).slice(0, max);
+    if (!hits.length && list.length && list[0].d <= r * 1.45) hits = [list[0]];
+    for (const { t } of hits) {
+      t.disabledT = dur;
+      t.disabledMax = dur;
+      t.target = null;
+    }
+    if (!this.empFx) this.empFx = [];
+    this.empFx.push({
+      x: e.x, y: e.y, r, life: 0.55, max: 0.55,
+      bolts: hits.map(({ t }) => ({ x: t.x, y: t.y })),
+    });
+    this.fx.ring(e.x, e.y, '140,230,255', Math.min(r * 0.7, 90), 0.45);
+    this.fx.burst(e.x, e.y, '180,240,255', 22, 140, 0.5, 2.4);
+    if (SD.Audio.bossEmp) SD.Audio.bossEmp(); else if (SD.Audio.boss) SD.Audio.boss();
+    if (!e.empSaid) {
+      e.empSaid = true;
+      const line = (C().bossEmpLine) || "Power down. Let's see those towers fight in the dark.";
+      this.showBossLine(e.name, line);
+    }
+    return hits;
+  }
+
+  tickEmpFx(dt) {
+    if (!this.empFx) return;
+    for (const fx of this.empFx) fx.life -= dt;
+    this.empFx = this.empFx.filter(fx => fx.life > 0);
+  }
+
+  drawEmpFx(g) {
+    if (!this.empFx || !this.empFx.length) return;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (const fx of this.empFx) {
+      const al = Math.max(0, fx.life / fx.max);
+      const rad = fx.r * (0.35 + 0.65 * (1 - al));
+      g.beginPath(); g.arc(fx.x, fx.y, rad, 0, Math.PI * 2);
+      g.strokeStyle = `rgba(160,240,255,${0.85 * al})`;
+      g.lineWidth = 3.5; g.stroke();
+      g.beginPath(); g.arc(fx.x, fx.y, rad * 0.62, 0, Math.PI * 2);
+      g.strokeStyle = `rgba(80,180,255,${0.5 * al})`;
+      g.lineWidth = 7; g.stroke();
+      for (const b of fx.bolts || []) {
+        g.beginPath();
+        g.moveTo(fx.x, fx.y);
+        const mx = (fx.x + b.x) / 2 + Math.sin((1 - al) * 18) * 10;
+        const my = (fx.y + b.y) / 2 + Math.cos((1 - al) * 16) * 10;
+        g.lineTo(mx, my);
+        g.lineTo(b.x, b.y);
+        g.strokeStyle = `rgba(200,250,255,${0.9 * al})`;
+        g.lineWidth = 2.2; g.stroke();
+        g.beginPath(); g.arc(b.x, b.y, 16 + (1 - al) * 8, 0, Math.PI * 2);
+        g.strokeStyle = `rgba(140,230,255,${0.8 * al})`;
+        g.lineWidth = 2; g.stroke();
+      }
+    }
+    g.restore();
   }
 
   cycleSpeed() {
@@ -2154,6 +2335,8 @@ SD.Defense = class {
       if (e.dead) continue;
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 1; }
       if (e.freezeT > 0) e.freezeT -= dt;
+      if (e.freezeCd > 0) e.freezeCd -= dt;
+      if (e.freezeHeroCd > 0) e.freezeHeroCd -= dt;
       if (e.holdT > 0) e.holdT -= dt;
       if (e.stunT > 0) e.stunT -= dt;
       if (e.stunCd > 0) e.stunCd -= dt;
@@ -2165,19 +2348,23 @@ SD.Defense = class {
         if (dps > 0) this.toxin(e, dps * dt);
         if (e.dead) continue;
       }
-      if (!(e.freezeT > 0 || e.stunT > 0 || e.holdT > 0)) e.dist += e.speed * e.slow * dt;
-      const route = e.route || this.paths[e.pathI || 0] || this.path;
-      const p = posOnPath(route, e.dist);
-      e.x = p.x; e.y = p.y; e.ang = p.ang;
-      if (e.dist >= route.total) this.leak(e);
+      this.moveEnemy(e, dt);
+      if (e.boss) this.tickBossEmp(e, dt);
     }
     this.compactEnemies();
     if (this.inspected && (this.inspected.hp <= 0 || this.inspected.dead)) this.inspected = null;
+    this.tickEmpFx(dt);
 
     for (const t of this.turrets) {
       if (t.cool > 0) t.cool -= dt;
       if (t.flash > 0) t.flash -= dt;
       if (t.kick > 0) t.kick = Math.max(0, t.kick - 20 * dt);
+      if (t.disabledT > 0) {
+        t.disabledT -= dt;
+        t.target = null;
+        if (Math.random() < dt * 10) this.fx.burst(t.x, t.y, '140,230,255', 3, 50, 0.25, 1.4);
+        continue;
+      }
       const e = this.firstInRange(t);
       t.target = e;
       if (e) {
@@ -2283,7 +2470,10 @@ SD.Defense = class {
       d.life -= dt;
       for (const e of this.enemies) {
         if (e.dead || e.hp <= 0) continue;
-        if (Math.hypot(e.x - d.x, e.y - d.y) <= d.r + e.r) e.holdT = Math.max(e.holdT || 0, d.hold);
+        if (Math.hypot(e.x - d.x, e.y - d.y) <= d.r + e.r) {
+          const hold = e.boss ? Math.min(d.hold, 0.8) : d.hold;
+          e.holdT = Math.max(e.holdT || 0, hold);
+        }
       }
     }
     this.drones = this.drones.filter(d => d.life > 0);
@@ -2423,8 +2613,7 @@ SD.Defense = class {
     e.hitFlash = 0.16;
     if (applied > 0) e.hp -= applied;
     const freeze = this.specialFreezeTime(e);
-    if (freeze > 0) {
-      e.freezeT = Math.max(e.freezeT || 0, freeze);
+    if (freeze > 0 && this.imposeFreeze(e, freeze, { hero: true })) {
       this.floater(e, 'FREEZE', '140,230,255');
     }
     if (e.hp <= 0) this.kill(e, true);
@@ -2981,6 +3170,7 @@ SD.Defense = class {
     this.drawAim(g);
 
     for (const t of this.turrets) this.drawTurret(g, t);
+    this.drawEmpFx(g);
     for (const b of this.beams) {
       g.save(); g.globalCompositeOperation = 'lighter';
       const a = b.life / b.max;
@@ -3286,6 +3476,29 @@ SD.Defense = class {
       g.globalCompositeOperation = 'lighter';
       g.globalAlpha = Math.min(1, t.flash / 0.07);
       SD.blit(g, fl, t.x + Math.cos(t.ang) * tip, t.y + Math.sin(t.ang) * tip, t.ang + Math.PI / 2, scale);
+      g.restore();
+    }
+    if (t.disabledT > 0) {
+      const max = t.disabledMax || 3.5;
+      const pct = Math.max(0, Math.min(1, t.disabledT / max));
+      g.save();
+      g.beginPath(); g.arc(t.x, t.y, 20 * scale, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(12,16,22,0.58)'; g.fill();
+      g.strokeStyle = 'rgba(150,180,200,0.7)'; g.lineWidth = 1.4 * scale; g.stroke();
+      g.beginPath();
+      g.arc(t.x, t.y, 26 * scale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      g.strokeStyle = 'rgba(130,230,255,0.95)'; g.lineWidth = 2.6 * scale;
+      g.shadowColor = 'rgba(80,220,255,0.95)'; g.shadowBlur = 8 * (SD.view && SD.view.scale || 1);
+      g.stroke();
+      g.shadowBlur = 0;
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 5; i++) {
+        const a = this.T * 11 + i * 1.26 + (t.x + t.y) * 0.02;
+        const rr = (11 + (i % 3) * 5) * scale;
+        const sx = t.x + Math.cos(a) * rr, sy = t.y + Math.sin(a * 1.3) * rr;
+        g.fillStyle = i % 2 ? 'rgba(200,250,255,0.9)' : 'rgba(90,200,255,0.8)';
+        g.beginPath(); g.arc(sx, sy, (1.4 + (i % 2)) * scale, 0, Math.PI * 2); g.fill();
+      }
       g.restore();
     }
   }
@@ -4225,6 +4438,27 @@ SD.Defense = class {
       this.sim(0.26);
       this._freezeSim = true;
       if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
+    } else if (id === 'bossemp' || id === 'emp') {
+      this._armoryBought = [];
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      // Lower-right corridor, clear of the taunt box, so the ion pulse and disabled turret stay visible.
+      plant([[23, 11, 'laser', 2], [26, 11, 'ice', 2], [21, 11, 'tesla', 2]]);
+      this.credits = 200;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.shop = null;
+      this.picked = null;
+      this.heroHint = null;
+      this.banner = null;
+      this.enemies = [];
+      const boss = this.spawn('flagship1', 1472);
+      boss.freezeT = 0; boss.stunT = 0; boss.holdT = 0; boss.slow = 1; boss.slowT = 0;
+      this.fireBossEmp(boss, (C().enemies.flagship1 && C().enemies.flagship1.emp) || { radius: 100, duration: 3, max: 1, cd: 10 });
+      this.sim(0.18);
+      this._freezeSim = true;
+      if (SD.Audio && SD.Audio.muted) SD.Audio.toggleMute();
     } else if (id === 'title') {
       // unused here
     }
@@ -4311,9 +4545,13 @@ SD.runBalance = function (mode, levelIndex, opt) {
     level: (d.level && d.level.name) || String(levelIndex || 0),
     result: d.score ? 'win' : (d.over || 'timeout'),
     hull: d.hull,
+    maxHull: d.maxHull,
     credits: d.credits,
     waves: d.waveIndex,
     stars: d.score ? d.score.stars : 0,
+    kills: d.score ? d.score.kills : (d.levelStats && d.levelStats.kills) || 0,
+    earned: d.score ? d.score.earned : (d.levelStats && d.levelStats.earned) || 0,
+    early: d.score ? d.score.early : (d.levelStats && d.levelStats.early) || 0,
     turrets: d.turrets.map(t => t.kind + t.level),
     time: Math.round(d.T),
   };

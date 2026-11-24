@@ -62,7 +62,7 @@
       if (SD.Audio.playTitle) SD.Audio.playTitle();
     } else if (s === 'armory') {
       SD.state = 'armory';
-      SD.game = new SD.Armory();
+      SD.game = new SD.Armory({ from: opt.from });
       if (credit) credit.style.display = 'none';
       if (SD.Audio.playTitle) SD.Audio.playTitle();
     } else if (s === 'crawl') {

@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.0
+# Starlight: Last Station v0.4.1
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -27,7 +27,7 @@ when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
 Stars are kept as the best result on each level (18 maximum across six
-levels). An ARMORY on the level-select screen spends those stars on
+levels). An ARMORY on the title screen and the level-select screen spends those stars on
 permanent turret and station upgrades, sold by Bazooka Joe, the station's
 mad-scientist weapons inventor. After HERO PROTOCOL, a fork lets
 you specialize the hero special as FREEZE (also freezes every ship) or
