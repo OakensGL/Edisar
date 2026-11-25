@@ -16,6 +16,11 @@ if (!SD.Portraits.joe) {
   joe.src = 'assets/bazooka-joe.jpg';
   SD.Portraits.joe = joe;
 }
+if (!SD.Portraits.joeValio) {
+  const valio = new Image();
+  valio.src = 'assets/bazooka-joe-valio.jpg';
+  SD.Portraits.joeValio = valio;
+}
 if (!SD.Portraits.nebula) {
   const neb = new Image();
   neb.src = 'assets/nebula.jpg';
@@ -97,6 +102,13 @@ SD.JOE_LINES = {
   respec: [
     "Back to the drawing board! I love the drawing board.",
     "All right, all right, take it all apart. I'll pretend this never happened.",
+  ],
+  placeNebula: [
+    "Oh hell. She's here. Edisar, start writing your will.",
+    "That's Nebula's toy. Somebody tell Edisar it's over.",
+    "Well, that's it. Game over, Edisar. Pack it up.",
+    "The red lady's on the pad. Those poor bastards are already dead.",
+    "High Level Performance, my ass. That thing's a war crime with a warranty.",
   ],
   // In-match turret upgrades (MK II / MK III). Kept short for the side toast.
   match: {
@@ -2043,6 +2055,7 @@ SD.Defense = class {
     this.shop = null;
     this.picked = null;
     SD.Audio.place();
+    if (kind === 'nebula' && !this.auto && !this.shot) this.sayJoeNebula();
     return true;
   }
 
@@ -2081,19 +2094,29 @@ SD.Defense = class {
     this.showJoeLine(text);
   }
 
-  showJoeLine(text) {
+  sayJoeNebula() {
+    const pool = (SD.JOE_LINES && SD.JOE_LINES.placeNebula) || [];
+    if (!pool.length) return;
+    const opts = pool.filter(s => s && s !== this._joeSaid);
+    const use = opts.length ? opts : pool;
+    this.showJoeLine(use[Math.floor(Math.random() * use.length)], { ignoreGap: true, portrait: 'joeValio' });
+  }
+
+  showJoeLine(text, opt) {
     if (!text) return;
+    opt = opt || {};
     const hold = C().joeLineTime || 4.2;
     const gap = C().joeLineGap || 7;
     const item = {
       who: 'joe', title: 'BAZOOKA JOE', name: 'Field Kit',
-      text, rgb: '255,210,120', hold,
+      text, rgb: '255,210,120', hold, ignoreGap: !!opt.ignoreGap,
+      portrait: opt.portrait || 'joe',
     };
     if (this.talkBusy()) {
       this.joePending = item;
       return;
     }
-    if ((this.T - (this._joeAt == null ? -99 : this._joeAt)) < gap) return;
+    if (!item.ignoreGap && (this.T - (this._joeAt == null ? -99 : this._joeAt)) < gap) return;
     this.bossLine = { items: [item], i: 0, life: hold, max: hold };
     this._joeSaid = text;
     this._joeAt = this.T;
@@ -4639,7 +4662,7 @@ SD.Defense = class {
       title: it.title || 'EDISAR STARLIGHT',
       sub: it.name || '',
       lines: [it.text],
-      portrait: it.who === 'nebula' ? 'nebula' : (it.who === 'joe' ? 'joe' : 'edisar'),
+      portrait: it.portrait || (it.who === 'nebula' ? 'nebula' : (it.who === 'joe' ? 'joe' : 'edisar')),
     });
   }
 
@@ -5609,6 +5632,28 @@ SD.Defense = class {
       ['fighter', 'armored', 'scout'].forEach((tp, i) => this.spawn(tp, 220 + i * 140));
       this.picked = this.turrets.find(tr => tr.kind === 'laser') || this.turrets[0];
       this.showJoeLine("Twin beams! I told you one wasn't enough.");
+      this.holdBossLine('joe');
+      this._freezeSim = true;
+    } else if (id === 'joenebula' || id === 'joenebulaplace') {
+      this.setLevel(2); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      plantNear(6);
+      this.credits = 340;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null;
+      let nebPad = null;
+      for (const p of this.pads || []) {
+        if (this.occupied(p.tx, p.ty)) continue;
+        if (this.canPlace(p.tx, p.ty) || this.shot) { nebPad = p; break; }
+      }
+      if (nebPad) {
+        if (nebPad.premium) nebPad.open = true;
+        this.place(nebPad.tx, nebPad.ty, 'nebula', 1);
+      }
+      this.turrets.forEach(tr => { tr.cool = 99; tr.kick = 0; });
+      this.enemies = [];
+      ['fighter', 'shielded', 'armored'].forEach((tp, i) => this.spawn(tp, 260 + i * 150));
+      this.waveIndex = 3; this.waveActive = true; this.groups = [];
+      this.showJoeLine("Oh hell. She's here. Edisar, start writing your will.", { ignoreGap: true, portrait: 'joeValio' });
       this.holdBossLine('joe');
       this._freezeSim = true;
     } else if (id === 'title') {

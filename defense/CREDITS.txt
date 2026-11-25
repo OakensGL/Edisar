@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.4
+STARLIGHT: LAST STATION v0.4.5
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -232,3 +232,10 @@ side toast, rate-limited so it does not talk over Edisar or
 Nebula or flood the field. "The Evil Sacrifice
 Archenemies" by ISAo (SOUND AIRYLUVS, OGA-BY 3.0) loops for the
 whole Last Stand mode.
+
+v0.4.5
+------
+When you place the unique Nebula turret, Bazooka Joe delivers one
+random line in the compact side toast (once per map, not held to
+the usual upgrade rate limit, but still waiting if Edisar or
+Dr. Nebula is talking).
