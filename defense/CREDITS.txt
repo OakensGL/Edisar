@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.3
+STARLIGHT: LAST STATION v0.4.4
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -51,6 +51,15 @@ Game music: Space Shooter Music pack by Oblidivm
     Defeated (Game Over Tune)  — lose screen          assets/defeated.ogg
   Tracks crossfade and respect the mute toggle. Wave music is mixed lower
   so turret sound effects stay audible.
+
+Last Stand music: "The Evil Sacrifice Archenemies" by ISAo
+  Also listed as "Boss Battle - Emotional Uplifting Metal Rock".
+  Official credit: ISAo / SOUND AIRYLUVS — https://airyluvs.com/
+  Source:  https://opengameart.org/content/boss-battle-emotional-uplifting-metal-rock
+  License: OGA-BY 3.0  (https://opengameart.org/content/oga-by-30)
+  File:    assets/evil-sacrifice-archenemies.ogg
+  Re-encoded from the official MP3 (used unmodified aside from a smaller
+  Ogg Vorbis encode for phones). Loops for the whole Last Stand mode.
 
 In-game attribution: title screen credit line and the Credits panel.
 All other sound effects are synthesized at runtime with the Web Audio API.
@@ -195,3 +204,31 @@ Three new maps: Wreck Yard, Storm Needle, and Shatter Gate. Shatter
 Gate has three entrances. New ships: Wraith and Hive Pod (which
 bursts into Swarmers). Level select is a compact 3x3 grid. Max stars
 are 27.
+
+v0.4.4
+------
+LAST STAND (subtitle: Endless Siege) is a new endless mode, unlocked
+after you beat Level 3. It is not a tenth campaign level, and its
+milestone stars do not add to ARMORY stars. The competitive metric
+is SCORE: points for kills, waves cleared, hull held, early-sends,
+and a bonus on every tenth-wave flagship. Your best score and wave
+are saved and shown on the end screen and the level-select card.
+The map is a center station with four corner gates spiraling in.
+Two opposite gates (northwest and southeast) start open; a third
+opens at wave 11 and a fourth at wave 21. After that, all four
+stay open and the sky cycles every ten waves. Inactive lanes stay
+visible but dim, so you can build ahead. Waves scale in HP, count,
+and speed, and mix every ship type, including Wraiths and Hive Pods.
+Edisar flagships still fly a straight line at the station. When a
+new gate opens, and later when the sky shifts, Edisar delivers a
+taunt, and Dr. Nebula answers him. Those lines, and campaign boss
+and EMP taunts, appear as a compact side toast with a small
+portrait so they do not cover the field. Clicks pass through the
+toast; it auto-fades. Oakens does not speak. In the ARMORY,
+Bazooka Joe comments on each purchase with a short line next to
+his portrait, then the bubble fades. He also chimes in in-match
+when you upgrade a placed turret to MK II or MK III, in the same
+side toast, rate-limited so it does not talk over Edisar or
+Nebula or flood the field. "The Evil Sacrifice
+Archenemies" by ISAo (SOUND AIRYLUVS, OGA-BY 3.0) loops for the
+whole Last Stand mode.

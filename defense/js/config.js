@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.3';
+SD.VERSION = '0.4.4';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -12,8 +12,44 @@ SD.CONFIG = {
   sellRefund: 0.70,
   waveGap: 22,
   callAfter: 3,
-  bossLineTime: 6,
+  bossLineTime: 5.6,
+  replyLineTime: 4.6,
+  joeLineTime: 4.2,
+  joeLineGap: 7,
   bossEmpLine: "Power down. Let's see those towers fight in the dark.",
+  bossEmpReply: "Cute trick. My dark energy works just fine in the dark, darling.",
+  siegeLines: {
+    open: {
+      edisar: "Two gates, opposite headings. This is your last damn station, Oakens — and I will tear it open from both ends.",
+      nebula: "Tear it open? You tried that already. Get in line, Edisar — this station bites back.",
+    },
+    gate3: {
+      edisar: "A third gate just came online. Did you really think two fronts were enough, you stubborn bastards? Hell is arriving from a new heading.",
+      nebula: "A new heading. How original. I'll be there before your fleet finishes the speech.",
+    },
+    gate4: {
+      edisar: "Four gates. You're surrounded. Nowhere left to hide, nowhere left to run. I opened every damn door — this station falls today.",
+      nebula: "Every damn door? Good. Saves me the walk. Come get us.",
+    },
+    shift: [
+      {
+        edisar: "New sky. Same end. I brought a darker fleet this time — try not to blink, you bastards.",
+        nebula: "Darker fleet, same loud captain. Blink if you want. I won't.",
+      },
+      {
+        edisar: "Another shift, another wave. You held the last ten? Cute. Hell is only getting started.",
+        nebula: "Hell's getting started? Cute. We already live here.",
+      },
+      {
+        edisar: "I can do this forever. Can you? The gates stay open, and I am not done with this station.",
+        nebula: "Forever? Please. I've got better things to do than listen to you monologue.",
+      },
+      {
+        edisar: "Look at that sky. Pretty, isn't it? It will be the last damn thing your precious station ever sees.",
+        nebula: "Pretty sky. Shame your face is in it. This station isn't going anywhere.",
+      },
+    ],
+  },
   bossSlowFloor: 0.75,
   bossMinSpeed: 12,
   bossIceFreezeCap: 0.3,
@@ -121,12 +157,9 @@ SD.CONFIG = {
       cost: 300, upCost: 0, upCost2: 0, maxLevel: 1, unique: 1, minLevel: 2,
       range: [220], damage: [240], rate: [2.55], pierce: [99],
       ignoreResist: true,
-      blurb: "Dr. Nebula's dark-energy beam. Pierces a line and ignores shields and resists. One per map.",
+      blurb: 'High Level Performance',
       tip: {
-        role: 'Heavy dark-energy beam. Ignores shields and resistances.',
-        effect: 'Pierces a whole line. One per map.',
-        vs: 'Effective against every hull, including bosses.',
-        resist: 'Unlocks on Level 3.',
+        role: 'High Level Performance',
       },
     },
   },
@@ -198,6 +231,7 @@ SD.CONFIG = {
       emp: { cd: 10, radius: 100, duration: 3.0, max: 1, delay: 5 },
       boss: true, scale: 0.86, sprite: 'flagship1',
       line: "So this is the last station? Oakens, Nebula... you built a fortress out of scrap. Cute. Let my cruiser show you what real firepower looks like.",
+      reply: "Scrap with excellent taste in targets. Come closer, Edisar. I'll show you mine.",
     },
     flagship2: {
       name: 'Siege Dreadnought', hp: 2400, shield: 650, speed: 22, reward: 130, hull: 16, r: 44, rgb: '255,210,120',
@@ -207,6 +241,7 @@ SD.CONFIG = {
       emp: { cd: 9.5, radius: 110, duration: 3.2, max: 1, delay: 4.5 },
       boss: true, scale: 0.94, sprite: 'flagship2',
       line: "You keep surviving. Avrill did too, until she didn't. My Dreadnought will grind your little towers into dust.",
+      reply: "Leave Avrill out of your mouth. Your dreadnought can eat a railgun.",
     },
     flagship: {
       name: "Edisar's Flagship", hp: 3600, shield: 900, speed: 22, reward: 144, hull: 20, r: 46, rgb: '255,220,120',
@@ -216,6 +251,7 @@ SD.CONFIG = {
       emp: { cd: 9, radius: 120, duration: 3.4, max: 2, delay: 4 },
       boss: true, scale: 1, sprite: 'flagship',
       line: "I crawled back from the edge of the solar system for this moment. No more fleets, no more tricks. Face me yourselves... and fall.",
+      reply: "You crawled back for a speech? Disappointing. Fall in, then — we're not going anywhere.",
     },
     flagship4: {
       name: 'Sunlance Frigate', hp: 4000, shield: 1000, speed: 21, reward: 158, hull: 18, r: 44, rgb: '255,200,110',
@@ -225,6 +261,7 @@ SD.CONFIG = {
       emp: { cd: 9, radius: 130, duration: 3.5, max: 2, delay: 4 },
       boss: true, scale: 1.00, sprite: 'flagship4',
       line: "You thought the moon was the end of it? I left a second fleet in the solar docks. They're hungry, and they remember your names.",
+      reply: "They can remember this, too: the docks fall, and so do you.",
     },
     flagship5: {
       name: 'Twin-Spear Vanguard', hp: 4800, shield: 1200, speed: 21, reward: 180, hull: 20, r: 46, rgb: '255,210,120',
@@ -234,6 +271,7 @@ SD.CONFIG = {
       emp: { cd: 8.5, radius: 140, duration: 3.8, max: 2, delay: 3.5 },
       boss: true, scale: 1.04, sprite: 'flagship5',
       line: "Two gates, one grave. I will come at you from every heading until there is nothing left of your precious station.",
+      reply: "Two gates, one very irritated scientist. Pick a heading and get it over with.",
     },
     flagship6: {
       name: 'The Eclipse', hp: 5800, shield: 1400, speed: 20, reward: 202, hull: 22, r: 48, rgb: '255,220,130',
@@ -243,6 +281,7 @@ SD.CONFIG = {
       emp: { cd: 8, radius: 150, duration: 4.0, max: 2, delay: 3.5 },
       boss: true, scale: 1.08, sprite: 'flagship6',
       line: "This is the fleet I hid in the dark. Avrill's light doesn't reach this far, Oakens. Step into the eclipse and be extinguished.",
+      reply: "He doesn't need to say a word. I brought my own light — and it burns.",
     },
     wraith: {
       name: 'Wraith', hp: 70, speed: 62, reward: 11, hull: 2, r: 13, rgb: '180,120,255',
@@ -273,6 +312,7 @@ SD.CONFIG = {
       emp: { cd: 7.5, radius: 165, duration: 4.1, max: 2, delay: 3.2 },
       boss: true, scale: 1.10, sprite: 'flagship7',
       line: "Your scrap will decorate my hull. I combed this wreck yard for a reason — to watch you join it.",
+      reply: "Decorate this, you pompous bastard. The wreck yard's got room for one more.",
     },
     flagship8: {
       name: 'Storm Lance', hp: 7600, shield: 1680, speed: 19, reward: 240, hull: 22, r: 50, rgb: '200,220,255',
@@ -282,6 +322,7 @@ SD.CONFIG = {
       emp: { cd: 7.5, radius: 170, duration: 4.0, max: 2, delay: 3 },
       boss: true, scale: 1.12, sprite: 'flagship8',
       line: "The ion storm is already inside your grid. Three bolts. No shelters. Hold still.",
+      reply: "Hold still? Not a chance. I eat ion storms for breakfast.",
     },
     flagship9: {
       name: 'The Triad', hp: 7200, shield: 1600, speed: 18, reward: 265, hull: 24, r: 52, rgb: '255,210,120',
@@ -291,6 +332,7 @@ SD.CONFIG = {
       emp: { cd: 7.2, radius: 180, duration: 4.1, max: 2, delay: 3 },
       boss: true, scale: 1.16, sprite: 'flagship9',
       line: "Three gates. One grave. This is the last station, and I will take it from every heading at once.",
+      reply: "Take it? Over my smoking wreck, and not a damn second sooner.",
     },
   },
   levels: [
@@ -528,6 +570,32 @@ SD.CONFIG = {
       ],
     },
   ],
+  siege: {
+    id: 'siege', name: 'LAST STAND', short: 'Last Stand', variant: 'siege',
+    blurb: 'Endless siege. Four corner gates spiral in on the station.',
+    subtitle: 'Endless Siege',
+    startCredits: 220,
+    unlockAfter: 3,
+    // Open NW+SE first (opposite), then NE at wave 11, then SW at wave 21.
+    gateOrder: [0, 2, 1, 3],
+    paths: [
+      [[0, 2], [10, 2], [10, 5], [16, 5], [16, 8]],
+      [[31, 2], [31, 5], [22, 5], [22, 8], [16, 8]],
+      [[31, 13], [22, 13], [22, 10], [16, 10], [16, 8]],
+      [[0, 13], [0, 10], [10, 10], [10, 8], [16, 8]],
+    ],
+    pads: [
+      {tx:13,ty:6},{tx:14,ty:6},{tx:18,ty:6},{tx:19,ty:6},
+      {tx:13,ty:7},{tx:19,ty:7},{tx:14,ty:9},{tx:18,ty:9},
+      {tx:13,ty:11},{tx:19,ty:11},{tx:14,ty:11},
+      {tx:3,ty:4},{tx:6,ty:4},{tx:8,ty:4},{tx:12,ty:3},{tx:12,ty:6},{tx:8,ty:6},
+      {tx:28,ty:3},{tx:26,ty:3},{tx:24,ty:3},{tx:24,ty:6},{tx:28,ty:7},{tx:26,ty:7},
+      {tx:3,ty:12},{tx:6,ty:12},{tx:8,ty:12},{tx:4,ty:8},{tx:8,ty:11},{tx:12,ty:12},
+      {tx:28,ty:12},{tx:26,ty:12},{tx:24,ty:12},{tx:28,ty:8},{tx:24,ty:11},{tx:20,ty:12},
+      {tx:14,ty:7,premium:1,cost:120},{tx:18,ty:7,premium:1,cost:120},
+      {tx:14,ty:10,premium:1,cost:130},{tx:18,ty:11,premium:1,cost:130},
+    ],
+  },
 };
 
 SD.store = {
@@ -539,7 +607,7 @@ SD.pad = (n, len = 2) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 SD.Progress = {
   empty() {
     const n = (SD.CONFIG.levels && SD.CONFIG.levels.length) || 6;
-    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [] };
+    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [], siegeBest: 0, siegeBestWave: 0, siegeStars: 0 };
   },
   load() {
     const base = SD.Progress.empty();
@@ -549,6 +617,9 @@ SD.Progress = {
         base.unlocked = Math.max(1, v.unlocked | 0);
         base.stars = base.stars.map((_, i) => (v.stars && v.stars[i]) || 0);
         base.bought = SD.StarShop.migrate(Array.isArray(v.bought) ? v.bought : []);
+        base.siegeBest = Math.max(0, v.siegeBest | 0);
+        base.siegeBestWave = Math.max(0, v.siegeBestWave | 0);
+        base.siegeStars = Math.max(0, Math.min(3, v.siegeStars | 0));
       }
     } catch (e) {}
     return base;
@@ -560,6 +631,20 @@ SD.Progress = {
     p.unlocked = Math.max(p.unlocked, levelIndex + 2);
     SD.Progress.save(p);
     return p;
+  },
+  siegeUnlocked(p) {
+    const need = (SD.CONFIG.siege && SD.CONFIG.siege.unlockAfter) || 3;
+    return !!(p && (p.unlocked | 0) > need);
+  },
+  recordSiege(score, wave, stars) {
+    const p = SD.Progress.load();
+    const prev = p.siegeBest || 0;
+    const pts = Math.max(0, score | 0);
+    p.siegeBest = Math.max(prev, pts);
+    p.siegeBestWave = Math.max(p.siegeBestWave || 0, wave | 0);
+    p.siegeStars = Math.max(p.siegeStars || 0, Math.max(0, Math.min(3, stars | 0)));
+    SD.Progress.save(p);
+    return { progress: p, isNew: pts > prev };
   },
 };
 

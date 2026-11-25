@@ -13,6 +13,7 @@ SD.Audio = (() => {
     battle: { src: 'assets/battle-in-the-stars.ogg',     loop: true,  vol: 0.24 },
     build:  { src: 'assets/brave-pilots.ogg',            loop: true,  vol: 0.32 },
     boss:   { src: 'assets/deathmatch.ogg',              loop: true,  vol: 0.30 },
+    siege:  { src: 'assets/evil-sacrifice-archenemies.ogg', loop: true, vol: 0.28 },
     score:  { src: 'assets/space-heroes.ogg',            loop: true,  vol: 0.42 },
     win:    { src: 'assets/victory-tune.ogg',            loop: false, vol: 0.50 },
     lose:   { src: 'assets/defeated.ogg',                loop: false, vol: 0.50 },
@@ -108,11 +109,16 @@ SD.Audio = (() => {
   function playTitle() { playMusic('title'); }
   function stopTitle() { if (want === 'title' || !want) stopMusic(); }
   function playCrawl() { playMusic('crawl', { restart: true }); }
+  function playSiege() { playMusic('siege', { dur: 1.0 }); }
   function playWave(index) {
+    if (SD.game && SD.game.endless) { playMusic('siege', { dur: 0.8 }); return; }
     if (index >= 9) playMusic('boss', { dur: 1.0 });
     else playMusic(index % 2 === 0 ? 'fear' : 'battle', { dur: 1.0 });
   }
-  function playBuild() { playMusic('build', { dur: 1.0 }); }
+  function playBuild() {
+    if (SD.game && SD.game.endless) { playMusic('siege', { dur: 0.8 }); return; }
+    playMusic('build', { dur: 1.0 });
+  }
   function playScore() { playMusic('score'); }
   function playWin() { playMusic('win', { restart: true, dur: 0.7 }); }
   function playLose() { playMusic('lose', { restart: true, dur: 0.7 }); }
@@ -213,7 +219,7 @@ SD.Audio = (() => {
 
   return {
     unlock, toggleMute, setMuted,
-    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playWave, playBuild, playScore, playWin, playLose,
+    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playSiege, playWave, playBuild, playScore, playWin, playLose,
     trackDuration: (id) => (TRACKS[id] && TRACKS[id].duration) || 0,
     get muted() { return muted; },
     get started() { return started; },

@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.3
+# Starlight: Last Station v0.4.4
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -18,6 +18,15 @@ and Hive Pods (which burst into Swarmers when destroyed). Edisar's
 flagships ignore the winding path and fly a straight line at the station.
 Waves are denser than in v0.2: about twice the ships on Level 1, and up
 to three times as many on Levels 2 and 3.
+
+After you beat Level 3, level select also unlocks LAST STAND (subtitle:
+Endless Siege): an endless mode with a center station and four corner
+gates spiraling in. Two opposite gates start open; a new gate and a new
+sky open every ten waves until all four lanes are live, then the sky
+keeps cycling. Waves never stop and grow harder, mixing every ship type,
+with an Edisar flagship every ten waves. Score points for kills, waves
+cleared, hull held, and early-sends; your best score is saved. Milestone
+stars on this mode are cosmetic only and do not add to the ARMORY.
 
 Story on the title screen plays a skippable crawl, "The Return of Edisar
 Starlight," then returns to the level select. The crawl is timed to the
@@ -114,4 +123,7 @@ Every enemy that dies grants credits.
 Title music is "Space Dimensions (8bit/Retro Version)" by Matthew Pablo,
 licensed under CC-BY 3.0. In-game music is from Oblidivm's Space Shooter
 Music pack, also CC-BY 3.0: "Music by Oblidivm - oblidivmmusic.blogspot.com".
+Last Stand music is "The Evil Sacrifice Archenemies" by ISAo (SOUND
+AIRYLUVS, https://airyluvs.com/), licensed under OGA-BY 3.0, from
+https://opengameart.org/content/boss-battle-emotional-uplifting-metal-rock.
 See CREDITS.txt and the in-game Credits panel for full attribution.

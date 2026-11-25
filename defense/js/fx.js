@@ -1294,6 +1294,38 @@ SD.drawSpaceBg = (g, variant = 'orbital') => {
       SD.glow(b, 160, 160, 280, 220, '255,80,60', 0.14);
       SD.glow(b, 860, 380, 300, 220, '255,160,40', 0.14);
       SD.glow(b, 512, 60, 360, 140, '255,200,80', 0.12);
+    } else if (variant === 'siege') {
+      gr.addColorStop(0, '#120806'); gr.addColorStop(0.5, '#1a0c08'); gr.addColorStop(1, '#0e0604');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 512, 288, 340, 260, '255,140,40', 0.16);
+      SD.glow(b, 120, 80, 220, 180, '255,80,40', 0.12);
+      SD.glow(b, 900, 80, 220, 180, '255,160,50', 0.10);
+      SD.glow(b, 120, 500, 220, 180, '220,60,30', 0.10);
+      SD.glow(b, 900, 500, 220, 180, '255,100,40', 0.10);
+    } else if (variant === 'siege2') {
+      gr.addColorStop(0, '#060814'); gr.addColorStop(0.5, '#0a1020'); gr.addColorStop(1, '#080c16');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 512, 288, 340, 260, '80,140,255', 0.16);
+      SD.glow(b, 120, 80, 240, 200, '140,80,255', 0.12);
+      SD.glow(b, 900, 80, 240, 200, '80,200,255', 0.12);
+      SD.glow(b, 120, 500, 240, 200, '80,160,255', 0.10);
+      SD.glow(b, 900, 500, 240, 200, '160,80,255', 0.10);
+    } else if (variant === 'siege3') {
+      gr.addColorStop(0, '#100208'); gr.addColorStop(0.5, '#18040a'); gr.addColorStop(1, '#0a0206');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 512, 288, 360, 280, '255,40,70', 0.16);
+      SD.glow(b, 120, 80, 240, 200, '255,40,80', 0.14);
+      SD.glow(b, 900, 80, 240, 200, '255,80,40', 0.12);
+      SD.glow(b, 120, 500, 240, 200, '180,0,40', 0.12);
+      SD.glow(b, 900, 500, 240, 200, '255,40,40', 0.12);
+    } else if (variant === 'siege4') {
+      gr.addColorStop(0, '#08020c'); gr.addColorStop(0.5, '#10040a'); gr.addColorStop(1, '#060208');
+      b.fillStyle = gr; b.fillRect(0, 0, W, H);
+      SD.glow(b, 512, 288, 380, 280, '255,180,60', 0.16);
+      SD.glow(b, 120, 80, 240, 200, '200,40,255', 0.12);
+      SD.glow(b, 900, 80, 240, 200, '255,80,160', 0.12);
+      SD.glow(b, 120, 500, 240, 200, '255,200,80', 0.10);
+      SD.glow(b, 900, 500, 240, 200, '255,60,120', 0.12);
     } else {
       gr.addColorStop(0, '#05010f'); gr.addColorStop(0.55, '#090218'); gr.addColorStop(1, '#0b0320');
       b.fillStyle = gr; b.fillRect(0, 0, W, H);

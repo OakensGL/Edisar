@@ -11,7 +11,7 @@
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  if (standalone() || !mobile() || (typeof localStorage !== 'undefined' && localStorage.getItem(STORE) === '1')) return;
+  if (/[?&]shot=/.test(location.search) || standalone() || !mobile() || (typeof localStorage !== 'undefined' && localStorage.getItem(STORE) === '1')) return;
 
   let deferred = null;
   const tip = document.createElement('div');

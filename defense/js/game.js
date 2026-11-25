@@ -16,11 +16,193 @@ if (!SD.Portraits.joe) {
   joe.src = 'assets/bazooka-joe.jpg';
   SD.Portraits.joe = joe;
 }
+if (!SD.Portraits.nebula) {
+  const neb = new Image();
+  neb.src = 'assets/nebula.jpg';
+  SD.Portraits.nebula = neb;
+}
 SD.JOE_LINES = {
-  open: 'Ah, a customer! Mind the vials, half of them explode.',
-  buy: "Hehehe! She'll shoot straighter now... probably.",
-  mk4: 'Now THAT is science!',
-  respec: 'Back to the drawing board! I love the drawing board.',
+  open: [
+    'Ah, a customer! Mind the vials, half of them explode.',
+    "Come in, come in! If it sparks, that's the good kind of sparks.",
+  ],
+  generic: [
+    "Sold! If it starts humming, that's normal. If it screams, that's also normal.",
+    "Another one off the rack. Don't say I never gave you anything.",
+    "Ha! Credits well wasted. I mean spent. Spent!",
+    "You want it, you got it. Warranty is a dirty word around here.",
+    "Oh, I like your taste. Chaotic. Slightly unwise. Perfect.",
+    "Done. If Joe made it, it'll work... or it'll be very educational.",
+    "Hehehe! She'll shoot straighter now... probably.",
+  ],
+  laser: [
+    "Lasers! Thin, mean, and loud. Just how I like my light shows.",
+    "More beam, less mercy. Try not to look directly at it.",
+    "A hotter laser. Don't thank me, thank the scorch marks.",
+  ],
+  missile: [
+    "Missiles. Pointy gifts with a terrible sense of personal space.",
+    "Boom in a box. Shake well, then absolutely do not.",
+    "More warheads, fewer friends. That's the spirit.",
+  ],
+  ice: [
+    "Cold enough to make a sun shiver. Don't lick the barrel.",
+    "A slow, frozen hell for anything that gets close. Beautiful.",
+    "Ice upgrade! If they move, they regret it. If they don't, even better.",
+  ],
+  railgun: [
+    "Railgun! One shot, one very neat hole, and a hell of a kick.",
+    "Piercing fire. If it still moves after that, I want a refund. From them.",
+    "More rails, more holes. Science is just organized violence.",
+  ],
+  tesla: [
+    "Tesla coil, but angry. Don't pet it.",
+    "Lightning in a cage. I taught it manners. I lied.",
+    "More arc, more chaos. If your hair stands up, it's working.",
+  ],
+  pulse: [
+    "Pulse wave. Strips shields and ruins someone's afternoon.",
+    "A shock, a toxin, a bad day. That's science, baby!",
+    "Pulse is hungrier now. Feed it ships.",
+  ],
+  mk4: [
+    "Now THAT is science!",
+    "MK IV! I may have overdone it. You're welcome.",
+    "That's the good stuff. Don't tell the safety board.",
+    "I almost named this one after myself. Then I thought, nah, let it be infamous.",
+  ],
+  hero: [
+    "Hero protocol? Oh, I like it when they glow.",
+    "A special for the specials. Try not to miss.",
+    "Give the pilots a bigger stick. They've earned a little mayhem.",
+  ],
+  freeze: [
+    "FREEZE, huh? Heartless. I respect that.",
+    "A cold snap for every ship on the field. Delightfully unfair.",
+  ],
+  overload: [
+    "OVERLOAD. Subtle as a sledgehammer. My kind of science.",
+    "More punch on the special. If anything's still standing, I'll be shocked.",
+  ],
+  core: [
+    "Dark core for the red lady's toy. Handle it like it's cursed, because it is.",
+    "A hungrier Nebula beam. Don't stand in front of it. Or behind it. Or near it.",
+  ],
+  station: [
+    "More funds! Spend 'em before I invent a way to take 'em back.",
+    "Thicker hull. Ugly, sturdy, and too damn honest.",
+    "Faster charges. The universe hates a fair cooldown.",
+    "Station first, fireworks second. I can respect a plan.",
+  ],
+  respec: [
+    "Back to the drawing board! I love the drawing board.",
+    "All right, all right, take it all apart. I'll pretend this never happened.",
+  ],
+  // In-match turret upgrades (MK II / MK III). Kept short for the side toast.
+  match: {
+    generic2: [
+      "MK II. A little more kick, a little less mercy.",
+      "Upgraded on the pad. If it rattles, that's flavor.",
+    ],
+    generic3: [
+      "MK III! That's the good stuff on a live turret.",
+      "Maxed it. Try not to melt the pad.",
+    ],
+    special: [
+      "Special kit on the pad. Handle it like it's cursed.",
+      "That's the fancy one. Don't stand in front of it.",
+    ],
+    laser2: [
+      "MK II laser. Now that's a proper sting.",
+      "Hotter beam, same bad attitude. I like it.",
+    ],
+    laser3: [
+      "Twin beams! I told you one wasn't enough.",
+      "MK III laser. Don't look at it. I mean it this time.",
+    ],
+    missile2: [
+      "Missiles packed tighter. The neighbors will complain.",
+      "MK II warheads. Pointier, ruder, perfect.",
+    ],
+    missile3: [
+      "Cluster munitions! That's the messy science I live for.",
+      "MK III missiles. One shot, a whole damn party.",
+    ],
+    ice2: [
+      "Colder still. I can see my breath from here.",
+      "MK II ice. If they weren't slow, they are now.",
+    ],
+    ice3: [
+      "A real freeze on that. Heartless. Beautiful.",
+      "MK III ice. I almost feel bad. Almost.",
+    ],
+    railgun2: [
+      "MK II rail. The kick's nastier. So's the hole.",
+      "Harder slug, longer punch. Don't stand behind it.",
+    ],
+    railgun3: [
+      "MK III railgun. That'll go through a bad day and the next one.",
+      "Full pierce. If anything's left, I'll eat my hat.",
+    ],
+    tesla2: [
+      "MK II tesla. The arc's got opinions now.",
+      "More bite in the lightning. Don't pet it. Still.",
+    ],
+    tesla3: [
+      "Chaining harder. That's a whole family of bad news.",
+      "MK III tesla. I taught it to share. It shares pain.",
+    ],
+    pulse2: [
+      "MK II pulse. Shields won't like this one.",
+      "A meaner shockwave. Someone's afternoon is ruined.",
+    ],
+    pulse3: [
+      "MK III pulse. The toxin spreads. I'm so proud.",
+      "Now it poisons the neighbors too. That's science, baby.",
+    ],
+    nebula2: [
+      "The red lady's toy just got hungrier.",
+      "Darker beam on the pad. Don't thank me, thank physics.",
+    ],
+    nebula3: [
+      "Maxed the red beam. That's a special kind of unwise. I love it.",
+      "MK III Nebula kit. If it starts singing, leave the room.",
+    ],
+  },
+};
+SD.pickJoeLine = function (id, last) {
+  const L = SD.JOE_LINES || {};
+  const add = (arr, extra) => (arr || []).concat(extra || []);
+  let pool;
+  if (!id) pool = add(L.open, L.generic);
+  else if (id === 'respec') pool = L.respec || L.generic;
+  else if (id === 'open') pool = L.open || L.generic;
+  else if (id.indexOf('-mk4') >= 0) pool = add(L.mk4, L.generic.slice(0, 2));
+  else if (id === 'hero') pool = add(L.hero, L.generic.slice(0, 2));
+  else if (id === 'hero-freeze') pool = add(L.freeze, L.hero);
+  else if (id === 'hero-overload') pool = add(L.overload, L.hero);
+  else if (id === 'nebula-core') pool = add(L.core, L.generic.slice(0, 2));
+  else if (id === 'funds' || id === 'hull' || id === 'charge') pool = add(L.station, L.generic.slice(0, 2));
+  else {
+    const kind = String(id).split('-')[0];
+    pool = add(L[kind], L.generic);
+  }
+  if (!pool || !pool.length) pool = L.generic || ["Hehehe! She'll shoot straighter now... probably."];
+  const opts = pool.filter(s => s && s !== last);
+  const use = opts.length ? opts : pool;
+  return use[Math.floor(Math.random() * use.length)];
+};
+SD.pickJoeMatchLine = function (kind, level, last) {
+  const M = (SD.JOE_LINES && SD.JOE_LINES.match) || {};
+  const lv = level >= 3 ? 3 : 2;
+  const unique = kind === 'nebula' || kind === 'special';
+  const pool = []
+    .concat(unique ? (M.special || []) : [])
+    .concat(M[(kind || '') + lv] || [])
+    .concat(M['generic' + lv] || []);
+  const opts = pool.filter(s => s && s !== last);
+  const use = opts.length ? opts : (pool.length ? pool : ["Upgraded on the pad. If it rattles, that's flavor."]);
+  return use[Math.floor(Math.random() * use.length)];
 };
 
 function tileCenter(tx, ty) { return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }; }
@@ -317,11 +499,12 @@ SD.Title = class {
     g.restore();
     SD.neonText(g, 'HOW TO PLAY', W / 2, 68, 24, '200,230,255', { blur: 12 });
     const raw = [
-      'Nine levels, ten waves each. Credits and turrets reset every level. Later maps use two or three entrance gates.',
+      'Nine campaign levels, ten waves each. Credits and turrets reset every level. Later maps use two or three entrance gates.',
+      'LAST STAND (unlock after Level 3) is an endless siege. Waves never stop and grow harder. A new gate and a new sky open every ten waves, and Edisar flagships fly straight at the station. Score points for kills, waves cleared, and hull held; your best score is saved.',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
       'ARMORY on the title or level select (or A in a match) spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
-      'NEBULA · Level 3 and later, one per map. A red dark-energy beam that ignores shields and resists.',
+      'NEBULA · Level 3 and later, one per map. High Level Performance.',
       'Upgrade twice for MK III specials (twin beams, cluster, freeze, full pierce, longer chains, spreading toxin).',
       'Tap a ship to see HP, weaknesses and resistances. Edisar flagships fly a straight line at the station and fire an ion EMP that briefly disables nearby turrets.',
       'About 3s after a wave starts you can send the next one and fight several at once. Bonus scales with time saved.',
@@ -361,26 +544,28 @@ SD.Title = class {
     g.restore();
     SD.neonText(g, 'CREDITS', W / 2, 88, 26, '200,230,255', { blur: 12 });
     const lines = [
-      ['Game design, art direction', '180,210,255', 13],
-      ['Juan Carlos Garcia', '230,235,245', 16],
-      ['', '', 8],
-      ['Title music', '180,210,255', 13],
-      ['"Space Dimensions (8bit/Retro Version)"', '230,235,245', 15],
-      ['by Matthew Pablo  —  CC-BY 3.0', '230,235,245', 15],
-      ['www.matthewpablo.com', '200,210,230', 13],
-      ['', '', 8],
-      ['Game music  ·  Space Shooter Music pack', '180,210,255', 13],
-      ['Music by Oblidivm  —  oblidivmmusic.blogspot.com', '230,235,245', 15],
-      ['CC-BY 3.0', '230,235,245', 15],
-      ['SkyFire  ·  Brave Pilots  ·  Without Fear  ·  Battle in the Stars', '200,210,230', 13],
-      ['Space Heroes  ·  DeathMatch  ·  Victory Tune  ·  Defeated', '200,210,230', 13],
-      ['', '', 8],
-      ['Sound effects are synthesized in-game.', '180,200,220', 13],
+      ['Game design, art direction', '180,210,255', 12],
+      ['Juan Carlos Garcia', '230,235,245', 15],
+      ['', '', 6],
+      ['Title music', '180,210,255', 12],
+      ['"Space Dimensions (8bit/Retro Version)"', '230,235,245', 14],
+      ['by Matthew Pablo  —  CC-BY 3.0  —  www.matthewpablo.com', '200,210,230', 13],
+      ['', '', 6],
+      ['Game music  ·  Space Shooter Music pack', '180,210,255', 12],
+      ['Music by Oblidivm  —  CC-BY 3.0  —  oblidivmmusic.blogspot.com', '200,210,230', 13],
+      ['SkyFire  ·  Brave Pilots  ·  Without Fear  ·  Battle in the Stars', '200,210,230', 12],
+      ['Space Heroes  ·  DeathMatch  ·  Victory Tune  ·  Defeated', '200,210,230', 12],
+      ['', '', 6],
+      ['Last Stand music', '180,210,255', 12],
+      ['"The Evil Sacrifice Archenemies" by ISAo', '230,235,245', 14],
+      ['SOUND AIRYLUVS  —  OGA-BY 3.0  —  airyluvs.com', '200,210,230', 13],
+      ['', '', 6],
+      ['Sound effects are synthesized in-game.', '180,200,220', 12],
     ];
-    let y0 = 120;
+    let y0 = 114;
     for (const [ln, rgb, sz] of lines) {
       if (ln) SD.neonText(g, ln, W / 2, y0, sz, rgb, { blur: 5, alpha: 0.95 });
-      y0 += sz === 8 ? 10 : 20;
+      y0 += sz === 6 ? 8 : 18;
     }
     SD.drawButton(g, this.closeHelp, SD.Input.mouse.over && SD.inBtn(this.closeHelp, SD.Input.mouse), this.T);
   }
@@ -575,15 +760,16 @@ SD.LevelSelect = class {
   constructor(opt = {}) {
     this.T = 0;
     this.stars = new SD.Starfield(1.1);
-    this.progress = opt.shot ? { unlocked: 9, stars: [3, 3, 1, 2, 1, 0, 2, 1, 0] } : SD.Progress.load();
+    this.progress = opt.shot ? { unlocked: 9, stars: [3, 3, 1, 2, 1, 0, 2, 1, 0], siegeBest: 24850, siegeBestWave: 22, siegeStars: 2 } : SD.Progress.load();
     this.back = { x: 70, y: 28, w: 100, h: 32, label: 'MENU', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.armoryBtn = { x: 200, y: 28, w: 130, h: 32, label: 'ARMORY', rgb: '255,220,120', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.mute = { x: W - 58, y: 28, w: 96, h: 32, label: SD.Audio.muted ? 'SOUND OFF' : 'SOUND ON', rgb: '180,200,255', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.cards = SD.CONFIG.levels.map((lv, i) => ({
       i, lv,
-      x: 242 + (i % 3) * 270, y: 186 + Math.floor(i / 3) * 154,
-      w: 252, h: 142,
+      x: 248 + (i % 3) * 262, y: 164 + Math.floor(i / 3) * 122,
+      w: 244, h: 112,
     }));
+    this.siegeCard = { x: W / 2, y: 522, w: 800, h: 80 };
   }
   update(dt) {
     this.T += dt;
@@ -595,7 +781,10 @@ SD.LevelSelect = class {
       if (SD.inBtn(this.mute, p)) { SD.Audio.toggleMute(); SD.Audio.click(); }
       else if (SD.inBtn(this.back, p)) { SD.Audio.click(); SD.start('title'); }
       else if (SD.inBtn(this.armoryBtn, p)) { SD.Audio.click(); SD.start('armory', { from: 'levels' }); }
-      else {
+      else if (SD.inBtn(this.siegeCard, p)) {
+        if (SD.Progress.siegeUnlocked(this.progress)) { SD.Audio.click(); SD.start('siege'); }
+        else SD.Audio.deny();
+      } else {
         for (const c of this.cards) {
           if (Math.abs(p.x - c.x) <= c.w / 2 && Math.abs(p.y - c.y) <= c.h / 2) {
             if (c.i < this.progress.unlocked) { SD.Audio.click(); SD.start('level', { index: c.i }); }
@@ -612,8 +801,8 @@ SD.LevelSelect = class {
     const top = g.createLinearGradient(0, 0, 0, 160);
     top.addColorStop(0, 'rgba(3,2,12,0.55)'); top.addColorStop(1, 'rgba(3,2,12,0)');
     g.fillStyle = top; g.fillRect(0, 0, W, 160);
-    SD.neonText(g, 'STARLIGHT', W / 2, 54, 28, '210,230,255', { blur: 12 });
-    SD.neonText(g, 'SELECT LEVEL', W / 2, 92, 22, '255,220,140', { blur: 10 });
+    SD.neonText(g, 'STARLIGHT', W / 2, 48, 24, '210,230,255', { blur: 12 });
+    SD.neonText(g, 'SELECT LEVEL', W / 2, 76, 18, '255,220,140', { blur: 10 });
     const earned = SD.StarShop.earned(this.progress);
     const left = SD.StarShop.available(this.progress);
     SD.neonText(g, '★  ' + left + ' / ' + earned, 340, 32, 14, '255,220,120', { blur: 6 });
@@ -630,35 +819,78 @@ SD.LevelSelect = class {
       g.fillStyle = hover ? 'rgba(12,16,28,0.92)' : 'rgba(8,10,20,0.88)'; g.fill();
       g.strokeStyle = hover ? 'rgba(255,220,140,0.7)' : 'rgba(180,200,220,0.35)'; g.lineWidth = hover ? 2 : 1.2; g.stroke();
       g.restore();
-      const prevH = 62;
+      const prevH = 50;
       g.save();
-      SD.roundRect(g, x + 10, y + 8, c.w - 20, prevH, 7); g.clip();
+      SD.roundRect(g, x + 10, y + 6, c.w - 20, prevH, 7); g.clip();
       SD.drawSpaceBg(g, c.lv.variant);
       const routes = c.lv.paths || [c.lv.path];
-      const cols = ['80,200,255', '255,90,200', '255,200,80'];
+      const cols = ['80,200,255', '255,90,200', '255,200,80', '120,255,140'];
       routes.forEach((path, pi) => {
         g.beginPath();
         path.forEach((pt, k) => {
           const px = x + 10 + (pt[0] / 31) * (c.w - 20);
-          const py = y + 8 + (pt[1] / 17) * prevH;
+          const py = y + 6 + (pt[1] / 17) * prevH;
           k ? g.lineTo(px, py) : g.moveTo(px, py);
         });
-        g.strokeStyle = `rgba(${cols[pi % 3]},0.9)`;
+        g.strokeStyle = `rgba(${cols[pi % 4]},0.9)`;
         g.lineWidth = 2; g.stroke();
       });
       g.restore();
-      SD.neonText(g, 'LEVEL ' + (i + 1), c.x, y + 80, 10, '180,210,255', { blur: 5 });
-      SD.neonText(g, c.lv.name, c.x, y + 96, 13, '230,235,245', { blur: 7 });
+      SD.neonText(g, 'LEVEL ' + (i + 1), c.x, y + 64, 9, '180,210,255', { blur: 5 });
+      SD.neonText(g, c.lv.name, c.x, y + 78, 12, '230,235,245', { blur: 7 });
       const stars = this.progress.stars[i] || 0;
       const starStr = locked ? 'LOCKED' : (stars ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'NO STARS YET');
-      SD.neonText(g, starStr, c.x, y + 118, locked ? 11 : 14, locked ? '160,160,180' : '255,220,120', { blur: 6 });
+      SD.neonText(g, starStr, c.x, y + 96, locked ? 10 : 13, locked ? '160,160,180' : '255,220,120', { blur: 6 });
       if (locked) {
         g.save(); g.fillStyle = 'rgba(4,2,12,0.45)';
         SD.roundRect(g, x, y, c.w, c.h, 14); g.fill(); g.restore();
-        SD.neonText(g, 'LOCKED', c.x, c.y + 16, 16, '200,210,230', { blur: 8 });
+        SD.neonText(g, 'LOCKED', c.x, c.y + 12, 14, '200,210,230', { blur: 8 });
       }
     });
+    this.drawSiegeCard(g, mouse);
     SD.drawScanlines(g);
+  }
+  drawSiegeCard(g, mouse) {
+    const c = this.siegeCard;
+    const unlocked = SD.Progress.siegeUnlocked(this.progress);
+    const hover = unlocked && mouse.over && SD.inBtn(c, mouse);
+    const x = c.x - c.w / 2, y = c.y - c.h / 2;
+    g.save();
+    SD.roundRect(g, x, y, c.w, c.h, 12);
+    g.fillStyle = hover ? 'rgba(18,12,16,0.94)' : 'rgba(10,8,14,0.9)'; g.fill();
+    g.strokeStyle = hover ? 'rgba(255,180,90,0.85)' : 'rgba(255,160,80,0.45)'; g.lineWidth = hover ? 2 : 1.3; g.stroke();
+    g.restore();
+    const prevW = 168, prevH = c.h - 16;
+    g.save();
+    SD.roundRect(g, x + 10, y + 8, prevW, prevH, 7); g.clip();
+    SD.drawSpaceBg(g, 'siege');
+    const routes = (C().siege && C().siege.paths) || [];
+    const cols = ['80,200,255', '255,90,200', '255,200,80', '120,255,140'];
+    routes.forEach((path, pi) => {
+      g.beginPath();
+      path.forEach((pt, k) => {
+        const px = x + 10 + (pt[0] / 31) * prevW;
+        const py = y + 8 + (pt[1] / 17) * prevH;
+        k ? g.lineTo(px, py) : g.moveTo(px, py);
+      });
+      g.strokeStyle = `rgba(${cols[pi % 4]},0.95)`;
+      g.lineWidth = 2; g.stroke();
+    });
+    g.restore();
+    const tx = x + 200;
+    SD.neonText(g, 'LAST STAND', tx, c.y - 16, 20, '255,200,120', { blur: 9, align: 'left' });
+    SD.neonText(g, 'ENDLESS SIEGE', tx, c.y + 6, 13, '200,210,230', { blur: 6, align: 'left' });
+    const best = this.progress.siegeBest || 0;
+    const bestW = this.progress.siegeBestWave || 0;
+    const sStars = this.progress.siegeStars || 0;
+    const rec = best ? ('BEST  ' + best + (bestW ? '   ·   WAVE ' + bestW : '')) : 'NO SCORE YET';
+    SD.neonText(g, rec, tx, c.y + 26, 12, '255,220,120', { blur: 6, align: 'left' });
+    SD.neonText(g, unlocked ? ('★'.repeat(sStars) + '☆'.repeat(3 - sStars)) : 'LOCKED', c.x + 340, c.y, unlocked ? 18 : 14, unlocked ? '255,220,120' : '160,160,180', { blur: 7 });
+    if (!unlocked) {
+      g.save(); g.fillStyle = 'rgba(4,2,12,0.4)';
+      SD.roundRect(g, x, y, c.w, c.h, 12); g.fill(); g.restore();
+      SD.neonText(g, 'CLEAR LEVEL 3 TO UNLOCK', c.x + 170, c.y, 13, '200,210,230', { blur: 6 });
+    }
   }
 };
 
@@ -673,15 +905,24 @@ SD.Armory = class {
     this.progress = this.shot ? this.shotProgress() : SD.Progress.load();
     this.hover = null;
     this.focus = (this.shot === true || this.shot === 'armory') ? 'laser-economy' : null;
-    this.joeLine = SD.JOE_LINES.open;
+    this.joeLine = SD.pickJoeLine('open');
     this.joePop = 0.4;
+    this.joeLife = 5.5;
     this.respecAsk = false;
     this.respecSel = 0;
     this.back = { x: 70, y: 26, w: 100, h: 30, label: 'BACK', rgb: '180,200,255', size: 14, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.respec = { x: W - 70, y: 26, w: 110, h: 30, label: 'RESPEC', rgb: '255,160,120', size: 13, fill: 'rgba(6,8,16,0.88)', drop: true };
     this.spr = this.prepSprites();
     this.layout = this.buildLayout();
-    if (this.shot) this.T = 0.48;
+    if (this.shot) {
+      this.T = 0.48;
+      if (this.shot === 'joe' || this.shot === 'joeline') {
+        this.focus = 'laser-mk4';
+        this.joeLine = "MK IV! I may have overdone it. You're welcome.";
+        this.joePop = 0.5;
+        this.joeLife = 30;
+      }
+    }
   }
   leave() {
     SD.start(this.from === 'title' ? 'title' : 'levels');
@@ -781,7 +1022,7 @@ SD.Armory = class {
       SD.StarShop.buy(p, id);
       this.progress = SD.Progress.load();
       this.focus = id;
-      this.sayJoe((id && id.indexOf('-mk4') >= 0) ? 'mk4' : 'buy');
+      this.sayJoe(id);
       SD.Audio.upgrade();
     } else {
       this.focus = id;
@@ -798,8 +1039,9 @@ SD.Armory = class {
     SD.Audio.sell();
   }
   sayJoe(kind) {
-    this.joeLine = (SD.JOE_LINES && SD.JOE_LINES[kind]) || SD.JOE_LINES.open;
+    this.joeLine = SD.pickJoeLine(kind, this.joeLine);
     this.joePop = 0;
+    this.joeLife = 5.2;
   }
   wrapJoe(g, text, maxW) {
     const words = String(text || '').split(/\s+/);
@@ -816,6 +1058,7 @@ SD.Armory = class {
   update(dt) {
     this.T += dt;
     this.joePop = (this.joePop || 0) + dt;
+    if (this.joeLife != null && !this.shot) this.joeLife -= dt;
     this.stars.update(dt);
     const mouse = SD.Input.mouse;
     this.hover = mouse.over ? this.hitItem(mouse) : null;
@@ -1394,10 +1637,13 @@ SD.Armory = class {
     g.restore();
   }
   drawJoeBubble(g, x, y, w, h) {
-    const pop = Math.min(1, (this.joePop || 0) * 5);
-    const line = this.joeLine || SD.JOE_LINES.open;
+    const fadeIn = Math.min(1, (this.joePop || 0) * 5);
+    const fadeOut = this.joeLife == null ? 1 : Math.min(1, Math.max(0, this.joeLife) * 3);
+    const pop = fadeIn * fadeOut;
+    if (pop <= 0.04) return;
+    const line = this.joeLine || SD.pickJoeLine('open');
     g.save();
-    g.globalAlpha = 0.4 + 0.6 * pop;
+    g.globalAlpha = 0.38 + 0.54 * pop;
     // tail pointing at the portrait
     g.beginPath();
     g.moveTo(x + 2, y + h * 0.45);
@@ -1525,7 +1771,8 @@ SD.Defense = class {
     this.auto = !!opt.auto;
     this.heroKind = opt.hero || null;
     this._armoryBought = Array.isArray(opt.bought) ? opt.bought.slice() : (SD.Progress.load().bought || []);
-    this.setLevel(opt.levelIndex || 0);
+    if (opt.siege || opt.shot === 'siege' || opt.shot === 'siegemid' || opt.shot === 'siegescore') this.setLevel('siege');
+    else this.setLevel(opt.levelIndex || 0);
     this.spr = {
       scout: SD.Sprites.scout(),
       fighter: SD.Sprites.fighter(),
@@ -1562,10 +1809,36 @@ SD.Defense = class {
     if (opt.shot) this.applyShot(opt.shot);
     else if (this.heroKind || this.auto) this.spawnHero(this.heroKind || 'oakens');
     else this.pickingHero = true;
-    if (!this.shot && SD.Audio.playBuild) SD.Audio.playBuild();
+    if (!this.shot) {
+      if (this.endless && SD.Audio.playSiege) SD.Audio.playSiege();
+      else if (SD.Audio.playBuild) SD.Audio.playBuild();
+    }
   }
 
   setLevel(index) {
+    if (index === 'siege') {
+      this.endless = true;
+      this.siegeGates = 2;
+      this.siegePhase = 0;
+      this.speedMul = 1;
+      this.levelIndex = 2;
+      this.level = C().siege;
+      this.routes = buildRoutes(this.level);
+      this.paths = this.routes.paths;
+      this.path = this.paths[0];
+      this.waves = [];
+      this.variant = this.level.variant || 'siege';
+      this.hpMul = 1;
+      this._buildGrid = null;
+      ['15,7','16,7','17,7','15,8','16,8','17,8','15,9','16,9','17,9'].forEach(k => {
+        this.routes.blocked.add(k);
+        this.paths.forEach(p => p.blocked.add(k));
+      });
+      this.initPads();
+      return;
+    }
+    this.endless = false;
+    this.siegeGates = 0;
     this.levelIndex = Math.max(0, Math.min(SD.CONFIG.levels.length - 1, index | 0));
     this.level = SD.CONFIG.levels[this.levelIndex];
     this.routes = buildRoutes(this.level);
@@ -1574,6 +1847,7 @@ SD.Defense = class {
     this.waves = this.level.waves;
     this.variant = this.level.variant;
     this.hpMul = this.level.hpMul || 1;
+    this.speedMul = 1;
     this._buildGrid = null;
     this.initPads();
   }
@@ -1586,7 +1860,8 @@ SD.Defense = class {
 
   reset() {
     this.bought = this._armoryBought || [];
-    this.credits = C().startCredits + (this.hasPerk('funds') ? 50 : 0);
+    const startCr = (this.endless && this.level && this.level.startCredits) ? this.level.startCredits : C().startCredits;
+    this.credits = startCr + (this.hasPerk('funds') ? 50 : 0);
     this.hull = C().startHull + (this.hasPerk('hull') ? 4 : 0);
     this.maxHull = this.hull;
     this.waveIndex = 0;
@@ -1615,6 +1890,9 @@ SD.Defense = class {
     this.over = null;
     this.banner = null;
     this.bossLine = null;
+    this.joePending = null;
+    this._joeAt = -99;
+    this._joeSaid = null;
     this.flashGold = 0;
     this.flashHull = 0;
     this.ghost = null;
@@ -1639,10 +1917,18 @@ SD.Defense = class {
     this.score = null;
     this.waveStats = { kills: 0, earned: 0 };
     this.levelStats = { kills: 0, earned: 0, early: 0, t0: 0 };
+    this.siegeScore = 0;
+    this.wavesCleared = 0;
+    this.siegeParts = { kills: 0, waves: 0, hull: 0, early: 0, bosses: 0 };
+    if (this.endless) {
+      this.siegeGates = 2; this.siegePhase = 0; this.speedMul = 1;
+      this.variant = (this.level && this.level.variant) || 'siege';
+      if (!this.shot) this.showSiegeTaunt('open');
+    }
     this.T = 0;
   }
 
-  wavesLen() { return this.waves.length; }
+  wavesLen() { return this.endless ? 1e9 : this.waves.length; }
   earlyBonus(left) { return Math.round(Math.max(0, left) * 2.5); }
 
   pause(on) {
@@ -1776,6 +2062,42 @@ SD.Defense = class {
     this.fx.ring(t.x, t.y, '255,220,90', 36, 0.4);
     this.fx.burst(t.x, t.y, '255,220,90', 14, 80, 0.4, 2);
     SD.Audio.upgrade();
+    if (!this.auto && !this.shot) this.sayJoeUpgrade(t);
+  }
+
+  talkBusy() {
+    const q = this.bossLine;
+    if (!q || !q.items) return false;
+    const it = q.items[q.i];
+    return !!(it && (it.who === 'edisar' || it.who === 'nebula'));
+  }
+
+  sayJoeUpgrade(t) {
+    if (!t) return;
+    const conf = C().turrets[t.kind] || {};
+    const unique = !!(conf.unique || t.kind === 'nebula');
+    const kind = unique ? 'nebula' : t.kind;
+    const text = SD.pickJoeMatchLine(kind, t.level, this._joeSaid);
+    this.showJoeLine(text);
+  }
+
+  showJoeLine(text) {
+    if (!text) return;
+    const hold = C().joeLineTime || 4.2;
+    const gap = C().joeLineGap || 7;
+    const item = {
+      who: 'joe', title: 'BAZOOKA JOE', name: 'Field Kit',
+      text, rgb: '255,210,120', hold,
+    };
+    if (this.talkBusy()) {
+      this.joePending = item;
+      return;
+    }
+    if ((this.T - (this._joeAt == null ? -99 : this._joeAt)) < gap) return;
+    this.bossLine = { items: [item], i: 0, life: hold, max: hold };
+    this._joeSaid = text;
+    this._joeAt = this.T;
+    this.joePending = null;
   }
 
   trySell() {
@@ -1816,28 +2138,50 @@ SD.Defense = class {
   }
 
   expandGroups(groups) {
-    const n = this.paths ? this.paths.length : 1;
+    const open = this.siegeOpenPaths();
+    const n = open.length;
     const out = [];
     groups.forEach((g, i) => {
       const type = g[0], left = g[1], gap = g[2], gate = g[3];
       const wait = 0.12 + i * 0.85;
-      if (n < 2) { out.push({ type, left, gap, wait, pathI: 0 }); return; }
-      if (Number.isInteger(gate) && gate >= 0 && gate < n) { out.push({ type, left, gap, wait, pathI: gate }); return; }
+      if (n < 2) { out.push({ type, left, gap, wait, pathI: open[0] || 0 }); return; }
+      if (Number.isInteger(gate) && open.includes(gate)) { out.push({ type, left, gap, wait, pathI: gate }); return; }
+      if (Number.isInteger(gate) && gate >= 0 && gate < n) { out.push({ type, left, gap, wait, pathI: open[gate] }); return; }
       let remain = left;
       for (let pth = 0; pth < n; pth++) {
         const share = Math.ceil(remain / (n - pth));
         if (share <= 0) continue;
         remain -= share;
-        out.push({ type, left: share, gap, wait: wait + pth * 0.18, pathI: pth });
+        out.push({ type, left: share, gap, wait: wait + pth * 0.18, pathI: open[pth] });
       }
     });
     return out;
   }
 
+  siegeOpenPaths() {
+    const total = this.paths ? this.paths.length : 1;
+    if (!this.endless) return Array.from({ length: total }, (_, i) => i);
+    const order = (this.level && this.level.gateOrder) || [0, 2, 1, 3];
+    const n = Math.max(1, Math.min(total, this.siegeGates || 2));
+    return order.slice(0, n).filter(i => i >= 0 && i < total);
+  }
+
+  siegeGateOpen(i) {
+    if (!this.endless) return true;
+    return this.siegeOpenPaths().indexOf(i) >= 0;
+  }
+
   startWave() {
     if (this.over || this.score || this.waveIndex >= this.wavesLen()) return;
     if (this.waveActive && this.callClock < this.callAfter) return;
-    const w = this.waves[this.waveIndex];
+    if (this.endless) {
+      const ev = this.siegeApplyPhase(this.waveIndex + 1);
+      if (!this.shot && ev) {
+        if (ev.opened) this.showSiegeTaunt('gate' + ev.gates);
+        else if (ev.shifted) this.showSiegeTaunt('shift');
+      }
+    }
+    const w = this.endless ? this.makeSiegeWave(this.waveIndex + 1) : this.waves[this.waveIndex];
     const incoming = this.expandGroups(w.groups);
     if (this.waveActive) this.groups = this.groups.concat(incoming);
     else this.groups = incoming;
@@ -1848,10 +2192,11 @@ SD.Defense = class {
     this.waveStats = { kills: 0, earned: 0 };
     this.waveIndex += 1;
     const n = this.waveIndex;
-    const last = n >= this.wavesLen();
-    this.banner = { text: last ? (w.name + ' DETECTED') : ('WAVE ' + n + '  —  ' + w.name), life: 2.6, rgb: last ? '255,205,90' : '80,170,255' };
+    const last = this.endless ? !!w.boss : n >= this.wavesLen();
+    const label = this.endless && w.newGate ? ('WAVE ' + n + '  —  NEW GATE ONLINE') : (last ? (w.name + ' DETECTED') : ('WAVE ' + n + '  —  ' + w.name));
+    this.banner = { text: label, life: 2.6, rgb: last || (w && w.newGate) ? '255,205,90' : '80,170,255' };
     if (last) SD.Audio.boss(); else SD.Audio.wave();
-    if (SD.Audio.playWave) SD.Audio.playWave(last ? 9 : n - 1);
+    if (SD.Audio.playWave) SD.Audio.playWave(last ? 9 : Math.min(8, n - 1));
   }
 
   sendWaveEarly() {
@@ -1867,6 +2212,11 @@ SD.Defense = class {
     }
     this.credits += bonus;
     this.levelStats.early += bonus;
+    if (this.endless && bonus > 0) {
+      const pts = bonus * 2;
+      this.siegeScore = (this.siegeScore || 0) + pts;
+      this.siegeParts.early += pts;
+    }
     this.waveTimer = 0;
     if (bonus > 0) this.banner = { text: 'WAVE SENT  +' + bonus + ' CR', life: 1.8, rgb: '255,220,90' };
     this.startWave();
@@ -1880,7 +2230,7 @@ SD.Defense = class {
     const sh = def.shield ? Math.round(def.shield * this.hpMul) : 0;
     const e = {
       type, name: def.name, hp, max: hp, shield: sh, maxShield: sh,
-      speed: def.speed, reward: def.reward,
+      speed: def.speed * (!def.boss && this.endless ? (this.speedMul || 1) : 1), reward: def.reward,
       hull: def.hull, r: def.r, rgb: def.rgb, boss: !!def.boss,
       resist: def.resist || {}, weak: def.weak || [], resists: def.resists || [],
       iceImmune: !!def.iceImmune, iceSlowMul: def.iceSlowMul, notes: def.notes || '',
@@ -1901,16 +2251,62 @@ SD.Defense = class {
       e.x = fp.x; e.y = fp.y; e.ang = fp.ang;
     }
     this.enemies.push(e);
-    if (e.boss && def.line) this.showBossLine(e.name, def.line);
+    if (e.boss && def.line) this.showBossLine(e.name, def.line, def.reply);
     return e;
   }
 
-  showBossLine(name, text) {
-    const hold = C().bossLineTime || 6;
-    this.bossLine = { name, text, life: hold, max: hold };
+  showBossLine(name, text, reply) {
+    if (!text) return;
+    const hold = C().bossLineTime || 5.6;
+    const items = [{
+      who: 'edisar', title: 'EDISAR STARLIGHT', name: name || 'Commander',
+      text, rgb: '255,205,90', hold,
+    }];
+    if (reply) {
+      items.push({
+        who: 'nebula', title: 'DR. NEBULA', name: 'The Station',
+        text: reply, rgb: '255,80,100', hold: C().replyLineTime || 4.6,
+      });
+    }
+    this.bossLine = { items, i: 0, life: hold, max: hold };
   }
 
-  dismissBossLine() { this.bossLine = null; }
+  tickBossLine(dt) {
+    const q = this.bossLine;
+    if (!q) return;
+    q.life -= dt;
+    if (q.life > 0) return;
+    if (q.items && q.i < q.items.length - 1) {
+      q.i += 1;
+      const it = q.items[q.i];
+      q.max = (it && it.hold) || (C().replyLineTime || 4.6);
+      q.life = q.max;
+    } else {
+      this.bossLine = null;
+      if (this.joePending) {
+        const item = this.joePending;
+        this.joePending = null;
+        this.bossLine = { items: [item], i: 0, life: item.hold || 4.2, max: item.hold || 4.2 };
+        this._joeSaid = item.text;
+        this._joeAt = this.T;
+      }
+    }
+  }
+
+  holdBossLine(who) {
+    const q = this.bossLine;
+    if (!q || !q.items) return;
+    if (who) {
+      const i = q.items.findIndex(it => it.who === who);
+      if (i >= 0) q.i = i;
+    }
+    const it = q.items[q.i];
+    if (!it) return;
+    q.max = it.hold || 6;
+    q.life = q.max - 0.35;
+  }
+
+  dismissBossLine() { this.bossLine = null; this.joePending = null; }
 
 
   kill(e, paid = true) {
@@ -1930,6 +2326,11 @@ SD.Defense = class {
       this.waveStats.earned += e.reward;
       this.levelStats.kills++;
       this.levelStats.earned += e.reward;
+      if (this.endless) {
+        const pts = Math.round((e.reward || 0) * 10);
+        this.siegeScore = (this.siegeScore || 0) + pts;
+        this.siegeParts.kills += pts;
+      }
       this.fx.float(e.x, e.y - 10, '+' + e.reward, '255,220,90');
       if (!this._sfxCoin || this.T - this._sfxCoin > 0.04) { SD.Audio.coin(); this._sfxCoin = this.T; }
     }
@@ -1970,14 +2371,16 @@ SD.Defense = class {
     } else {
       if (SD.Audio.playLose) SD.Audio.playLose(); else SD.Audio.lose();
     }
+    if (this.endless) this.openSiegeScore();
   }
 
   onWaveCleared() {
     const n = this.waveIndex; // already advanced at start
-    const last = n >= this.wavesLen();
+    const last = !this.endless && n >= this.wavesLen();
     this.shop = null;
     this.picked = null;
     this.callClock = 0;
+    if (this.endless) this.addSiegeWaveScore(n);
     if (last) {
       this.openLevelScore();
       return;
@@ -2014,6 +2417,12 @@ SD.Defense = class {
 
   closeLevelScore(toNext) {
     if (!this.score) return;
+    if (this.score.siege) {
+      this.score = null;
+      if (toNext) SD.start('siege', { hero: this.heroKind || undefined });
+      else SD.start('levels');
+      return;
+    }
     const next = toNext && !this.score.last;
     const idx = this.levelIndex;
     this.score = null;
@@ -2021,8 +2430,140 @@ SD.Defense = class {
     else SD.start('levels');
   }
 
+
+  siegeApplyPhase(n) {
+    const prevGates = this.siegeGates || 2;
+    const prevPhase = this.siegePhase || 0;
+    const prevVar = this.variant;
+    const phase = Math.max(0, Math.floor((n - 1) / 10));
+    const variants = ['siege', 'siege2', 'siege3', 'siege4'];
+    const gates = Math.min(4, 2 + phase);
+    const variant = variants[phase % 4];
+    const opened = gates > prevGates;
+    const shifted = !opened && (phase !== prevPhase || variant !== prevVar);
+    this.siegeGates = gates;
+    this.siegePhase = phase;
+    this.variant = variant;
+    return { opened, shifted, gates, phase, variant };
+  }
+
+  packLine(v) {
+    if (!v) return { text: null, reply: null };
+    if (typeof v === 'string') return { text: v, reply: null };
+    return { text: v.edisar || v.text || null, reply: v.nebula || v.reply || null };
+  }
+
+  showSiegeTaunt(kind) {
+    const lines = C().siegeLines || {};
+    let pack = null, name = 'The Siege';
+    if (kind === 'open') { pack = this.packLine(lines.open); name = 'Last Stand'; }
+    else if (kind === 'gate3') { pack = this.packLine(lines.gate3); name = 'New Gate'; }
+    else if (kind === 'gate4') { pack = this.packLine(lines.gate4); name = 'New Gate'; }
+    else if (kind === 'shift') {
+      const arr = lines.shift || [];
+      if (!arr.length) return;
+      const idx = Math.max(0, (this.siegePhase || 0) - 3);
+      pack = this.packLine(arr[idx % arr.length]);
+      name = 'The Siege';
+    }
+    if (pack && pack.text) this.showBossLine(name, pack.text, pack.reply);
+  }
+
+  makeSiegeWave(n) {
+    const newGate = n > 1 && n % 10 === 1;
+    const hpMul = 1.05 + (n - 1) * 0.07;
+    const countScale = 1 + (n - 1) * 0.055;
+    const speedMul = 1 + Math.min(0.40, (n - 1) * 0.012);
+    this.hpMul = hpMul;
+    this.speedMul = speedMul;
+    const sc = (c) => Math.max(1, Math.round(c * countScale));
+    const bossWave = n % 10 === 0;
+    const bosses = ['flagship1', 'flagship2', 'flagship', 'flagship4', 'flagship5', 'flagship6', 'flagship7', 'flagship8', 'flagship9'];
+    if (bossWave) {
+      const type = bosses[((n / 10) - 1) % bosses.length];
+      const def = C().enemies[type];
+      const open = this.siegeOpenPaths();
+      const gate = open[open.length - 1] || 0;
+      const groups = [
+        [type, 1, 0.10, gate],
+        ['armored', sc(8), 0.52],
+        ['shielded', sc(8), 0.44],
+        ['juggernaut', Math.max(2, sc(3)), 1.10],
+        ['interceptor', sc(10), 0.22],
+      ];
+      if (n >= 10) groups.push(['wraith', sc(6), 0.42]);
+      if (n >= 20) groups.push(['hive', sc(5), 0.60]);
+      if (n >= 30) groups.push(['cryo', sc(8), 0.40]);
+      return { name: (def && def.name) || 'FLAGSHIP', groups, boss: true, newGate };
+    }
+    const packs = [
+      { name: 'FIRST CONTACT', groups: [['scout', sc(16), 0.30], ['fighter', sc(8), 0.42]] },
+      { name: 'SCOUT SCREEN', groups: [['fighter', sc(14), 0.32], ['interceptor', sc(10), 0.20]] },
+      { name: 'PHANTOM EDGE', groups: [['wraith', sc(6), 0.50], ['scout', sc(14), 0.22]] },
+      { name: 'ARMOR COLUMN', groups: [['armored', sc(10), 0.46], ['fighter', sc(12), 0.34]] },
+      { name: 'POD BURST', groups: [['hive', sc(5), 0.70], ['scout', sc(16), 0.20]] },
+      { name: 'SHIELD WALL', groups: [['shielded', sc(12), 0.40], ['armored', sc(8), 0.44], ['wraith', sc(6), 0.46]] },
+      { name: 'HEAVY STEP', groups: [['juggernaut', Math.max(2, sc(3)), 1.12], ['armored', sc(10), 0.44], ['cryo', sc(8), 0.40]] },
+      { name: 'CROSS SWARM', groups: [['scout', sc(20), 0.16], ['interceptor', sc(14), 0.16], ['wraith', sc(8), 0.42], ['hive', sc(4), 0.64]] },
+      { name: 'SIEGE TIDE', groups: [['armored', sc(12), 0.38], ['shielded', sc(12), 0.38], ['juggernaut', Math.max(2, sc(3)), 1.08], ['cryo', sc(8), 0.38], ['wraith', sc(6), 0.42]] },
+    ];
+    const pack = packs[(n - 1) % 9];
+    return { name: pack.name, groups: pack.groups, boss: false, newGate };
+  }
+
+  addSiegeWaveScore(n) {
+    this.wavesCleared = n;
+    const wavePts = 200 + n * 40;
+    const hullPts = (this.hull || 0) * 8;
+    const bossPts = (n % 10 === 0) ? 1500 : 0;
+    this.siegeScore = (this.siegeScore || 0) + wavePts + hullPts + bossPts;
+    this.siegeParts.waves += wavePts;
+    this.siegeParts.hull += hullPts;
+    this.siegeParts.bosses += bossPts;
+  }
+
+  siegeStarCount(waves) {
+    return waves >= 30 ? 3 : waves >= 20 ? 2 : waves >= 10 ? 1 : 0;
+  }
+
+  openSiegeScore() {
+    if (this.score) return;
+    const waves = this.wavesCleared || Math.max(0, this.waveIndex - (this.waveActive ? 1 : 0));
+    const stars = this.siegeStarCount(waves);
+    const points = this.siegeScore || 0;
+    const time = Math.max(0, this.T - (this.levelStats.t0 || 0));
+    let best = 0, isNew = false;
+    if (!this.shot) {
+      const rec = SD.Progress.recordSiege(points, waves, stars);
+      best = rec.progress.siegeBest;
+      isNew = !!rec.isNew;
+    } else {
+      best = Math.max(points, (SD.Progress.load().siegeBest || 0));
+    }
+    this.score = {
+      siege: true,
+      name: 'LAST STAND',
+      last: false,
+      kills: this.levelStats.kills,
+      earned: this.levelStats.earned,
+      hull: this.hull,
+      maxHull: this.maxHull,
+      early: this.levelStats.early,
+      time,
+      stars,
+      points,
+      best,
+      isNew,
+      waves,
+      parts: Object.assign({}, this.siegeParts),
+    };
+    this.nextBtn = { x: W / 2, y: 470, w: 260, h: 48, label: 'RETRY', rgb: '80,170,255', size: 20 };
+    this.menuBtn = { x: W / 2, y: 524, w: 240, h: 44, label: 'MENU', rgb: '255,80,220', size: 18 };
+    if (SD.Audio.playScore) SD.Audio.playScore();
+  }
+
   maybeWin() {
-    if (this.over) return;
+    if (this.over || this.endless) return;
     if (this.waveIndex >= this.wavesLen() && !this.waveActive && this.enemies.length === 0 && !this.score) this.openLevelScore();
   }
 
@@ -2534,7 +3075,7 @@ SD.Defense = class {
     if (!e.empSaid) {
       e.empSaid = true;
       const line = (C().bossEmpLine) || "Power down. Let's see those towers fight in the dark.";
-      this.showBossLine(e.name, line);
+      this.showBossLine(e.name, line, C().bossEmpReply);
     }
     return hits;
   }
@@ -2597,7 +3138,7 @@ SD.Defense = class {
       if (this.flashGold > 0) this.flashGold -= dt;
       if (this.flashHull > 0) this.flashHull -= dt;
       if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
-      if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
+      if (this.bossLine) this.tickBossLine(dt);
       if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
       this.tickBossBar(dt);
       return;
@@ -2618,7 +3159,7 @@ SD.Defense = class {
     if (this.flashGold > 0) this.flashGold -= dt;
     if (this.flashHull > 0) this.flashHull -= dt;
     if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
-    if (this.bossLine) { this.bossLine.life -= dt; if (this.bossLine.life <= 0) this.bossLine = null; }
+    if (this.bossLine) this.tickBossLine(dt);
     if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
     this.tickBossBar(dt);
 
@@ -3099,11 +3640,8 @@ SD.Defense = class {
       return;
     }
     if (this.bossLine && !this.score && !this.over) {
-      if (SD.Input.confirm() || SD.Input.hit('Escape') || clicks.length) {
-        this.dismissBossLine();
-        SD.Audio.click();
-        return;
-      }
+      // Toast is non-blocking: clicks pass through to the field. Escape still dismisses.
+      if (SD.Input.hit('Escape')) this.dismissBossLine();
     }
     if (this.score) {
       if (SD.Input.confirm()) { SD.Audio.click(); this.closeLevelScore(true); return; }
@@ -3332,7 +3870,8 @@ SD.Defense = class {
     if (this.restartFrom === 'play') this.pause(false);
   }
   retryLevel() {
-    SD.start('level', { index: this.levelIndex, hero: this.heroKind || undefined });
+    if (this.endless) SD.start('siege', { hero: this.heroKind || undefined });
+    else SD.start('level', { index: this.levelIndex, hero: this.heroKind || undefined });
   }
   restartButtons() {
     return {
@@ -3420,7 +3959,7 @@ SD.Defense = class {
       ? left + ' LEFT'
       : waiting ? ('+' + this.earlyBonus(this.waveTimer) + ' CR')
       : this.score ? this.level.name
-      : last ? 'CLEAR' : ('WAVE ' + (this.waveIndex + 1) + ' / ' + this.wavesLen());
+      : last ? 'CLEAR' : (this.endless ? ('WAVE ' + (this.waveIndex + 1)) : ('WAVE ' + (this.waveIndex + 1) + ' / ' + this.wavesLen()));
     mk(880, 136, waveLbl, waveSub, midCall ? '255,220,90' : this.waveActive ? '255,80,220' : '80,255,160', () => {
       if (!canCall || last) SD.Audio.deny(); else this.sendWaveEarly();
     }, !canCall || last, 'wave');
@@ -3488,14 +4027,18 @@ SD.Defense = class {
     this.drawBuildGrid(g);
     // gates & station
     const spawns = (this.routes && this.routes.spawn) || [this.path.spawn];
-    const gateRgb = ['255,80,220', '80,220,255'];
+    const gateRgb = ['255,80,220', '80,220,255', '255,200,80', '120,255,140'];
     spawns.forEach((s, i) => {
-      SD.glow(g, s.x, s.y, 40, 50, gateRgb[i % 2], 0.22 + 0.08 * Math.sin(this.T * 4 + i));
-      SD.blit(g, this.spr.gate, s.x - 6, s.y, 0, 1);
+      const active = this.siegeGateOpen(i);
+      g.save();
+      g.globalAlpha = active ? 1 : 0.32;
+      SD.glow(g, s.x, s.y, 40, 50, gateRgb[i % 4], active ? (0.22 + 0.08 * Math.sin(this.T * 4 + i)) : 0.08);
+      SD.blit(g, this.spr.gate, s.x - (s.x < W / 2 ? -6 : 6), s.y, 0, 1);
+      g.restore();
     });
     const base = (this.routes && this.routes.base) || this.path.base;
-    SD.glow(g, base.x, base.y, 50, 50, '80,170,255', 0.18 + 0.06 * Math.sin(this.T * 2));
-    SD.blit(g, this.spr.station, base.x + 6, base.y, 0, 1);
+    SD.glow(g, base.x, base.y, this.endless ? 64 : 50, this.endless ? 64 : 50, '80,170,255', 0.18 + 0.06 * Math.sin(this.T * 2));
+    SD.blit(g, this.spr.station, this.endless ? base.x : base.x + 6, base.y, 0, this.endless ? 1.08 : 1);
 
     this.drawGhost(g);
     this.drawDrones(g);
@@ -3531,7 +4074,7 @@ SD.Defense = class {
     if (this.score) this.drawScore(g);
     if (this.pickingHero) this.drawHeroPick(g);
     if (this.paused && !this.over && !this.score) this.drawPause(g);
-    if (this.over) this.drawOver(g);
+    if (this.over && !this.score) this.drawOver(g);
     SD.drawScanlines(g);
   }
 
@@ -3539,10 +4082,13 @@ SD.Defense = class {
     const routes = this.paths || [this.path];
     routes.forEach((route, ri) => {
       const pts = route.pts;
-      const cols = ['80,200,255', '255,90,200', '255,200,80'];
-      const rgb = cols[ri % 3];
-      const halo = ri === 1 ? 'rgba(255,90,200,0.16)' : ri === 2 ? 'rgba(255,200,80,0.16)' : 'rgba(80,140,255,0.18)';
+      const cols = ['80,200,255', '255,90,200', '255,200,80', '120,255,140'];
+      const rgb = cols[ri % 4];
+      const halos = ['rgba(80,140,255,0.18)', 'rgba(255,90,200,0.16)', 'rgba(255,200,80,0.16)', 'rgba(80,255,140,0.16)'];
+      const halo = halos[ri % 4];
+      const active = this.siegeGateOpen(ri);
       g.save();
+      g.globalAlpha = active ? 1 : 0.28;
       g.lineJoin = 'round'; g.lineCap = 'round';
       g.strokeStyle = halo; g.lineWidth = 36;
       g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
@@ -3989,8 +4535,82 @@ SD.Defense = class {
     return lines;
   }
 
+  talkToastBox() {
+    const touch = SD.Input.touchMode;
+    return {
+      x: 10,
+      y: 90,
+      w: touch ? Math.min(W - 20, 740) : 460,
+      por: touch ? 36 : 44,
+      titleSz: touch ? 10 : 11,
+      bodySz: touch ? 11 : 12,
+      lineH: touch ? 13 : 14,
+      radius: 8,
+    };
+  }
+
+  drawTalkToast(g, opt) {
+    const a = opt.alpha;
+    if (a <= 0.03) return;
+    const box = this.talkToastBox();
+    const por = opt.portrait ? box.por : 0;
+    const pad = 8, gap = opt.portrait ? 8 : 0;
+    const textX = box.x + pad + por + gap;
+    const textW = box.w - pad * 2 - por - gap;
+    g.save();
+    g.font = 'bold ' + box.bodySz + 'px ' + (SD.CONFIG.font || 'sans-serif');
+    const body = [];
+    (opt.lines || []).forEach(ln => this.wrapLine(g, ln, textW).forEach(w => body.push(w)));
+    g.restore();
+    const lines = body.slice(0, 5);
+    const h = Math.max(por ? por + 12 : 0, pad + box.titleSz + 4 + (opt.sub ? 12 : 0) + lines.length * box.lineH + pad);
+    const y = box.y;
+    const x = box.x;
+    const rgb = opt.rgb || '200,220,255';
+    g.save();
+    g.globalAlpha = 0.88 * a;
+    SD.roundRect(g, x, y, box.w, h, box.radius);
+    g.fillStyle = 'rgba(8,10,20,0.72)'; g.fill();
+    g.strokeStyle = `rgba(${rgb},0.7)`; g.lineWidth = 1.3; g.stroke();
+    g.restore();
+
+    if (opt.portrait) {
+      const px = x + pad, py = y + (h - por) / 2;
+      const im = SD.Portraits && SD.Portraits[opt.portrait];
+      g.save();
+      g.globalAlpha = a;
+      SD.roundRect(g, px, py, por, por, 7);
+      g.fillStyle = 'rgba(8,4,20,0.9)'; g.fill();
+      g.clip();
+      if (im && im.complete && im.naturalWidth) {
+        g.drawImage(im, px, py, por, por);
+        g.fillStyle = 'rgba(0,0,0,0.12)';
+        for (let sy = py; sy < py + por; sy += 4) g.fillRect(px, sy, por, 1.1);
+      }
+      g.restore();
+      g.save();
+      g.globalAlpha = a;
+      SD.roundRect(g, px, py, por, por, 7);
+      g.strokeStyle = `rgba(${rgb},0.95)`; g.lineWidth = 1.6;
+      g.shadowColor = `rgba(${rgb},0.7)`; g.shadowBlur = 8 * (SD.view && SD.view.scale || 1);
+      g.stroke();
+      g.restore();
+    }
+
+    let ty = y + pad + box.titleSz;
+    SD.neonText(g, opt.title, textX, ty, box.titleSz, rgb, { blur: 6, alpha: a, align: 'left' });
+    if (opt.sub) {
+      ty += 13;
+      SD.neonText(g, String(opt.sub).toUpperCase(), textX, ty, 10, '200,210,230', { blur: 4, alpha: a * 0.9, align: 'left' });
+    }
+    ty += 6 + box.lineH;
+    lines.forEach((ln, i) => {
+      SD.neonText(g, ln, textX, ty + i * box.lineH, box.bodySz, '230,235,245', { blur: 5, alpha: a, align: 'left' });
+    });
+  }
+
   drawHeroHint(g) {
-    const q = this.heroHint; if (!q) return;
+    const q = this.heroHint; if (!q || this.bossLine) return;
     const fadeIn = Math.min(1, (q.max - q.life) * 3);
     const fadeOut = Math.min(1, q.life * 3);
     const a = Math.min(fadeIn, fadeOut);
@@ -4001,64 +4621,26 @@ SD.Defense = class {
     const l2 = touch
       ? 'Tap SPECIAL to hit every ship on the field.'
       : 'Press R or SPECIAL to hit every ship on the field.';
-    const w = 560, h = 78, x = (W - w) / 2, y = 108;
-    g.save();
-    g.globalAlpha = 0.94 * a;
-    SD.roundRect(g, x, y, w, h, 10);
-    g.fillStyle = 'rgba(8,10,20,0.92)'; g.fill();
-    g.strokeStyle = 'rgba(80,170,255,0.65)'; g.lineWidth = 1.4; g.stroke();
-    g.restore();
-    SD.neonText(g, l1, W / 2, y + 28, 15, '200,230,255', { blur: 6, alpha: a });
-    SD.neonText(g, l2, W / 2, y + 52, 15, '200,230,255', { blur: 6, alpha: a });
+    this.drawTalkToast(g, {
+      alpha: a, rgb: '80,170,255', title: 'TIP', sub: '',
+      lines: [l1, l2], portrait: null,
+    });
   }
 
   drawBossLine(g) {
-    const q = this.bossLine; if (!q) return;
+    const q = this.bossLine; if (!q || !q.items) return;
+    const it = q.items[q.i]; if (!it) return;
     const fadeIn = Math.min(1, (q.max - q.life) * 4);
     const fadeOut = Math.min(1, q.life * 4);
     const a = Math.min(fadeIn, fadeOut);
-    const por = 148, gap = 16, textW = 620;
-    const w = 18 + por + gap + textW + 18;
-    g.save();
-    g.font = 'bold 16px ' + (SD.CONFIG.font || 'sans-serif');
-    const lines = this.wrapLine(g, q.text, textW - 8);
-    const h = Math.max(por + 20, 92 + lines.length * 22);
-    const x = (W - w) / 2, y = 108;
-    const px = x + 10, py = y + (h - por) / 2;
-    g.globalAlpha = 0.96 * a;
-    SD.roundRect(g, x, y, w, h, 12);
-    g.fillStyle = 'rgba(8,10,20,0.94)'; g.fill();
-    g.strokeStyle = 'rgba(255,205,90,0.75)'; g.lineWidth = 1.8; g.stroke();
-    g.restore();
-
-    const im = SD.Portraits && SD.Portraits.edisar;
-    g.save();
-    g.globalAlpha = a;
-    SD.roundRect(g, px, py, por, por, 10);
-    g.fillStyle = 'rgba(8,4,20,0.9)'; g.fill();
-    g.clip();
-    if (im && im.complete && im.naturalWidth) {
-      g.drawImage(im, px, py, por, por);
-      g.fillStyle = 'rgba(0,0,0,0.14)';
-      for (let sy = py; sy < py + por; sy += 4) g.fillRect(px, sy, por, 1.4);
-    }
-    g.restore();
-    g.save();
-    g.globalAlpha = a;
-    SD.roundRect(g, px, py, por, por, 10);
-    g.strokeStyle = 'rgba(255,205,90,0.95)'; g.lineWidth = 2.2;
-    g.shadowColor = 'rgba(255,205,90,0.85)'; g.shadowBlur = 14 * (SD.view && SD.view.scale || 1);
-    g.stroke();
-    g.restore();
-
-    const tx = px + por + gap;
-    SD.neonText(g, 'EDISAR STARLIGHT', tx, y + 24, 15, '255,205,90', { blur: 8, alpha: a, align: 'left' });
-    SD.neonText(g, q.name.toUpperCase(), tx, y + 44, 11, '200,210,230', { blur: 5, alpha: a * 0.9, align: 'left' });
-    lines.forEach((ln, i) => {
-      SD.neonText(g, ln, tx, y + 72 + i * 22, 16, '230,235,245', { blur: 6, alpha: a, align: 'left' });
+    this.drawTalkToast(g, {
+      alpha: a,
+      rgb: it.rgb || '255,205,90',
+      title: it.title || 'EDISAR STARLIGHT',
+      sub: it.name || '',
+      lines: [it.text],
+      portrait: it.who === 'nebula' ? 'nebula' : (it.who === 'joe' ? 'joe' : 'edisar'),
     });
-    const hint = SD.Input.touchMode ? 'TAP TO DISMISS' : 'TAP  ·  SPACE  TO DISMISS';
-    SD.neonText(g, hint, tx, y + h - 16, 11, '180,200,220', { blur: 5, alpha: 0.55 * a, align: 'left' });
   }
 
   drawShopIcon(g, b) {
@@ -4139,14 +4721,25 @@ SD.Defense = class {
     SD.neonText(g, 'CR  ' + this.credits, 340, 24, 16, goldRgb, { blur: 8 });
     const nW = this.wavesLen();
     let waveTxt;
-    if (this.waveActive) waveTxt = 'WAVE  ' + this.waveIndex + ' / ' + nW + (this.canCallNext() ? '  CALL' : '');
+    if (this.endless) {
+      if (this.score) waveTxt = 'WAVE  ' + (this.score.waves || 0);
+      else if (this.waveActive) waveTxt = 'WAVE  ' + this.waveIndex + (this.canCallNext() ? '  CALL' : '');
+      else if (this.waveTimer > 0) waveTxt = 'NEXT  ' + Math.ceil(this.waveTimer) + 's  +' + this.earlyBonus(this.waveTimer) + ' CR';
+      else if (this.waveIndex === 0) waveTxt = 'WAVE  1  READY';
+      else waveTxt = 'WAVE  ' + this.waveIndex + '  CLEARED';
+    } else if (this.waveActive) waveTxt = 'WAVE  ' + this.waveIndex + ' / ' + nW + (this.canCallNext() ? '  CALL' : '');
     else if (this.score) waveTxt = this.level.name;
     else if (this.waveIndex >= nW) waveTxt = 'WAVE  ' + nW + ' / ' + nW;
     else if (this.waveTimer > 0) waveTxt = 'NEXT  ' + Math.ceil(this.waveTimer) + 's  +' + this.earlyBonus(this.waveTimer) + ' CR';
     else if (this.waveIndex === 0) waveTxt = 'WAVE  1 / ' + nW + '  READY';
     else waveTxt = 'WAVE  ' + this.waveIndex + ' / ' + nW + '  CLEARED';
-    SD.neonText(g, waveTxt, 640, 24, 16, this.waveTimer > 0 || (this.waveActive && this.canCallNext()) ? '255,220,120' : '200,210,255', { blur: 8 });
-    SD.neonText(g, this.level.short || this.level.name, 470, 24, 13, '180,200,220', { blur: 6, alpha: 0.85 });
+    if (this.endless) {
+      SD.neonText(g, 'SCORE  ' + (this.score ? this.score.points : (this.siegeScore || 0)), 455, 24, 16, '255,220,120', { blur: 8 });
+      SD.neonText(g, waveTxt, 680, 24, 16, this.waveTimer > 0 || (this.waveActive && this.canCallNext()) ? '255,220,120' : '200,210,255', { blur: 8 });
+    } else {
+      SD.neonText(g, waveTxt, 640, 24, 16, this.waveTimer > 0 || (this.waveActive && this.canCallNext()) ? '255,220,120' : '200,210,255', { blur: 8 });
+      SD.neonText(g, this.level.short || this.level.name, 470, 24, 13, '180,200,220', { blur: 6, alpha: 0.85 });
+    }
 
     // bottom bar
     g.save();
@@ -4191,6 +4784,36 @@ SD.Defense = class {
     g.fillStyle = 'rgba(8,10,20,0.94)'; g.fill();
     g.strokeStyle = 'rgba(180,200,220,0.4)'; g.lineWidth = 1.4; g.stroke();
     g.restore();
+    if (s.siege) {
+      SD.neonText(g, 'HULL BREACHED', W / 2, 78, 28, '255,80,120', { blur: 16 });
+      SD.neonText(g, 'LAST STAND', W / 2, 112, 16, '200,210,230', { blur: 7, alpha: 0.9 });
+      SD.neonText(g, 'SCORE  ' + s.points, W / 2, 156, 34, '255,220,120', { blur: 14 });
+      if (s.isNew) SD.neonText(g, 'NEW RECORD', W / 2, 188, 16, '80,255,180', { blur: 10 });
+      else SD.neonText(g, 'BEST  ' + (s.best || 0), W / 2, 188, 14, '200,210,230', { blur: 7 });
+      const starN = s.stars || 0;
+      SD.neonText(g, '★'.repeat(starN) + '☆'.repeat(3 - starN), W / 2, 216, 20, '255,220,120', { blur: 8 });
+      const mm = SD.pad(Math.floor(s.time / 60)), ss = SD.pad(Math.floor(s.time % 60));
+      const parts = s.parts || {};
+      const rows = [
+        ['WAVES CLEARED', String(s.waves || 0)],
+        ['KILLS', String(s.kills)],
+        ['KILL POINTS', '+' + (parts.kills || 0)],
+        ['WAVE / HULL / BOSS', '+' + ((parts.waves || 0) + (parts.hull || 0) + (parts.bosses || 0))],
+        ['EARLY-SEND', '+' + (parts.early || 0)],
+        ['TIME', mm + ':' + ss],
+      ];
+      rows.forEach((row, i) => {
+        const yy = 244 + i * 30;
+        SD.neonText(g, row[0], W / 2 - 220, yy, 14, '180,200,220', { blur: 6, align: 'left' });
+        SD.neonText(g, row[1], W / 2 + 220, yy, 16, '255,220,120', { blur: 8, align: 'right' });
+      });
+      const next = this.nextBtn || { x: W / 2, y: 470, w: 260, h: 48, label: 'RETRY', rgb: '80,170,255', size: 20 };
+      const menu = this.menuBtn || { x: W / 2, y: 524, w: 240, h: 44, label: 'MENU', rgb: '255,80,220', size: 18 };
+      const mouse = SD.Input.mouse;
+      SD.drawButton(g, next, mouse.over && SD.inBtn(next, mouse), this.T);
+      SD.drawButton(g, menu, mouse.over && SD.inBtn(menu, mouse), this.T);
+      return;
+    }
     const heading = s.last ? 'SECTOR HELD' : 'LEVEL COMPLETE';
     SD.neonText(g, heading, W / 2, 88, 32, '80,255,180', { blur: 16 });
     if (s.name) SD.neonText(g, s.name, W / 2, 126, 16, '200,210,230', { blur: 7, alpha: 0.9 });
@@ -4363,7 +4986,26 @@ SD.Defense = class {
       pads.forEach((p, i) => this.place(p.tx, p.ty, mixKinds[i % 6], 1 + (i % 3)));
     };
 
-    if (id === 'buildtip' || id === 'buildbar') {
+    if (id === 'nebulatip' || id === 'nebulatooltip') {
+      this._armoryBought = [];
+      this.setLevel(2); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      plant([[5, 5, 'laser', 2], [5, 11, 'tesla', 2], [17, 7, 'pulse', 2], [20, 9, 'ice', 1]]);
+      this.credits = 340;
+      this.waveIndex = 0;
+      this.shop = null;
+      this.picked = null;
+      this.heroHint = null;
+      this.banner = null;
+      this.bossLine = null;
+      this.shopTip = 'nebula';
+      this._shotTip = 'nebula';
+      const neb = this.uiButtons().find(b => b.id === 'nebula');
+      if (neb && SD.Input && SD.Input.mouse) {
+        SD.Input.mouse.x = neb.x; SD.Input.mouse.y = neb.y; SD.Input.mouse.over = true;
+      }
+      this._freezeSim = true;
+    } else if (id === 'buildtip' || id === 'buildbar') {
       this._armoryBought = [];
       this.setLevel(0); this.reset(); this.spawnHero('oakens');
       plant([[4, 6, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
@@ -4641,8 +5283,10 @@ SD.Defense = class {
       this.spawn('flagship', 780);
       this.spawn('shielded', 520);
       this.spawn('juggernaut', 400);
-      if (this.bossLine) { this.bossLine.life = this.bossLine.max - 0.4; this.bossLine.max = this.bossLine.life + 8; }
+      this.holdBossLine('edisar');
       this.heroHint = null;
+      this.banner = null;
+      this._freezeSim = true;
     } else if (id === 'drag') {
       this.setLevel(0); this.reset(); this.spawnHero('oakens');
       plant([[4, 5, 'laser', 2], [8, 10, 'ice', 1], [15, 5, 'tesla', 1], [19, 8, 'railgun', 1]]);
@@ -4856,6 +5500,117 @@ SD.Defense = class {
         types.forEach((tp, i) => this.spawn(tp, route.total * (0.22 + i * 0.16), pi));
       });
       this._freezeSim = true;
+    } else if (id === 'siege' || id === 'siegemid') {
+      this.setLevel('siege'); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      this.siegeApplyPhase(14);
+      this.waveIndex = 14; this.wavesCleared = 13; this.waveActive = true;
+      this.siegeScore = 18740;
+      this.siegeParts = { kills: 11200, waves: 4680, hull: 1660, early: 200, bosses: 1500 };
+      this.credits = 340;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null; this.bossLine = null;
+      this.groups = [];
+      const plant = (list) => {
+        this.turrets = [];
+        for (const [tx, ty, k, lv] of list) {
+          const pad = this.padAt(tx, ty);
+          if (pad && pad.premium) pad.open = true;
+          if (this.canPlace(tx, ty) || this.occupied(tx, ty) || this.shot) this.place(tx, ty, k, lv);
+        }
+      };
+      plant([
+        [14, 7, 'laser', 3], [18, 7, 'ice', 3], [14, 10, 'railgun', 3], [18, 11, 'tesla', 3],
+        [13, 6, 'missile', 2], [19, 6, 'pulse', 2], [12, 6, 'laser', 2], [19, 7, 'ice', 2],
+        [8, 4, 'tesla', 2], [24, 6, 'missile', 2], [8, 11, 'pulse', 2], [24, 11, 'railgun', 2],
+      ]);
+      this.turrets.forEach(t => { t.cool = 99; t.kick = 0; });
+      this.enemies = [];
+      (this.paths || []).forEach((route, pi) => {
+        if (!this.siegeGateOpen(pi)) return;
+        ['wraith', 'hive', 'fighter', 'armored'].forEach((tp, i) => this.spawn(tp, route.total * (0.22 + i * 0.16), pi));
+      });
+      this._freezeSim = true;
+    } else if (id === 'siegescore') {
+      this.setLevel('siege'); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      this.siegeApplyPhase(21);
+      this.waveIndex = 19; this.wavesCleared = 18; this.waveActive = false;
+      this.siegeScore = 31240;
+      this.siegeParts = { kills: 18400, waves: 6840, hull: 2520, early: 480, bosses: 3000 };
+      this.levelStats = { kills: 268, earned: 4120, early: 240, t0: this.T - 418 };
+      this.hull = 0;
+      this.over = 'lose';
+      this.bossLine = null;
+      this.openSiegeScore();
+      this.score.isNew = true;
+      this.score.best = 31240;
+      this._freezeSim = true;
+    } else if (id === 'nebulareply' || id === 'nebulaline') {
+      this.setLevel(2);
+      this.reset();
+      this.spawnHero('oakens');
+      plantNear(8);
+      this.credits = 240;
+      this.waveIndex = 10;
+      this.waveActive = true;
+      this.groups = [];
+      this.enemies = [];
+      this.spawn('flagship', 780);
+      this.spawn('shielded', 520);
+      this.spawn('juggernaut', 400);
+      this.holdBossLine('nebula');
+      this.heroHint = null;
+      this.banner = null;
+      this._freezeSim = true;
+    } else if (id === 'siegetaunt' || id === 'siegegate') {
+      this.setLevel('siege'); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      this.siegeApplyPhase(11);
+      this.waveIndex = 11; this.wavesCleared = 10; this.waveActive = true;
+      this.siegeScore = 12400;
+      this.credits = 280;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null;
+      const plant = (list) => {
+        this.turrets = [];
+        for (const [tx, ty, k, lv] of list) {
+          const pad = this.padAt(tx, ty);
+          if (pad && pad.premium) pad.open = true;
+          if (this.canPlace(tx, ty) || this.occupied(tx, ty) || this.shot) this.place(tx, ty, k, lv);
+        }
+      };
+      plant([
+        [14, 7, 'laser', 3], [18, 7, 'ice', 3], [14, 10, 'railgun', 3], [18, 11, 'tesla', 3],
+        [13, 6, 'missile', 2], [19, 6, 'pulse', 2], [12, 6, 'laser', 2], [19, 7, 'ice', 2],
+      ]);
+      this.turrets.forEach(tr => { tr.cool = 99; tr.kick = 0; });
+      this.enemies = [];
+      (this.paths || []).forEach((route, pi) => {
+        if (!this.siegeGateOpen(pi)) return;
+        ['fighter', 'armored'].forEach((tp, i) => this.spawn(tp, route.total * (0.36 + i * 0.2), pi));
+      });
+      this.showSiegeTaunt('gate3');
+      this.holdBossLine('edisar');
+      this._freezeSim = true;
+    } else if (id === 'joeupgrade' || id === 'joematch') {
+      this.setLevel(0); this.reset(); this.spawnHero('oakens');
+      if (this.hero) this.hero.cool = 99;
+      this.credits = 260;
+      this.shop = null; this.picked = null; this.heroHint = null; this.banner = null; this.bossLine = null;
+      this.groups = []; this.waveActive = true; this.waveIndex = 3;
+      const pads = [[4, 5, 'laser', 3], [8, 10, 'ice', 2], [15, 5, 'tesla', 2], [19, 8, 'railgun', 1], [10, 8, 'missile', 2]];
+      this.turrets = [];
+      for (const [tx, ty, k, lv] of pads) {
+        const pad = this.padAt(tx, ty);
+        if (pad && pad.premium) pad.open = true;
+        if (this.canPlace(tx, ty) || this.occupied(tx, ty) || this.shot) this.place(tx, ty, k, lv);
+      }
+      this.turrets.forEach(tr => { tr.cool = 99; tr.kick = 0; });
+      this.enemies = [];
+      ['fighter', 'armored', 'scout'].forEach((tp, i) => this.spawn(tp, 220 + i * 140));
+      this.picked = this.turrets.find(tr => tr.kind === 'laser') || this.turrets[0];
+      this.showJoeLine("Twin beams! I told you one wasn't enough.");
+      this.holdBossLine('joe');
+      this._freezeSim = true;
     } else if (id === 'title') {
       // unused here
     }
@@ -4953,6 +5708,92 @@ SD.runBalance = function (mode, levelIndex, opt) {
     time: Math.round(d.T),
   };
 };
+
+
+SD.runSiege = function (opt) {
+  opt = opt || {};
+  const d = new SD.Defense({ siege: true, hero: 'oakens', auto: true, bought: Array.isArray(opt.bought) ? opt.bought : [] });
+  const kinds = ['pulse', 'laser', 'tesla', 'missile', 'railgun', 'ice'];
+  const cap = 16;
+  const maxLv = (t) => (C().turrets[t.kind] && C().turrets[t.kind].maxLevel) || 3;
+  const spend = () => {
+    if (d.turrets.length >= 3 && d.turrets.length < cap) {
+      const cheapest = Math.min(...kinds.map(k => d.costOf(k)));
+      for (const p of d.nearPads(cap + 6)) {
+        if (p.open || !p.premium) continue;
+        if (d.credits >= (p.cost || 0) + cheapest) { d.tryUnlock(p.tx, p.ty); break; }
+      }
+    }
+    if (d.canShop('nebula') && d.canBuild('nebula') && d.turrets.length < cap) {
+      for (const p of d.nearPads(cap)) {
+        if (d.occupied(p.tx, p.ty) || !d.canPlace(p.tx, p.ty)) continue;
+        d.shop = 'nebula';
+        if (d.tryPlace(p.tx, p.ty)) break;
+      }
+    }
+    const minT = Math.min(cap, 5);
+    if (d.turrets.length >= minT) {
+      for (const t of d.turrets) {
+        if (t.level < maxLv(t) && d.upCostOf(t) > 0) {
+          d.picked = t;
+          if (d.credits >= d.upCostOf(t)) d.tryUpgrade();
+        }
+      }
+      d.picked = null;
+    }
+    const reserve = !d.hasNebula() ? 1 : 0;
+    if (d.turrets.length >= cap - reserve) return;
+    const pads = d.nearPads(cap);
+    let regular = d.turrets.filter(t => t.kind !== 'nebula').length;
+    for (const p of pads) {
+      if (d.turrets.length >= cap - reserve) break;
+      if (d.occupied(p.tx, p.ty)) continue;
+      const kind = kinds[regular % kinds.length];
+      if (d.canShop(kind) && d.canBuild(kind) && d.canPlace(p.tx, p.ty)) {
+        d.shop = kind;
+        if (d.tryPlace(p.tx, p.ty)) regular++;
+      }
+    }
+  };
+  spend();
+  let acc = 0, guard = 0;
+  const step = 1 / 30;
+  const limit = 30 * 60 * 24;
+  const waveCap = opt.waveCap || 40;
+  while (!d.score && !d.over && guard < limit && (d.wavesCleared || 0) < waveCap) {
+    acc += step;
+    if (acc >= 0.45) { spend(); acc = 0; }
+    if (!d.waveActive && !d.score && !d.over) {
+      const needBuild = d.waveIndex > 0 && d.waveTimer > 13;
+      let canSpend = d.turrets.length < cap;
+      if (!canSpend) {
+        for (const tr of d.turrets) {
+          if (tr.level < maxLv(tr) && d.upCostOf(tr) > 0 && d.credits >= d.upCostOf(tr)) { canSpend = true; break; }
+        }
+      } else {
+        canSpend = kinds.some(k => d.canBuild(k));
+      }
+      if (!(needBuild && canSpend)) d.sendWaveEarly();
+    }
+    d.update(step);
+    guard++;
+  }
+  return {
+    result: d.score ? 'lose' : (d.over || ((d.wavesCleared || 0) >= waveCap ? 'cap' : 'timeout')),
+    waves: d.wavesCleared || 0,
+    waveIndex: d.waveIndex,
+    score: d.siegeScore || (d.score && d.score.points) || 0,
+    parts: d.siegeParts || (d.score && d.score.parts) || {},
+    hull: d.hull,
+    maxHull: d.maxHull,
+    kills: (d.levelStats && d.levelStats.kills) || 0,
+    turrets: d.turrets.map(t => t.kind + t.level),
+    gates: d.siegeGates,
+    phase: d.siegePhase,
+    time: Math.round(d.T),
+  };
+};
+
 
 })();
 
