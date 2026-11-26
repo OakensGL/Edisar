@@ -17,6 +17,8 @@ SD.Audio = (() => {
     siege2: { src: 'assets/megasong.ogg',                   loop: true, vol: 0.28 },
     siege3: { src: 'assets/phase-zero.ogg',                 loop: true, vol: 0.28 },
     siege4: { src: 'assets/boss-fight-2.ogg',               loop: true, vol: 0.28 },
+    avrillCut:   { src: 'assets/epic-boss-battle.ogg', loop: true, vol: 0.30 },
+    avrillFight: { src: 'assets/deck-fight.ogg',       loop: true, vol: 0.30 },
     score:  { src: 'assets/space-heroes.ogg',            loop: true,  vol: 0.42 },
     win:    { src: 'assets/victory-tune.ogg',            loop: false, vol: 0.50 },
     lose:   { src: 'assets/defeated.ogg',                loop: false, vol: 0.50 },
@@ -119,13 +121,19 @@ SD.Audio = (() => {
     return SIEGE_TRACKS[((phase % 4) + 4) % 4];
   }
   function playSiege() { playMusic(siegeTrackId(), { dur: 1.0 }); }
+  function playAvrillCut() { playMusic('avrillCut', { dur: 1.0, restart: true }); }
+  function playAvrillFight() { playMusic('avrillFight', { dur: 1.0, restart: true }); }
   function playWave(index) {
+    if (SD.game && SD.game.cutscene) return;
+    if (SD.game && SD.game.avrillFight) { playMusic('avrillFight', { dur: 0.8 }); return; }
     // LAST STAND stays on the rotating siege playlist, including flagship waves.
     if (SD.game && SD.game.endless) { playMusic(siegeTrackId(), { dur: 0.8 }); return; }
     if (index >= 9) playMusic('boss', { dur: 1.0 });
     else playMusic(index % 2 === 0 ? 'fear' : 'battle', { dur: 1.0 });
   }
   function playBuild() {
+    if (SD.game && SD.game.cutscene) return;
+    if (SD.game && SD.game.avrillFight) { playMusic('avrillFight', { dur: 0.8 }); return; }
     if (SD.game && SD.game.endless) { playMusic(siegeTrackId(), { dur: 0.8 }); return; }
     playMusic('build', { dur: 1.0 });
   }
@@ -229,7 +237,7 @@ SD.Audio = (() => {
 
   return {
     unlock, toggleMute, setMuted,
-    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playSiege, siegeTrackId, playWave, playBuild, playScore, playWin, playLose,
+    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playSiege, playAvrillCut, playAvrillFight, siegeTrackId, playWave, playBuild, playScore, playWin, playLose,
     trackDuration: (id) => (TRACKS[id] && TRACKS[id].duration) || 0,
     get muted() { return muted; },
     get started() { return started; },

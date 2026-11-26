@@ -26,6 +26,16 @@ if (!SD.Portraits.nebula) {
   neb.src = 'assets/nebula.jpg';
   SD.Portraits.nebula = neb;
 }
+if (!SD.Portraits.darkAvrill) {
+  const da = new Image();
+  da.src = 'assets/dark-avrill.jpg';
+  SD.Portraits.darkAvrill = da;
+}
+if (!SD.Portraits.avrill) {
+  const av = new Image();
+  av.src = 'assets/avrill.jpg';
+  SD.Portraits.avrill = av;
+}
 SD.JOE_LINES = {
   open: [
     'Ah, a customer! Mind the vials, half of them explode.',
@@ -328,6 +338,9 @@ function posOnFlight(flight, dist) {
   const y = s.a.y + (s.b.y - s.a.y) * t;
   return { x, y, ang: Math.atan2(flight.b.y - y, flight.b.x - x) };
 }
+SD.makeBossFlight = makeBossFlight;
+SD.posOnFlight = posOnFlight;
+SD.posOnPath = posOnPath;
 
 function wrapText(g, text, maxW) {
   const words = String(text).split(' ');
@@ -512,7 +525,7 @@ SD.Title = class {
     SD.neonText(g, 'HOW TO PLAY', W / 2, 68, 24, '200,230,255', { blur: 12 });
     const raw = [
       'Nine campaign levels, ten waves each. Credits and turrets reset every level. Later maps use two or three entrance gates.',
-      'LAST STAND (unlock after Level 3) is an endless siege. Waves never stop and grow harder. A new gate and a new sky open every ten waves, and Edisar flagships fly straight at the station. Score points for kills, waves cleared, and hull held; your best score is saved. Stars at waves 10, 20, and 30 count toward the ARMORY (30 maximum with the campaign).',
+      'LAST STAND (unlock after Level 3) is an endless siege. Waves never stop and grow harder. A new gate and a new sky open every ten waves, and Edisar flagships fly straight at the station. Score points for kills, waves cleared, and hull held; your best score is saved. Stars at waves 10, 20, and 30 count toward the ARMORY (35 maximum with the campaign and a hidden reward). Something waits at wave 50...',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
       'ARMORY on the title or level select (or A in a match) spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
@@ -899,7 +912,10 @@ SD.LevelSelect = class {
     const sStars = this.progress.siegeStars || 0;
     const rec = best ? ('BEST  ' + best + (bestW ? '   ·   WAVE ' + bestW : '')) : 'NO SCORE YET';
     SD.neonText(g, rec, tx, c.y + 26, 12, '255,220,120', { blur: 6, align: 'left' });
-    SD.neonText(g, unlocked ? ('★'.repeat(sStars) + '☆'.repeat(3 - sStars)) : 'LOCKED', c.x + 340, c.y, unlocked ? 18 : 14, unlocked ? '255,220,120' : '160,160,180', { blur: 7 });
+    SD.neonText(g, unlocked ? ('★'.repeat(sStars) + '☆'.repeat(3 - sStars)) : 'LOCKED', c.x + 340, c.y - (this.progress.avrillMedal ? 10 : 0), unlocked ? 18 : 14, unlocked ? '255,220,120' : '160,160,180', { blur: 7 });
+    if (unlocked && this.progress.avrillMedal) {
+      SD.neonText(g, 'AVRILL  MEDAL', c.x + 340, c.y + 16, 11, '255,80,180', { blur: 6 });
+    }
     if (!unlocked) {
       g.save(); g.fillStyle = 'rgba(4,2,12,0.4)';
       SD.roundRect(g, x, y, c.w, c.h, 12); g.fill(); g.restore();
@@ -1091,6 +1107,10 @@ SD.Armory = class {
     if (SD.Input.hit('Escape')) { SD.Audio.click(); this.leave(); return; }
     for (const p of SD.Input.takeClicks()) {
       if (SD.inBtn(this.back, p)) { SD.Audio.click(); this.leave(); }
+      else if (this.skinBtn && SD.inBtn(this.skinBtn, p)) {
+        this.progress = SD.Progress.setNebulaSkinOn(!this.progress.nebulaSkinOn);
+        SD.Audio.click();
+      }
       else if (SD.inBtn(this.respec, p)) {
         if ((this.progress.bought || []).length) { this.respecAsk = true; this.respecSel = 0; SD.Audio.click(); }
         else SD.Audio.deny();
@@ -1752,6 +1772,20 @@ SD.Armory = class {
     const maxStars = SD.StarShop.max();
     SD.neonText(g, '★  ' + left + ' AVAILABLE    ·    ' + earned + ' / ' + maxStars + ' EARNED', wx, wy, 13, '255,220,120', { blur: 6 });
     const mouse = SD.Input.mouse;
+    if (this.progress.avrillMedal) {
+      SD.neonText(g, 'AVRILL MEDAL', 220, 18, 11, '255,80,180', { blur: 6, align: 'left' });
+    }
+    if (this.progress.nebulaSkin) {
+      this.skinBtn = this.skinBtn || { x: 220, y: 40, w: 154, h: 22, label: '', rgb: '255,70,120', size: 10 };
+      this.skinBtn.x = 220; this.skinBtn.y = 40;
+      this.skinBtn.label = this.progress.nebulaSkinOn ? 'NEBULA SKIN  ·  DARK' : 'NEBULA SKIN  ·  RED';
+    } else {
+      this.skinBtn = null;
+    }
+    if (this.skinBtn) SD.drawButton(g, this.skinBtn, mouse.over && SD.inBtn(this.skinBtn, mouse), this.T);
+    if (this.progress.avrillTurret) {
+      SD.neonText(g, 'AVRILL TURRET UNLOCKED', 220, 72, 10, '255,140,200', { blur: 5, align: 'left' });
+    }
     SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
     const canRespec = (this.progress.bought || []).length > 0;
     SD.drawButton(g, this.respec, canRespec && mouse.over && SD.inBtn(this.respec, mouse), this.T);
@@ -1785,9 +1819,11 @@ SD.Defense = class {
     this.shot = opt.shot || null;
     this.auto = !!opt.auto;
     this.heroKind = opt.hero || null;
-    this._armoryBought = Array.isArray(opt.bought) ? opt.bought.slice() : (SD.Progress.load().bought || []);
-    if (opt.siege || opt.shot === 'siege' || opt.shot === 'siegemid' || opt.shot === 'siegescore') this.setLevel('siege');
+    this.progress = opt.progress || SD.Progress.load();
+    this._armoryBought = Array.isArray(opt.bought) ? opt.bought.slice() : (this.progress.bought || []);
+    if (opt.siege || opt.startWave || opt.shot === 'siege' || opt.shot === 'siegemid' || opt.shot === 'siegescore' || (opt.shot && String(opt.shot).indexOf('avrill') === 0)) this.setLevel('siege');
     else this.setLevel(opt.levelIndex || 0);
+    this._startWave = opt.startWave || 0;
     this.spr = {
       scout: SD.Sprites.scout(),
       fighter: SD.Sprites.fighter(),
@@ -1808,21 +1844,31 @@ SD.Defense = class {
       cryo: SD.Sprites.cryo(),
       interceptor: SD.Sprites.interceptor(),
       juggernaut: SD.Sprites.juggernaut(),
+      saibot: SD.Sprites.saibot(),
+      darkAvrill: SD.Sprites.darkAvrill(),
+      darkAvrill2: SD.Sprites.darkAvrill2(),
+      darkAvrill3: SD.Sprites.darkAvrill3(),
       station: SD.Sprites.station(),
       gate: SD.Sprites.gate(),
       hero: { oakens: SD.Sprites.hero('oakens'), nebula: SD.Sprites.hero('nebula') },
       turret: {},
     };
-    for (const k of SHOP) {
+    const shopSpr = ['laser', 'missile', 'ice', 'railgun', 'tesla', 'pulse', 'nebula', 'avrill'];
+    for (const k of shopSpr) {
       for (let lv = 1; lv <= 3; lv++) {
         this.spr.turret[k + 'Base' + lv] = SD.Sprites.turretBase(k, lv);
         this.spr.turret[k + 'Head' + lv] = SD.Sprites.turretHead(k, lv);
       }
       this.spr.turret[k + 'Flash'] = SD.Sprites.turretFlash(k);
     }
+    for (let lv = 1; lv <= 3; lv++) {
+      this.spr.turret['nebulaDarkBase' + lv] = SD.Sprites.turretBase('nebula', lv, 'dark');
+      this.spr.turret['nebulaDarkHead' + lv] = SD.Sprites.turretHead('nebula', lv, 'dark');
+    }
     this.reset();
+    if (opt.startWave && this.prepareSiegeAt) this.prepareSiegeAt(opt.startWave);
     if (opt.shot) this.applyShot(opt.shot);
-    else if (this.heroKind || this.auto) this.spawnHero(this.heroKind || 'oakens');
+    else if (this.heroKind || this.auto || opt.startWave) this.spawnHero(this.heroKind || 'oakens');
     else this.pickingHero = true;
     if (!this.shot) {
       if (this.endless && SD.Audio.playSiege) SD.Audio.playSiege();
@@ -2085,7 +2131,7 @@ SD.Defense = class {
     const q = this.bossLine;
     if (!q || !q.items) return false;
     const it = q.items[q.i];
-    return !!(it && (it.who === 'edisar' || it.who === 'nebula'));
+    return !!(it && (it.who === 'edisar' || it.who === 'nebula' || it.who === 'darkavrill' || it.who === 'avrill'));
   }
 
   sayJoeUpgrade(t) {
@@ -2219,6 +2265,12 @@ SD.Defense = class {
     this.waveIndex += 1;
     const n = this.waveIndex;
     const last = this.endless ? !!w.boss : n >= this.wavesLen();
+    if (w && w.avrill && !this.shot) {
+      this.groups = [];
+      this.banner = { text: 'WAVE 50  —  LOOK AT THE GATE', life: 2.6, rgb: '255,80,160' };
+      this.beginAvrillIntro();
+      return;
+    }
     const label = this.endless && w.newGate ? ('WAVE ' + n + '  —  NEW GATE ONLINE') : (last ? (w.name + ' DETECTED') : ('WAVE ' + n + '  —  ' + w.name));
     this.banner = { text: label, life: 2.6, rgb: last || (w && w.newGate) ? '255,205,90' : '80,170,255' };
     if (last) SD.Audio.boss(); else SD.Audio.wave();
@@ -2252,8 +2304,8 @@ SD.Defense = class {
     const def = C().enemies[type];
     const route = this.paths[pathI] || this.path;
     const p = posOnPath(route, dist);
-    const hp = Math.round(def.hp * this.hpMul);
-    const sh = def.shield ? Math.round(def.shield * this.hpMul) : 0;
+    const hp = def.fixedHp ? def.hp : Math.round(def.hp * this.hpMul);
+    const sh = def.fixedHp ? (def.shield || 0) : (def.shield ? Math.round(def.shield * this.hpMul) : 0);
     const e = {
       type, name: def.name, hp, max: hp, shield: sh, maxShield: sh,
       speed: def.speed * (!def.boss && this.endless ? (this.speedMul || 1) : 1), reward: def.reward,
@@ -2360,6 +2412,7 @@ SD.Defense = class {
       this.fx.float(e.x, e.y - 10, '+' + e.reward, '255,220,90');
       if (!this._sfxCoin || this.T - this._sfxCoin > 0.04) { SD.Audio.coin(); this._sfxCoin = this.T; }
     }
+    if (e.type === 'darkAvrill' && paid) this.onAvrillKilled(e);
     if (paid && e.splitOnDeath && e.splitOnDeath.count > 0 && e.splitOnDeath.type) {
       const typ = e.splitOnDeath.type, n = e.splitOnDeath.count;
       for (let i = 0; i < n; i++) {
@@ -2505,6 +2558,11 @@ SD.Defense = class {
     const sc = (c) => Math.max(1, Math.round(c * countScale));
     const bossWave = n % 10 === 0;
     const bosses = ['flagship1', 'flagship2', 'flagship', 'flagship4', 'flagship5', 'flagship6', 'flagship7', 'flagship8', 'flagship9'];
+    if (n === 50 && !this.avrillSeenThisRun) {
+      const open = this.siegeOpenPaths ? this.siegeOpenPaths() : [0];
+      const gate = open[open.length - 1] || 0;
+      return { name: 'DARK AVRILL', groups: [['darkAvrill', 1, 0.10, gate]], boss: true, avrill: true, newGate };
+    }
     if (bossWave) {
       const type = bosses[((n / 10) - 1) % bosses.length];
       const def = C().enemies[type];
@@ -2619,6 +2677,11 @@ SD.Defense = class {
     if (key === 'poisonTime' && this.hasPerk('pulse-mk4')) v += 1;
     if (key === 'poisonMax' && this.hasPerk('pulse-mk4')) v += 1;
     if (key === 'poisonSpread' && this.hasPerk('pulse-mk4') && !(v > 0)) v = 40;
+    if (t.kind !== 'avrill' && this.avrillBuffed && this.avrillBuffed(t)) {
+      const ac = C().turrets.avrill || {};
+      if (key === 'damage') v *= (ac.buffDamage || 1.22);
+      if (key === 'rate') v /= (ac.buffRate || 1.18);
+    }
     return v;
   }
 
@@ -2693,17 +2756,25 @@ SD.Defense = class {
         dmg, slow: this.stat(t, 'slow'), slowTime: this.stat(t, 'slowTime'),
         freeze: this.stat(t, 'freeze') || 0,
         rime: this.hasPerk('ice-economy') ? 42 : 0,
-        rgb: C().turrets.ice.rgb, life: 1.6, r: 4,
+        rgb: this.shotRgbFor ? this.shotRgbFor(t, C().turrets.ice.rgb) : C().turrets.ice.rgb, life: 1.6, r: 4,
       });
       SD.Audio.ice();
     } else if (t.kind === 'railgun') this.fireRail(t, e, ox, oy, dmg);
     else if (t.kind === 'tesla') this.fireTesla(t, e, dmg);
     else if (t.kind === 'pulse') this.firePulse(t, dmg);
     else if (t.kind === 'nebula') this.fireNebula(t, ox, oy, dmg);
+    else if (t.kind === 'avrill') {
+      const rgb = (SD.AVRILL_BUFF && SD.AVRILL_BUFF.rgb) || '255,70,200';
+      this.shots.push({
+        kind: 'avrill', x: ox, y: oy, tx: e.x, ty: e.y, target: e, ang: t.ang, speed: 460,
+        dmg, rgb, life: 1.4, r: 4,
+      });
+      SD.Audio.ice();
+    }
   }
 
   fireLaser(t, e, ox, oy, dmg) {
-    const rgb = C().turrets.laser.rgb;
+    const rgb = this.shotRgbFor ? this.shotRgbFor(t, C().turrets.laser.rgb) : C().turrets.laser.rgb;
     const critMul = (this.hasPerk('laser-reach') && Math.random() < 0.10) ? 1.45 : 1;
     let primary = dmg;
     if (this.hasPerk('laser-mk4') && e) {
@@ -2746,7 +2817,7 @@ SD.Defense = class {
       kind: 'missile', x: ox, y: oy, tx: e.x, ty: e.y, target: e,
       ang, speed: this.stat(t, 'speed') || conf.speed[t.level - 1], dmg, splash: this.stat(t, 'splash') || conf.splash[t.level - 1],
       splashMul: conf.splashMul[t.level - 1], cluster: this.stat(t, 'cluster') || 0,
-      rgb: conf.rgb, life: 2.4, r: 5,
+      rgb: this.shotRgbFor ? this.shotRgbFor(t, conf.rgb) : conf.rgb, buffed: !!(this.avrillBuffed && this.avrillBuffed(t)), life: 2.4, r: 5,
     });
     if (!extra) SD.Audio.missile();
   }
@@ -2930,6 +3001,7 @@ SD.Defense = class {
     else if (applied > 0) this.floater(e, String(Math.max(1, Math.round(applied))), '230,235,255');
     e.hitFlash = 0.12;
     if (applied > 0) e.hp -= applied;
+    if (e.type === 'darkAvrill' && e.hp > 0) this.syncAvrillPhase(e);
     if (e.hp <= 0) this.kill(e, true);
   }
 
@@ -3079,7 +3151,8 @@ SD.Defense = class {
     if (!e || !emp) return [];
     const r = emp.radius || 110;
     const dur = emp.duration || 3.2;
-    const max = emp.max || 1;
+    const av = e.type === 'darkAvrill';
+    const max = av ? ((e.avrillPhase || 1) >= 3 ? 3 : 2) : (emp.max || 1);
     const list = this.turrets
       .map(t => ({ t, d: Math.hypot(t.x - e.x, t.y - e.y) }))
       .sort((a, b) => a.d - b.d);
@@ -3089,16 +3162,18 @@ SD.Defense = class {
       t.disabledT = dur;
       t.disabledMax = dur;
       t.target = null;
+      if (av) t.disabledTint = 'avrill';
     }
     if (!this.empFx) this.empFx = [];
     this.empFx.push({
-      x: e.x, y: e.y, r, life: 0.55, max: 0.55,
+      x: e.x, y: e.y, r: av ? 80 : r, life: 0.55, max: 0.55,
+      tint: av ? 'avrill' : '',
       bolts: hits.map(({ t }) => ({ x: t.x, y: t.y })),
     });
-    this.fx.ring(e.x, e.y, '140,230,255', Math.min(r * 0.7, 90), 0.45);
-    this.fx.burst(e.x, e.y, '180,240,255', 22, 140, 0.5, 2.4);
+    this.fx.ring(e.x, e.y, av ? '255,70,200' : '140,230,255', av ? 70 : Math.min(r * 0.7, 90), 0.45);
+    this.fx.burst(e.x, e.y, av ? '255,80,180' : '180,240,255', 22, 140, 0.5, 2.4);
     if (SD.Audio.bossEmp) SD.Audio.bossEmp(); else if (SD.Audio.boss) SD.Audio.boss();
-    if (!e.empSaid) {
+    if (!e.empSaid && !av) {
       e.empSaid = true;
       const line = (C().bossEmpLine) || "Power down. Let's see those towers fight in the dark.";
       this.showBossLine(e.name, line, C().bossEmpReply);
@@ -3119,11 +3194,12 @@ SD.Defense = class {
     for (const fx of this.empFx) {
       const al = Math.max(0, fx.life / fx.max);
       const rad = fx.r * (0.35 + 0.65 * (1 - al));
+      const pink = fx.tint === 'avrill';
       g.beginPath(); g.arc(fx.x, fx.y, rad, 0, Math.PI * 2);
-      g.strokeStyle = `rgba(160,240,255,${0.85 * al})`;
+      g.strokeStyle = pink ? `rgba(255,80,200,${0.85 * al})` : `rgba(160,240,255,${0.85 * al})`;
       g.lineWidth = 3.5; g.stroke();
       g.beginPath(); g.arc(fx.x, fx.y, rad * 0.62, 0, Math.PI * 2);
-      g.strokeStyle = `rgba(80,180,255,${0.5 * al})`;
+      g.strokeStyle = pink ? `rgba(200,40,140,${0.5 * al})` : `rgba(80,180,255,${0.5 * al})`;
       g.lineWidth = 7; g.stroke();
       for (const b of fx.bolts || []) {
         g.beginPath();
@@ -3132,10 +3208,10 @@ SD.Defense = class {
         const my = (fx.y + b.y) / 2 + Math.cos((1 - al) * 16) * 10;
         g.lineTo(mx, my);
         g.lineTo(b.x, b.y);
-        g.strokeStyle = `rgba(200,250,255,${0.9 * al})`;
+        g.strokeStyle = pink ? `rgba(255,180,230,${0.9 * al})` : `rgba(200,250,255,${0.9 * al})`;
         g.lineWidth = 2.2; g.stroke();
         g.beginPath(); g.arc(b.x, b.y, 16 + (1 - al) * 8, 0, Math.PI * 2);
-        g.strokeStyle = `rgba(140,230,255,${0.8 * al})`;
+        g.strokeStyle = pink ? `rgba(255,70,200,${0.85 * al})` : `rgba(140,230,255,${0.8 * al})`;
         g.lineWidth = 2; g.stroke();
       }
     }
@@ -3153,9 +3229,18 @@ SD.Defense = class {
   update(dt) {
     this.handleInput();
     this.tickShopTip(dt);
+    if (this.cutscene && !this._freezeSim) {
+      this.T += dt;
+      this.stars.update(dt);
+      this.tickCutscene(dt);
+      if (this.avrillReward) this.tickAvrillReward(dt);
+      if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
+      return;
+    }
     if (this._freezeSim) {
       this.T += dt;
       this.stars.update(dt);
+      if (this.avrillReward) this.tickAvrillReward(dt);
       return;
     }
     if (this.paused || this.over || this.score || this.pickingHero) {
@@ -3185,6 +3270,7 @@ SD.Defense = class {
     if (this.flashGold > 0) this.flashGold -= dt;
     if (this.flashHull > 0) this.flashHull -= dt;
     if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
+    if (this.avrillReward) this.tickAvrillReward(dt);
     if (this.bossLine) this.tickBossLine(dt);
     if (this.heroHint) { this.heroHint.life -= dt; if (this.heroHint.life <= 0) this.heroHint = null; }
     this.tickBossBar(dt);
@@ -3247,6 +3333,7 @@ SD.Defense = class {
       }
       this.moveEnemy(e, dt);
       if (e.boss) this.tickBossEmp(e, dt);
+      if (e.type === 'darkAvrill') this.tickDarkAvrill(e, dt);
     }
     this.compactEnemies();
     if (this.inspected && (this.inspected.hp <= 0 || this.inspected.dead)) this.inspected = null;
@@ -3295,6 +3382,11 @@ SD.Defense = class {
             this.fx.burst(s.x, s.y, s.rgb, 8, 70, 0.3, 1.6);
           }
           if (s.rime > 0) this.applyRimeField(s);
+        } else if (s.kind === 'avrill') {
+          if (s.target && s.target.hp > 0 && Math.hypot(s.target.x - s.x, s.target.y - s.y) < hitR + 8) {
+            this.hurt(s.target, s.dmg, 'avrill');
+            this.fx.burst(s.x, s.y, s.rgb, 8, 70, 0.3, 1.6);
+          }
         }
       }
     }
@@ -3647,6 +3739,10 @@ SD.Defense = class {
   }
 
   handleInput() {
+    if (this.cutscene) { this.handleCutsceneInput(); return; }
+    if (this.avrillReward && (SD.Input.confirm() || SD.Input.hit('Escape') || SD.Input.hit('Space'))) {
+      this.avrillReward = null;
+    }
     if (SD.Input.hit('KeyM')) { SD.Audio.toggleMute(); SD.Audio.click(); }
     const downs = SD.Input.takeDowns();
     const released = SD.Input.takeReleased();
@@ -3693,7 +3789,7 @@ SD.Defense = class {
       for (const p of clicks) this.clickPause(p);
       return;
     }
-    SHOP.forEach((k, i) => {
+    (this.shopKinds ? this.shopKinds() : SHOP).forEach((k, i) => {
       if (SD.Input.hit('Digit' + (i + 1)) || SD.Input.hit('Numpad' + (i + 1))) this.toggleShop(k);
     });
     if (SD.Input.hit('KeyF')) this.cycleSpeed();
@@ -3944,14 +4040,18 @@ SD.Defense = class {
     const mk = (x, w, label, sub, rgb, click, disabled, id) => {
       btns.push({ x, y, w, h: 62, label, sub, rgb, size: 15, click, disabled, id });
     };
-    for (const [i, k] of SHOP.entries()) {
+    const kinds = this.shopKinds ? this.shopKinds() : SHOP;
+    const gap = kinds.length > 7 ? 66 : 76;
+    const bw = kinds.length > 7 ? 62 : 72;
+    const x0 = kinds.length > 7 ? 36 : 44;
+    for (const [i, k] of kinds.entries()) {
       const conf = C().turrets[k];
       const locked = conf.minLevel != null && this.levelIndex < conf.minLevel;
       const used = !locked && conf.unique && this.turrets.some(t => t.kind === k);
       const noGold = this.credits < this.costOf(k);
       const sub = locked ? 'LEVEL 3' : used ? 'USED' : (this.costOf(k) + ' CR');
       const b = {
-        x: 44 + i * 76, y, w: 72, h: 62, label: conf.short, sub, rgb: conf.rgb,
+        x: x0 + i * gap, y, w: bw, h: 62, label: conf.short, sub, rgb: conf.rgb,
         size: 11, subSize: 10, labelY: 8, subY: 21,
         click: () => this.toggleShop(k), disabled: locked || used || noGold, id: k, shop: true,
       };
@@ -4072,6 +4172,7 @@ SD.Defense = class {
     this.drawAim(g);
 
     for (const t of this.turrets) this.drawTurret(g, t);
+    if (this.drawAvrillBuffs) this.drawAvrillBuffs(g);
     this.drawEmpFx(g);
     for (const b of this.beams) {
       g.save(); g.globalCompositeOperation = 'lighter';
@@ -4084,7 +4185,10 @@ SD.Defense = class {
     for (const a of this.arcs) this.drawArc(g, a);
     for (const p of this.pulses) this.drawPulseRing(g, p);
     for (const s of this.shots) this.drawShot(g, s);
-    for (const e of this.enemies) this.drawEnemy(g, e);
+    for (const e of this.enemies) {
+      this.drawEnemy(g, e);
+      if (this.drawAvrillEnemyFx) this.drawAvrillEnemyFx(g, e);
+    }
     this.fx.draw(g);
     this.drawHeroSpecial(g);
     this.drawFloaters(g);
@@ -4096,10 +4200,12 @@ SD.Defense = class {
       const a = Math.min(1, this.banner.life, (2.6 - this.banner.life) * 3);
       SD.neonText(g, this.banner.text, W / 2, 96, this.banner.text.length > 22 ? 22 : 28, this.banner.rgb, { alpha: a, blur: 18 });
     }
-    if (this.bossLine) this.drawBossLine(g);
+    if (this.cutscene) this.drawCutscene(g);
+    else if (this.bossLine) this.drawBossLine(g);
+    if (this.avrillReward) this.drawAvrillReward(g);
     if (this.score) this.drawScore(g);
     if (this.pickingHero) this.drawHeroPick(g);
-    if (this.paused && !this.over && !this.score) this.drawPause(g);
+    if (this.paused && !this.over && !this.score && !this.cutscene) this.drawPause(g);
     if (this.over && !this.score) this.drawOver(g);
     SD.drawScanlines(g);
   }
@@ -4383,8 +4489,9 @@ SD.Defense = class {
 
   drawTurretAt(g, t, scale = 1) {
     const lv = t.level || 1;
-    const base = this.spr.turret[t.kind + 'Base' + lv];
-    const head = this.spr.turret[t.kind + 'Head' + lv];
+    const dark = t.kind === 'nebula' && this.nebulaSkinOn && this.nebulaSkinOn();
+    const base = this.spr.turret[(dark ? 'nebulaDarkBase' : t.kind + 'Base') + lv];
+    const head = this.spr.turret[(dark ? 'nebulaDarkHead' : t.kind + 'Head') + lv];
     SD.blit(g, base, t.x, t.y, 0, scale);
     const kick = t.kick || 0;
     const hx = t.x - Math.cos(t.ang) * kick * scale;
@@ -4402,14 +4509,15 @@ SD.Defense = class {
     if (t.disabledT > 0) {
       const max = t.disabledMax || 3.5;
       const pct = Math.max(0, Math.min(1, t.disabledT / max));
+      const pink = t.disabledTint === 'avrill';
       g.save();
       g.beginPath(); g.arc(t.x, t.y, 20 * scale, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(12,16,22,0.58)'; g.fill();
-      g.strokeStyle = 'rgba(150,180,200,0.7)'; g.lineWidth = 1.4 * scale; g.stroke();
+      g.fillStyle = pink ? 'rgba(40,4,24,0.62)' : 'rgba(12,16,22,0.58)'; g.fill();
+      g.strokeStyle = pink ? 'rgba(255,80,180,0.7)' : 'rgba(150,180,200,0.7)'; g.lineWidth = 1.4 * scale; g.stroke();
       g.beginPath();
       g.arc(t.x, t.y, 26 * scale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
-      g.strokeStyle = 'rgba(130,230,255,0.95)'; g.lineWidth = 2.6 * scale;
-      g.shadowColor = 'rgba(80,220,255,0.95)'; g.shadowBlur = 8 * (SD.view && SD.view.scale || 1);
+      g.strokeStyle = pink ? 'rgba(255,70,200,0.95)' : 'rgba(130,230,255,0.95)'; g.lineWidth = 2.6 * scale;
+      g.shadowColor = pink ? 'rgba(255,70,200,0.95)' : 'rgba(80,220,255,0.95)'; g.shadowBlur = 8 * (SD.view && SD.view.scale || 1);
       g.stroke();
       g.shadowBlur = 0;
       g.globalCompositeOperation = 'lighter';
@@ -4425,15 +4533,16 @@ SD.Defense = class {
   }
 
   drawShot(g, s) {
+    const rgb = s.buffed && SD.mixRgb ? SD.mixRgb(s.rgb, SD.avrillBuffRgb(), 0.55) : s.rgb;
     g.save(); g.globalCompositeOperation = 'lighter'; g.translate(s.x, s.y); g.rotate(s.ang);
     if (s.kind === 'missile') {
-      g.fillStyle = `rgba(${s.rgb},1)`;
+      g.fillStyle = `rgba(${rgb},1)`;
       g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -3.2); g.lineTo(-5, 3.2); g.closePath(); g.fill();
       SD.glow(g, -6, 0, 8, 5, '255,140,40', 0.55);
     } else {
-      g.fillStyle = `rgba(${s.rgb},1)`;
-      g.beginPath(); g.arc(0, 0, 3.2, 0, Math.PI * 2); g.fill();
-      SD.glow(g, 0, 0, 10, 10, s.rgb, 0.5);
+      g.fillStyle = `rgba(${rgb},1)`;
+      g.beginPath(); g.arc(0, 0, s.kind === 'avrill' ? 4 : 3.2, 0, Math.PI * 2); g.fill();
+      SD.glow(g, 0, 0, 10, 10, rgb, 0.5);
     }
     g.restore();
   }
@@ -4502,8 +4611,9 @@ SD.Defense = class {
     SD.blit(g, spr, e.x, e.y, e.ang, scale);
     if (e.hitFlash > 0) g.restore();
     if (e.phased) g.restore();
-    const bw = e.boss ? 86 : Math.max(18, e.r * 2.2), bh = e.boss ? 5 : 3;
-    const bx = e.x - bw / 2, by = e.y - (e.boss ? 44 * (e.scale || 1) : e.r + 12);
+    const av = e.type === 'darkAvrill';
+    const bw = e.boss ? (av ? 128 : 86) : Math.max(18, e.r * 2.2), bh = e.boss ? 6 : 3;
+    const bx = e.x - bw / 2, by = e.y - (e.boss ? (av ? 62 : 44) * (e.scale || 1) : e.r + 12);
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
     const pct = Math.max(0, e.hp / e.max);
     g.fillStyle = pct > 0.5 ? '#5cff9a' : pct > 0.25 ? '#ffd25a' : '#ff5a6a';
@@ -4705,7 +4815,7 @@ SD.Defense = class {
       title: it.title || 'EDISAR STARLIGHT',
       sub: it.name || '',
       lines: [it.text],
-      portrait: it.portrait || (it.who === 'nebula' ? 'nebula' : (it.who === 'joe' ? 'joe' : 'edisar')),
+      portrait: it.portrait || (it.who === 'nebula' ? 'nebula' : it.who === 'joe' ? 'joe' : it.who === 'darkavrill' ? 'darkAvrill' : it.who === 'avrill' ? 'avrill' : 'edisar'),
     });
   }
 
@@ -5701,7 +5811,150 @@ SD.Defense = class {
       this._freezeSim = true;
     } else if (id === 'title') {
       // unused here
+    } else if (id === 'avrillcut' || id === 'avrillintro' || id === 'avrilledisar') {
+      this.applyAvrillShotField();
+      this.beginAvrillIntro();
+      this.holdCutsceneLine(0);
+      this._freezeSim = true;
+    } else if (id === 'avrillline' || id === 'avrilldark') {
+      this.applyAvrillShotField();
+      this.beginAvrillIntro();
+      this.holdCutsceneLine(5);
+      this._freezeSim = true;
+    } else if (id === 'avrillend' || id === 'avrillending') {
+      this.applyAvrillShotField();
+      this.spawnDarkAvrillFight();
+      const boss = this.enemies.find(e => e.type === 'darkAvrill');
+      if (boss) { boss.hp = 1; this.kill(boss, true); }
+      this.enemies = (this.enemies || []).filter(e => !e.dead);
+      this.clearAvrillShotFx();
+      this.waveIndex = 50; this.waveActive = false;
+      this.holdCutsceneLine(2);
+      this._freezeSim = true;
+    } else if (id === 'avrillfight') {
+      this.applyAvrillShotField();
+      this.avrillSeenThisRun = true;
+      this.spawnDarkAvrillFight();
+      const boss = this.enemies.find(e => e.type === 'darkAvrill');
+      if (boss) {
+        boss.x = 360; boss.y = 255; boss.ang = 0.15;
+        boss.freezeT = 99; boss.stunT = 99; boss.teleportCd = 99; boss.saibotCd = 99;
+        boss.empCd = 99;
+      }
+      if (boss) this.fireBossEmp(boss, C().enemies.darkAvrill.emp);
+      this.poseAvrillSaibots();
+      this.markVisibleEmp(2);
+      this.waveIndex = 50; this.waveActive = true; this.groups = [];
+      this._freezeSim = true;
+    } else if (id === 'avrillp3') {
+      this.applyAvrillShotField();
+      this.avrillSeenThisRun = true;
+      this.spawnDarkAvrillFight();
+      const boss = this.enemies.find(e => e.type === 'darkAvrill');
+      if (boss) {
+        boss.hp = Math.round(boss.max * 0.28);
+        this.syncAvrillPhase(boss);
+        boss.x = 360; boss.y = 255; boss.ang = 0.15;
+        boss.freezeT = 99; boss.stunT = 99; boss.teleportCd = 99; boss.saibotCd = 99; boss.absorbCd = 99;
+        if (boss) this.fireBossEmp(boss, C().enemies.darkAvrill.emp);
+        for (let i = 0; i < 2; i++) this.spawnAvrillSaibot(boss);
+      }
+      this.poseAvrillSaibots();
+      this.waveIndex = 50; this.waveActive = true; this.groups = [];
+      this._freezeSim = true;
+    } else if (id === 'avrillreward' || id === 'avrillarmory') {
+      // handled as armory shot from main if needed; in-match reward card
+      this.applyAvrillShotField();
+      this.progress = Object.assign({}, this.progress || {}, { avrillStars: 5, avrillMedal: 1, avrillTurret: 1, nebulaSkin: 1, nebulaSkinOn: 1, avrillKilled: 1 });
+      this.avrillReward = { life: 99, first: true, t: 1 };
+      this.waveIndex = 50; this.waveActive = false;
+      this._freezeSim = true;
+    } else if (id === 'avrillturret') {
+      this.setLevel(0);
+      this.reset();
+      this.spawnHero('oakens');
+      this.progress = Object.assign({}, SD.Progress.load(), { avrillTurret: 1, avrillKilled: 1, avrillMedal: 1, nebulaSkin: 1 });
+      this.credits = 999;
+      const pads = [[4,5,'laser',3],[7,5,'railgun',2],[7,8,'tesla',2],[8,10,'missile',2],[10,10,'pulse',2],[14,9,'ice',2],[15,5,'laser',2],[12,8,'avrill',1]];
+      this.turrets = [];
+      pads.forEach(([tx,ty,k,lv]) => {
+        const pad = this.padAt(tx, ty);
+        if (pad && pad.premium) pad.open = true;
+        if (this.canPlace(tx, ty) || this.shot) this.place(tx, ty, k, lv);
+      });
+      this.waveIndex = 2; this.waveActive = true; this.groups = [];
+      this.enemies = [];
+      const e1 = this.spawn('fighter', 40); const e2 = this.spawn('armored', 40); const e3 = this.spawn('shielded', 40);
+      const spots = [[430, 360],[470, 340],[400, 390]];
+      [e1,e2,e3].forEach((e,i) => { if (e) { e.x = spots[i][0]; e.y = spots[i][1]; e.stunT = 99; e.freezeT = 99; } });
+      this.turrets.forEach(tr => { tr.cool = 0; });
+      this.floaters = [];
+      this.T = 0.45;
+      this.seedAvrillBuffShots();
+      this._freezeSim = true;
     }
+  }
+
+  clearAvrillShotFx() {
+    this.floaters = [];
+    if (this.fx) { this.fx.list = []; this.fx.rings = []; this.fx.floats = []; }
+  }
+
+  markVisibleEmp(n) {
+    for (const t of this.turrets || []) { t.disabledT = 0; t.disabledTint = ''; }
+    const vis = (this.turrets || []).filter(t => t.x > 560 && t.y > 200 && t.y < 430).slice(0, n);
+    for (const t of vis) {
+      t.disabledT = 2.8; t.disabledMax = 3.5; t.disabledTint = 'avrill';
+    }
+  }
+
+  poseAvrillSaibots() {
+    const spots = [[620, 200], [700, 380], [500, 400], [780, 230]];
+    const bots = (this.enemies || []).filter(e => !e.dead && e.type === 'saibot');
+    bots.forEach((s, i) => {
+      const sp = spots[i % spots.length];
+      s.x = sp[0]; s.y = sp[1]; s.stunT = 99; s.freezeT = 99;
+    });
+  }
+
+  seedAvrillBuffShots() {
+    const foes = (this.enemies || []).filter(e => e && !e.dead);
+    if (!foes.length) return;
+    this.shots = [];
+    let fi = 0;
+    for (const t of this.turrets || []) {
+      const e = foes[fi % foes.length]; fi++;
+      const buffed = !!(this.avrillBuffed && this.avrillBuffed(t));
+      const conf = C().turrets[t.kind] || {};
+      const rgb = this.shotRgbFor ? this.shotRgbFor(t, conf.rgb || '255,70,200') : (conf.rgb || '255,70,200');
+      const ang = Math.atan2(e.y - t.y, e.x - t.x);
+      const u = 0.42;
+      this.shots.push({
+        kind: t.kind === 'avrill' ? 'avrill' : (t.kind === 'ice' ? 'ice' : t.kind === 'missile' ? 'missile' : 'laser'),
+        x: t.x + (e.x - t.x) * u, y: t.y + (e.y - t.y) * u,
+        tx: e.x, ty: e.y, target: e, ang, speed: 0, dmg: 0,
+        rgb, buffed, life: 99, r: t.kind === 'missile' ? 5 : 4,
+      });
+    }
+  }
+
+  applyAvrillShotField() {
+
+    if (!this.endless) this.setLevel('siege');
+    this.reset();
+    this.spawnHero('nebula');
+    this.siegeApplyPhase(50);
+    this.waveIndex = 49; this.wavesCleared = 49;
+    this.credits = 2500;
+    this.progress = Object.assign({}, this.progress || SD.Progress.load(), { unlocked: 9, avrillTurret: 1 });
+    const near = (this.nearPads && this.nearPads(8)) || [];
+    const kinds = ['laser','missile','railgun','tesla','pulse','ice'];
+    this.turrets = [];
+    near.forEach((p, i) => {
+      if (p.premium) { const pad = this.padAt(p.tx, p.ty); if (pad) pad.open = true; }
+      this.place(p.tx, p.ty, kinds[i % kinds.length], 2 + (i % 2));
+    });
+    this.groups = []; this.waveActive = false;
   }
 
   sim(seconds) {

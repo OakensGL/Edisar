@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.6
+STARLIGHT: LAST STATION v0.4.7
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -83,6 +83,18 @@ smaller Ogg Vorbis bitrate for phones; the audio is otherwise unmodified.
   License: CC0  (attribution optional; credited here)
   File:    assets/boss-fight-2.ogg
   Waves 31–40, then 71–80, and so on.
+
+  "Epic Boss Battle" (Boss Battle Music) by Juhani Junkala / SubspaceAudio
+  Source:  https://opengameart.org/content/boss-battle-music
+  License: CC0
+  File:    assets/epic-boss-battle.ogg
+  Plays during a special LAST STAND cutscene.
+
+  "Deck Fight Theme" by GTDStudio aka Palrom
+  Source:  https://opengameart.org/content/deck-fight-theme
+  License: OGA-BY 3.0
+  File:    assets/deck-fight.ogg
+  Plays during a special LAST STAND encounter.
 
 In-game attribution: title screen credit line and the Credits panel.
 All other sound effects are synthesized at runtime with the Web Audio API.
@@ -276,3 +288,12 @@ ARMORY stars (30 maximum with the campaign). Existing saves that
 already recorded those stars are credited when the game loads.
 Last Stand now rotates four music tracks with the backdrop every
 ten waves and crossfades when the sky changes.
+
+v0.4.7
+------
+A secret waits in LAST STAND at wave 50. Beating it awards 5 ARMORY
+stars once (35 maximum with the campaign and siege milestones), a
+medal, a dark Nebula turret skin, and the Avrill support turret.
+Cutscene music is "Epic Boss Battle" by Juhani Junkala / SubspaceAudio
+(CC0). The encounter theme is "Deck Fight Theme" by GTDStudio aka
+Palrom (OGA-BY 3.0).

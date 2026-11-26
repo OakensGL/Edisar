@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.6
+# Starlight: Last Station v0.4.7
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -28,7 +28,7 @@ with an Edisar flagship every ten waves. Score points for kills, waves
 cleared, hull held, and early-sends; your best score is saved. Milestone
 stars at waves 10, 20, and 30 count toward the ARMORY (30 maximum with
 the nine campaign levels). Existing saves already credit those stars
-on load.
+on load. Something waits at wave 50.
 
 Story on the title screen plays a skippable crawl, "The Return of Edisar
 Starlight," then returns to the level select. The crawl is timed to the
@@ -42,7 +42,7 @@ when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
 Stars are kept as the best result on each campaign level (27 maximum
-across nine levels) plus up to 3 from LAST STAND, for 30 maximum. An
+across nine levels) plus up to 3 from LAST STAND and a hidden 5-star reward, for 35 maximum. An
 ARMORY on the title screen and the level-select screen spends those stars on
 permanent turret and station upgrades, sold by Bazooka Joe, the station's
 mad-scientist weapons inventor. Each turret has its own upgrades
@@ -129,5 +129,7 @@ Music pack, also CC-BY 3.0: "Music by Oblidivm - oblidivmmusic.blogspot.com".
 Last Stand music rotates four tracks with the sky every ten waves:
 "The Evil Sacrifice Archenemies" by ISAo (SOUND AIRYLUVS, OGA-BY 3.0),
 "Megasong" by Emma_MA (CC0), "Phase Zero" by Snabisch (CC-BY 3.0), and
-"Boss Fight 2" by Ansimuz (CC0). See CREDITS.txt and the in-game Credits
-panel for sources and full attribution.
+"Boss Fight 2" by Ansimuz (CC0). A later LAST STAND encounter also uses
+"Epic Boss Battle" by Juhani Junkala / SubspaceAudio (CC0) and "Deck Fight
+Theme" by GTDStudio aka Palrom (OGA-BY 3.0). See CREDITS.txt and the in-game
+Credits panel for sources and full attribution.

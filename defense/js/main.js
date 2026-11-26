@@ -40,8 +40,15 @@
     SD.state = 'levels';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.playTitle) SD.Audio.playTitle();
-  } else if (shot && (shot[1] === 'armory' || shot[1] === 'joe' || shot[1] === 'bazooka' || shot[1] === 'bazookajoe')) {
-    SD.game = new SD.Armory({ shot: shot[1] === 'armory' ? 'armory' : 'joe' });
+  } else if (shot && (shot[1] === 'armory' || shot[1] === 'joe' || shot[1] === 'bazooka' || shot[1] === 'bazookajoe' || shot[1] === 'avrillarmory' || shot[1] === 'avrillskin')) {
+    const arm = new SD.Armory({ shot: shot[1] === 'armory' ? 'armory' : (shot[1].indexOf('avrill') === 0 ? 'armory' : 'joe') });
+    if (shot[1] === 'avrillarmory' || shot[1] === 'avrillskin') {
+      arm.progress = Object.assign({}, arm.progress || SD.Progress.load(), {
+        unlocked: 9, stars: [3,3,3,3,3,3,3,3,3], siegeStars: 3, avrillStars: 5,
+        avrillMedal: 1, avrillTurret: 1, avrillKilled: 1, nebulaSkin: 1, nebulaSkinOn: 1,
+      });
+    }
+    SD.game = arm;
     SD.state = 'armory';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.playTitle) SD.Audio.playTitle();
@@ -50,8 +57,16 @@
     SD.state = 'play';
     if (credit) credit.style.display = 'none';
     if (SD.Audio.stopMusic) SD.Audio.stopMusic({ dur: 0.2 });
-  } else if (SD.Audio.playTitle) {
-    SD.Audio.playTitle();
+  } else {
+    const stand = /[?&]stand=(\d+)/.exec(location.search);
+    if (stand) {
+      SD.game = new SD.Defense({ siege: true, startWave: stand[1] | 0, hero: 'oakens' });
+      SD.state = 'play';
+      if (credit) credit.style.display = 'none';
+      if (SD.Audio.playSiege) SD.Audio.playSiege();
+    } else if (SD.Audio.playTitle) {
+      SD.Audio.playTitle();
+    }
   }
 
   SD.start = (s, opt = {}) => {

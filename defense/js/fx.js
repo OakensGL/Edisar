@@ -354,9 +354,10 @@ function drawTeslaHead(g, level) {
     g.beginPath(); g.moveTo(-12, -18); g.lineTo(0, -28); g.lineTo(12, -18); g.stroke();
   }
 }
-function drawNebulaHead(g, level) {
+function drawNebulaHead(g, level, skin) {
+  const dark = skin === 'dark';
   // Heavy dark-energy projector: long void barrel, red core (matches Nebula's mothership).
-  metalBox(g, -10, 6, 20, 12, 3, ['#8a8490', '#2e2830', '#121014']);
+  metalBox(g, -10, 6, 20, 12, 3, dark ? ['#3a3038', '#121014', '#050308'] : ['#8a8490', '#2e2830', '#121014']);
   bolt(g, -6, 14, 1.2); bolt(g, 6, 14, 1.2);
   // rear reactor — ship dome: #ffc8c8 / #e6283c / #5a0014, glow 255,80,80
   g.beginPath(); g.arc(0, 12, 7, 0, Math.PI * 2);
@@ -366,10 +367,10 @@ function drawNebulaHead(g, level) {
   g.strokeStyle = '#0a0810'; g.lineWidth = 1; g.stroke();
   coreGlow(g, 0, 12, 7, '255,80,80');
   // long shrouded barrel (neutral dark metal)
-  metalBox(g, -7, -34, 14, 40, 3, ['#6a646c', '#2a2430', '#0e0c14']);
+  metalBox(g, -7, -34, 14, 40, 3, dark ? ['#2a2028', '#100814', '#050208'] : ['#6a646c', '#2a2430', '#0e0c14']);
   metalBox(g, -5, -38, 10, 10, 2, ['#9a9098', '#3a3438', '#141014']);
   // coil rings — ship wing / stripe red
-  g.strokeStyle = '#a00c1e'; g.lineWidth = 1.4;
+  g.strokeStyle = dark ? '#6a0030' : '#a00c1e'; g.lineWidth = 1.4;
   for (const y of [-8, -16, -24]) {
     g.beginPath(); g.ellipse(0, y, 8, 2.4, 0, 0, Math.PI * 2); g.stroke();
   }
@@ -934,6 +935,48 @@ function drawSwarmerBody(g) {
   engineNozzle(g, -11, 0, 1.8, 1.5, '200,255,90');
 }
 
+function drawAvrillHead(g, level) {
+  // Pink support projector: short shroud, magenta core, petal dishes.
+  const pink = SD.AVRILL_BUFF && SD.AVRILL_BUFF.rgb || '255,70,200';
+  metalBox(g, -9, 5, 18, 12, 3, ['#8a6a80', '#3a2434', '#140812']);
+  bolt(g, -5, 13, 1.2); bolt(g, 5, 13, 1.2);
+  // petal dishes
+  g.save();
+  g.fillStyle = '#2a1220';
+  for (const s of [-1, 1]) {
+    g.beginPath();
+    g.ellipse(s * 11, -6, 7, 11, s * 0.25, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#ff46c8'; g.lineWidth = 1.2; g.stroke();
+  }
+  g.restore();
+  metalBox(g, -6, -22, 12, 26, 2.5, ['#7a5a70', '#2a1824', '#100810']);
+  // core orb
+  g.beginPath(); g.arc(0, -8, 7, 0, Math.PI * 2);
+  const rx = g.createRadialGradient(-2, -10, 0, 0, -8, 7);
+  rx.addColorStop(0, '#ffe0f4'); rx.addColorStop(0.4, '#ff46c8'); rx.addColorStop(1, '#5a0038');
+  g.fillStyle = rx; g.fill();
+  g.strokeStyle = '#1a0810'; g.lineWidth = 1; g.stroke();
+  coreGlow(g, 0, -8, 8, pink);
+  coreGlow(g, 0, -22, 6, pink);
+  g.fillStyle = '#ffd0ee';
+  g.fillRect(-0.8, -26, 1.6, 10);
+}
+
+function loadImageSprite(src, size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const im = new Image();
+  im.onload = () => {
+    g.clearRect(0, 0, size, size);
+    const pad = size * 0.04;
+    g.drawImage(im, pad, pad, size - pad * 2, size - pad * 2);
+  };
+  im.src = src;
+  return { c, size, img: im };
+}
+
 SD.Sprites = {
   /* Modern metallic enemy ships, nose to the right. Glow is engine/canopy accent only. */
   scout() {
@@ -942,6 +985,23 @@ SD.Sprites = {
   fighter() {
     return partCanvas(80, g => drawFighterBody(g));
   },
+  saibot() {
+    return partCanvas(80, g => {
+      g.save();
+      g.filter = 'saturate(0.4) brightness(0.55)';
+      drawFighterBody(g);
+      g.restore();
+      // dark veil + red eye
+      g.fillStyle = 'rgba(40,0,20,0.45)';
+      g.beginPath(); g.moveTo(22, 0); g.lineTo(-16, -10); g.lineTo(-16, 10); g.closePath(); g.fill();
+      coreGlow(g, 10, 0, 5, '255,60,90');
+      g.fillStyle = '#ff5070';
+      g.beginPath(); g.ellipse(10, 0, 3.2, 1.4, 0, 0, Math.PI * 2); g.fill();
+    });
+  },
+  darkAvrill()  { return loadImageSprite('assets/dark-avrill-ship.png', 320); },
+  darkAvrill2() { return loadImageSprite('assets/dark-avrill-ship2.png', 320); },
+  darkAvrill3() { return loadImageSprite('assets/dark-avrill-ship3.png', 320); },
   armored() {
     return partCanvas(100, g => drawArmoredBody(g));
   },
@@ -970,7 +1030,7 @@ SD.Sprites = {
     return partCanvas(124, g => drawJuggernautBody(g));
   },
   /* Modern metallic sci-fi turrets. Base is static; head/barrel rotates. Glow is accent-only. */
-  turretBase(kind, level = 1) {
+  turretBase(kind, level = 1, skin) {
     const size = 84;
     return partCanvas(size, g => {
       // contact shadow
@@ -988,7 +1048,9 @@ SD.Sprites = {
                   : kind === 'railgun' ? ['#a09a80', '#545040', '#1e1c14']
                   : kind === 'tesla' ? ['#8a8498', '#4a4458', '#1a1824']
                   : kind === 'pulse' ? ['#7a988c', '#3e5448', '#16201a']
+                  : kind === 'nebula' && skin === 'dark' ? ['#3a3038', '#161014', '#070508']
                   : kind === 'nebula' ? ['#6a646c', '#2e282c', '#121014']
+                  : kind === 'avrill' ? ['#8a6a80', '#3a2434', '#140812']
                   : ['#8a93a2', '#4a5260', '#1a1e26'];
       const rad = g.createRadialGradient(-5, -6, 2, 0, 0, R + 1);
       rad.addColorStop(0, steel[0]); rad.addColorStop(0.45, steel[1]); rad.addColorStop(1, steel[2]);
@@ -1005,7 +1067,7 @@ SD.Sprites = {
       g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 0.7; g.stroke();
 
       // kind accent as a painted inset ring (flat, not neon)
-      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : kind === 'nebula' ? '#a00c1e' : '#2a4a72';
+      const accent = kind === 'laser' ? '#2a4a72' : kind === 'missile' ? '#6a3a18' : kind === 'ice' ? '#2a5a62' : kind === 'railgun' ? '#6a5a18' : kind === 'tesla' ? '#4a3a72' : kind === 'pulse' ? '#1a5a44' : (kind === 'nebula' && skin === 'dark') ? '#6a0030' : kind === 'nebula' ? '#a00c1e' : kind === 'avrill' ? '#c01880' : '#2a4a72';
       g.beginPath(); g.arc(0, 0, R - 5.4, 0, Math.PI * 2);
       g.strokeStyle = accent; g.lineWidth = 1.6; g.stroke();
 
@@ -1065,14 +1127,14 @@ SD.Sprites = {
       g.beginPath(); g.arc(0, 0, 6.5, 0, Math.PI * 2); g.fillStyle = well; g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 0.8; g.stroke();
       // tiny status lamp (accent glow)
-      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : kind === 'nebula' ? '#ff6060' : '#5aa8e8';
+      const lamp = kind === 'laser' ? '#5aa8e8' : kind === 'missile' ? '#e09040' : kind === 'ice' ? '#8ad4e8' : kind === 'railgun' ? '#e0c050' : kind === 'tesla' ? '#b090f0' : kind === 'pulse' ? '#50e0a8' : (kind === 'nebula' && skin === 'dark') ? '#ff3080' : kind === 'nebula' ? '#ff6060' : kind === 'avrill' ? '#ff46c8' : '#5aa8e8';
       g.beginPath(); g.arc(0, 0, 1.6, 0, Math.PI * 2);
       g.fillStyle = lamp; g.fill();
       g.fillStyle = 'rgba(255,255,255,0.65)'; g.beginPath(); g.arc(-0.4, -0.4, 0.5, 0, Math.PI * 2); g.fill();
     });
   },
 
-  turretHead(kind, level = 1) {
+  turretHead(kind, level = 1, skin) {
     const size = 84;
     return partCanvas(size, g => {
       if (kind === 'laser') drawLaserHead(g, level);
@@ -1080,7 +1142,8 @@ SD.Sprites = {
       else if (kind === 'ice') drawIceHead(g, level);
       else if (kind === 'railgun') drawRailgunHead(g, level);
       else if (kind === 'tesla') drawTeslaHead(g, level);
-      else if (kind === 'nebula') drawNebulaHead(g, level);
+      else if (kind === 'avrill') drawAvrillHead(g, level);
+      else if (kind === 'nebula') drawNebulaHead(g, level, skin);
       else drawPulseHead(g, level);
     });
   },
@@ -1135,6 +1198,12 @@ SD.Sprites = {
         g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 22, 0, Math.PI * 2); g.fill();
         g.fillStyle = 'rgba(255,230,230,0.95)';
         g.fillRect(-1.6, -22, 3.2, 28);
+      } else if (kind === 'avrill') {
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, 20);
+        gr.addColorStop(0, 'rgba(255,240,250,0.95)');
+        gr.addColorStop(0.3, 'rgba(255,70,200,0.75)');
+        gr.addColorStop(1, 'rgba(80,0,50,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 20, 0, Math.PI * 2); g.fill();
       } else {
         const gr = g.createRadialGradient(0, 0, 0, 0, 0, 18);
         gr.addColorStop(0, 'rgba(255,255,255,0.9)');

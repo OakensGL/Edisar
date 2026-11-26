@@ -1,8 +1,11 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.6';
+SD.VERSION = '0.4.7';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
+// Pink/magenta aura used by the Avrill support turret. Change this to recolor buffs.
+SD.AVRILL_BUFF = { rgb: '255,70,200' };
+
 
 SD.CONFIG = {
   font: '"Courier New", Courier, monospace',
@@ -160,6 +163,19 @@ SD.CONFIG = {
       blurb: 'High Level Performance',
       tip: {
         role: 'High Level Performance',
+      },
+    },
+    avrill: {
+      name: 'AVRILL', short: 'AVRILL', rgb: '255,70,200',
+      cost: 220, upCost: 0, upCost2: 0, maxLevel: 1, unique: 1,
+      range: [168], damage: [14], rate: [0.62],
+      buffDamage: 1.22, buffRate: 1.18, aura: 168,
+      blurb: 'Buffs nearby turrets with a pink link.',
+      tip: {
+        role: 'Support projector. Pink energy links to nearby turrets.',
+        effect: 'Buffs allied turrets in range: +22% damage and faster fire. Fires a modest pink bolt of its own. One per map.',
+        vs: 'The buff helps every damage type, so a mixed line hits harder.',
+        resist: 'Unlocked after LAST STAND wave 50.',
       },
     },
   },
@@ -334,7 +350,46 @@ SD.CONFIG = {
       line: "Three gates. One grave. This is the last station, and I will take it from every heading at once.",
       reply: "Take it? Over my smoking wreck, and not a damn second sooner.",
     },
+    darkAvrill: {
+      name: 'Dark Avrill', hp: 34000, shield: 0, speed: 18, reward: 900, hull: 40, r: 70, rgb: '255,70,120',
+      resist: { laser: 0.35, missile: 1.05, ice: 0.30, railgun: 1.15, tesla: 1.12, pulse: 1.20 },
+      weak: ['RAILGUN', 'TESLA', 'PULSE'], resists: ['LASER', 'ICE'],
+      iceSlowMul: 0.20, fixedHp: true,
+      emp: { cd: 8, radius: 999, duration: 3.6, max: 2, delay: 5.5, tint: 'avrill' },
+      boss: true, scale: 1.28, sprite: 'darkAvrill',
+    },
+    saibot: {
+      name: 'Saibot', hp: 120, speed: 74, reward: 9, hull: 1, r: 12, rgb: '160,40,90',
+      resist: { laser: 0.55, missile: 1, ice: 0.8, railgun: 1.1, tesla: 1.15, pulse: 1.1 },
+      weak: ['TESLA', 'RAILGUN'], resists: ['LASER'],
+      fixedHp: true, scale: 0.95, sprite: 'saibot',
+      notes: 'A shadowy escort bound to Dark Avrill.',
+    },
   },
+  avrillIntro: [
+    { who: 'edisar', title: 'EDISAR STARLIGHT', name: 'The Gate', text: "Stop. All of you. Look at the gate." },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', name: 'The Gate', text: "You thought she died for you? I brought her back." },
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "No... Avrill?" },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', name: 'The Gate', text: "Not Avrill. Not anymore. I rebuilt every broken piece of her, and she remembers only me." },
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "Avrill... if you're still in there, fight it." },
+    { who: 'darkavrill', title: 'DARK AVRILL', name: 'The Gate', text: "Avrill is gone. Avrill was weak." },
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "Then I'll bring you back. Even if I have to tear that ship apart." },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', name: 'The Gate', text: "Kill them, my angel." },
+  ],
+  avrillEnding: [
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "Her core is still intact... and the station kept a backup of her memories." },
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "Reverse-engineering Edisar's work. Hold on, Avrill." },
+    { who: 'avrill', title: 'AVRILL', name: 'The Station', text: "...Nebula? I remember. I remember everything." },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', name: 'The Gate', text: "NO! She was MINE!" },
+    { who: 'nebula', title: 'DR. NEBULA', name: 'The Station', text: "She was never yours." },
+  ],
+  avrillFight: [
+    { who: 'darkavrill', title: 'DARK AVRILL', text: "You should have let me die.", reply: "I won't lose you twice." },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', text: "That's my girl. Break them." },
+    { who: 'darkavrill', title: 'DARK AVRILL', text: "I am his weapon. Nothing else.", reply: "You're more than what he made you." },
+    { who: 'edisar', title: 'EDISAR STARLIGHT', text: "Tear the station open, my angel." },
+    { who: 'darkavrill', title: 'DARK AVRILL', text: "This hull is his. This will is his." },
+  ],
   levels: [
     {
       id: 'orbital', name: 'ORBITAL STATION', short: 'Orbital', variant: 'orbital',
@@ -607,7 +662,7 @@ SD.pad = (n, len = 2) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 SD.Progress = {
   empty() {
     const n = (SD.CONFIG.levels && SD.CONFIG.levels.length) || 6;
-    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [], siegeBest: 0, siegeBestWave: 0, siegeStars: 0 };
+    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [], siegeBest: 0, siegeBestWave: 0, siegeStars: 0, avrillStars: 0, avrillKilled: 0, avrillMedal: 0, avrillTurret: 0, nebulaSkin: 0, nebulaSkinOn: 0 };
   },
   load() {
     const base = SD.Progress.empty();
@@ -620,6 +675,12 @@ SD.Progress = {
         base.siegeBest = Math.max(0, v.siegeBest | 0);
         base.siegeBestWave = Math.max(0, v.siegeBestWave | 0);
         base.siegeStars = Math.max(0, Math.min(3, v.siegeStars | 0));
+        base.avrillStars = (v.avrillStars | 0) > 0 ? 5 : 0;
+        base.avrillKilled = v.avrillKilled ? 1 : 0;
+        base.avrillMedal = v.avrillMedal ? 1 : 0;
+        base.avrillTurret = v.avrillTurret ? 1 : 0;
+        base.nebulaSkin = v.nebulaSkin ? 1 : 0;
+        base.nebulaSkinOn = v.nebulaSkinOn ? 1 : 0;
       }
     } catch (e) {}
     return base;
@@ -646,6 +707,24 @@ SD.Progress = {
     SD.Progress.save(p);
     return { progress: p, isNew: pts > prev };
   },
+  recordAvrill() {
+    const p = SD.Progress.load();
+    const first = !p.avrillKilled;
+    p.avrillKilled = 1;
+    p.avrillMedal = 1;
+    p.avrillTurret = 1;
+    p.nebulaSkin = 1;
+    if (!p.avrillStars) p.avrillStars = 5;
+    SD.Progress.save(p);
+    return { progress: p, first };
+  },
+  setNebulaSkinOn(on) {
+    const p = SD.Progress.load();
+    if (!p.nebulaSkin) return p;
+    p.nebulaSkinOn = on ? 1 : 0;
+    SD.Progress.save(p);
+    return p;
+  },
 };
 
 SD.StarShop = {
@@ -664,11 +743,12 @@ SD.StarShop = {
   // Campaign stars plus LAST STAND milestones at waves 10/20/30 (capped at 3).
   // Existing saves already store siegeStars, so they are credited on load
   // without rewriting campaign p.stars (which would double-count).
-  max() { return ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0) * 3 + 3; },
+  max() { return ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0) * 3 + 3 + 5; },
   earned(p) {
     const campaign = (p.stars || []).reduce((a, s) => a + (s | 0), 0);
     const siege = Math.max(0, Math.min(3, (p && p.siegeStars) | 0));
-    return campaign + siege;
+    const avrill = (p && p.avrillStars) ? 5 : 0;
+    return campaign + siege + avrill;
   },
   spent(p) { return (p.bought || []).reduce((a, id) => { const it = this.item(id); return a + (it ? it.cost : 0); }, 0); },
   available(p) { return this.earned(p) - this.spent(p); },

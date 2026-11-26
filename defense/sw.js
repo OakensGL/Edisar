@@ -1,5 +1,5 @@
-/* Starlight: Last Station v0.4.6 — cache the app shell for offline / PWA play. */
-const CACHE = 'starlight-td-v0.4.6';
+/* Starlight: Last Station v0.4.7 — cache the app shell for offline / PWA play. */
+const CACHE = 'starlight-td-v0.4.7';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './js/input.js',
   './js/fx.js',
   './js/game.js',
+  './js/avrill.js',
   './js/main.js',
   './js/pwa.js',
   './icons/icon-192.png',
@@ -35,6 +36,13 @@ const ASSETS = [
   './assets/megasong.ogg',
   './assets/phase-zero.ogg',
   './assets/boss-fight-2.ogg',
+  './assets/epic-boss-battle.ogg',
+  './assets/deck-fight.ogg',
+  './assets/dark-avrill.jpg',
+  './assets/avrill.jpg',
+  './assets/dark-avrill-ship.png',
+  './assets/dark-avrill-ship2.png',
+  './assets/dark-avrill-ship3.png',
   './assets/nebula.jpg',
 ];
 self.addEventListener('install', e => {
