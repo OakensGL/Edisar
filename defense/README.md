@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.7
+# Starlight: Last Station v0.4.8
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -6,7 +6,18 @@ Hold the last station against Commander Edisar Starlight's fleet.
 Open `index.html` in a browser (a local static server is best; a PWA install
 is available over http). No build step.
 
-Play opens the level select. There are nine levels of ten waves, each with
+Play opens a galaxy map of the nine story levels. Each can be played on
+EASY (the original balance), MEDIUM, or HARD. The last pick is remembered.
+Medium for a level unlocks after you clear that level on Easy; Hard
+unlocks after a Medium clear. Stars are saved per level per difficulty;
+each of the three slots shows the color of the highest difficulty that
+star was earned at (yellow Easy, blue Medium, red Hard), with higher
+difficulties filling from the left. The ARMORY counts stars from every
+difficulty (up to 3 per level per difficulty), plus LAST STAND milestones
+and a hidden reward, for 89 maximum. LAST STAND is unchanged and does
+not use these modes.
+
+There are nine levels of ten waves, each with
 its own map: Orbital Station, Asteroid Belt, Moon Base, Solar Drydock,
 Twin Gates, Eclipse Rim, Wreck Yard, Storm Needle, and Shatter Gate.
 Twin Gates, Eclipse Rim, Wreck Yard, and Storm Needle have two entrances;
@@ -26,7 +37,7 @@ sky open every ten waves until all four lanes are live, then the sky
 keeps cycling. Waves never stop and grow harder, mixing every ship type,
 with an Edisar flagship every ten waves. Score points for kills, waves
 cleared, hull held, and early-sends; your best score is saved. Milestone
-stars at waves 10, 20, and 30 count toward the ARMORY (30 maximum with
+stars at waves 10, 20, and 30 count toward the ARMORY (with
 the nine campaign levels). Existing saves already credit those stars
 on load. Something waits at wave 50.
 
@@ -41,16 +52,17 @@ early-send bonus scales with the time you save. The auto timer still runs
 when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
-Stars are kept as the best result on each campaign level (27 maximum
-across nine levels) plus up to 3 from LAST STAND and a hidden 5-star reward, for 35 maximum. An
-ARMORY on the title screen and the level-select screen spends those stars on
-permanent turret and station upgrades, sold by Bazooka Joe, the station's
-mad-scientist weapons inventor. Each turret has its own upgrades
-(faster fire, wider blasts, deeper slows, and so on) instead of a
-shared damage / range / cost package. After HERO PROTOCOL, a fork lets
-you specialize the hero special as FREEZE (also freezes every ship) or
-OVERLOAD (+50% special damage). Only one can be owned at a time; a free
-respec returns every star and lets you switch.
+Stars are kept per campaign level and per difficulty (up to 3 on Easy,
+Medium, and Hard, or 9 per level), plus up to 3 from LAST STAND and a
+hidden 5-star reward, for 89 maximum. An ARMORY on the title screen and
+the level map spends those stars on a three-branch tree (Offense, Control,
+and Engineering), sold by Bazooka Joe, the station's mad-scientist
+weapons inventor. Lower tiers in every branch can all be bought. Only
+one capstone can be taken; picking one locks the other two. Each turret
+has its own upgrades (faster fire, wider blasts, deeper slows, and so
+on). After HERO PROTOCOL, a fork lets you specialize the hero special
+as FREEZE (also freezes every ship) or OVERLOAD (+50% special damage).
+Those two still mutex each other. A free RESET refunds every star.
 
 Turrets can only be built on marked pads. A few gold premium pads sit on
 the best chokepoints and must be unlocked with match credits (about 60–120)

@@ -42,9 +42,9 @@ SD.neonText = (g, txt, x, y, size, rgb, opt = {}) => {
   const a = opt.alpha ?? 1;
   g.save();
   g.font = `bold ${size}px ${F()}`; g.textAlign = opt.align || 'center'; g.textBaseline = opt.baseline || 'middle';
-  g.shadowColor = `rgba(${rgb},${a})`; g.shadowBlur = (opt.blur ?? 14) * (SD.view ? SD.view.scale : 1);
+  g.shadowColor = `rgba(${rgb},${a})`; g.shadowBlur = (opt.blur ?? 7) * (SD.view ? SD.view.scale : 1);
   g.fillStyle = `rgba(${rgb},${a})`; g.fillText(txt, x, y);
-  g.shadowBlur = 0; g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,255,255,${0.28 * a})`; g.fillText(txt, x, y);
+  g.shadowBlur = 0; g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,255,255,${0.16 * a})`; g.fillText(txt, x, y);
   g.restore();
 };
 SD.roundRect = (g, x, y, w, h, r) => {

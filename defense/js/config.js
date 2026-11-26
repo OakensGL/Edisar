@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.7';
+SD.VERSION = '0.4.8';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 // Pink/magenta aura used by the Avrill support turret. Change this to recolor buffs.
@@ -659,10 +659,103 @@ SD.store = {
 };
 SD.pad = (n, len = 2) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 
+/* Campaign difficulty. Easy is the original balance. LAST STAND ignores this. */
+SD.DIFFICULTY = {
+  easy:   { id: 'easy',   name: 'EASY',   hp: 1,    speed: 1,    credits: 1,    bossHp: 1,    rgb: '255,220,120' },
+  medium: { id: 'medium', name: 'MEDIUM', hp: 1.35, speed: 1.08, credits: 0.90, bossHp: 1.35, rgb: '80,170,255' },
+  hard:   { id: 'hard',   name: 'HARD',   hp: 1.75, speed: 1.16, credits: 0.82, bossHp: 2.00, rgb: '255,70,80' },
+};
+SD.DIFFICULTY_ORDER = ['easy', 'medium', 'hard'];
+SD.diffId = function (v) {
+  const s = String(v || '').toLowerCase();
+  return SD.DIFFICULTY[s] ? s : 'easy';
+};
+SD.diffConf = function (v) { return SD.DIFFICULTY[SD.diffId(v)]; };
+
+/* Medium unlocks after a clear on Easy; Hard unlocks after a clear on Medium. */
+SD.diffUnlocked = function (p, levelIndex, id) {
+  const d = SD.diffId(id);
+  if (d === 'easy') return true;
+  const ds = (p && p.diffStars) || {};
+  const easy = (ds.easy && ds.easy[levelIndex]) | 0;
+  const medium = (ds.medium && ds.medium[levelIndex]) | 0;
+  if (d === 'medium') return easy > 0;
+  if (d === 'hard') return medium > 0;
+  return false;
+};
+SD.highestUnlockedDiff = function (p, levelIndex) {
+  if (SD.diffUnlocked(p, levelIndex, 'hard')) return 'hard';
+  if (SD.diffUnlocked(p, levelIndex, 'medium')) return 'medium';
+  return 'easy';
+};
+SD.clampDiff = function (p, levelIndex, preferred) {
+  const want = SD.diffId(preferred);
+  if (SD.diffUnlocked(p, levelIndex, want)) return want;
+  return SD.highestUnlockedDiff(p, levelIndex);
+};
+
+SD.migrateDiffStars = function (p) {
+  if (!p) return p;
+  const n = (p.stars && p.stars.length) || ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0);
+  const zeros = () => Array.from({ length: n }, () => 0);
+  const clamp = (arr) => {
+    const a = zeros();
+    for (let i = 0; i < n; i++) a[i] = Math.max(0, Math.min(3, (arr && arr[i]) | 0));
+    return a;
+  };
+  const ds = p.diffStars || {};
+  const had = !!(ds.easy || ds.medium || ds.hard);
+  // Old saves only stored p.stars; those counts become Easy stars.
+  p.diffStars = {
+    easy: clamp(had ? ds.easy : p.stars),
+    medium: clamp(ds.medium),
+    hard: clamp(ds.hard),
+  };
+  p.stars = Array.from({ length: n }, (_, i) => Math.max(
+    p.diffStars.easy[i] | 0, p.diffStars.medium[i] | 0, p.diffStars.hard[i] | 0
+  ));
+  p.difficulty = SD.diffId(p.difficulty);
+  return p;
+};
+
+/* One color per star slot: the highest difficulty that slot was earned at.
+   Higher difficulties fill from the left (e.g. 1 Medium + 3 Easy => blue, yellow, yellow). */
+SD.starSlots = function (p, levelIndex) {
+  const ds = (p && p.diffStars) || {};
+  const e = (ds.easy && ds.easy[levelIndex]) | 0;
+  const m = (ds.medium && ds.medium[levelIndex]) | 0;
+  const h = (ds.hard && ds.hard[levelIndex]) | 0;
+  const slots = [];
+  for (let k = 0; k < 3; k++) {
+    if (k < h) slots.push('hard');
+    else if (k < m) slots.push('medium');
+    else if (k < e) slots.push('easy');
+    else slots.push(null);
+  }
+  return slots;
+};
+
+SD.drawDiffStars = function (g, x, y, slots, size, opt) {
+  opt = opt || {};
+  const gap = opt.gap != null ? opt.gap : Math.round(size * 0.95);
+  const n = 3;
+  const left = x - ((n - 1) * gap) / 2;
+  for (let i = 0; i < n; i++) {
+    const id = slots && slots[i];
+    const conf = id && SD.DIFFICULTY[id];
+    const rgb = conf ? conf.rgb : (opt.emptyRgb || '160,160,180');
+    SD.neonText(g, conf ? '★' : '☆', left + i * gap, y, size, rgb, {
+      blur: opt.blur != null ? opt.blur : 6,
+      alpha: conf ? 1 : (opt.emptyAlpha != null ? opt.emptyAlpha : 0.7),
+    });
+  }
+};
+
 SD.Progress = {
   empty() {
     const n = (SD.CONFIG.levels && SD.CONFIG.levels.length) || 6;
-    return { unlocked: 1, stars: Array.from({ length: n }, () => 0), bought: [], siegeBest: 0, siegeBestWave: 0, siegeStars: 0, avrillStars: 0, avrillKilled: 0, avrillMedal: 0, avrillTurret: 0, nebulaSkin: 0, nebulaSkinOn: 0 };
+    const z = () => Array.from({ length: n }, () => 0);
+    return { unlocked: 1, stars: z(), diffStars: { easy: z(), medium: z(), hard: z() }, difficulty: 'easy', bought: [], siegeBest: 0, siegeBestWave: 0, siegeStars: 0, avrillStars: 0, avrillKilled: 0, avrillMedal: 0, avrillTurret: 0, nebulaSkin: 0, nebulaSkinOn: 0 };
   },
   load() {
     const base = SD.Progress.empty();
@@ -671,6 +764,8 @@ SD.Progress = {
       if (v && typeof v === 'object') {
         base.unlocked = Math.max(1, v.unlocked | 0);
         base.stars = base.stars.map((_, i) => (v.stars && v.stars[i]) || 0);
+        base.diffStars = v.diffStars && typeof v.diffStars === 'object' ? v.diffStars : null;
+        base.difficulty = v.difficulty;
         base.bought = SD.StarShop.migrate(Array.isArray(v.bought) ? v.bought : []);
         base.siegeBest = Math.max(0, v.siegeBest | 0);
         base.siegeBestWave = Math.max(0, v.siegeBestWave | 0);
@@ -683,13 +778,26 @@ SD.Progress = {
         base.nebulaSkinOn = v.nebulaSkinOn ? 1 : 0;
       }
     } catch (e) {}
-    return base;
+    return SD.migrateDiffStars(base);
   },
   save(p) { SD.store.set(SD.CONFIG.storage.progress, JSON.stringify(p)); },
-  record(levelIndex, stars) {
+  record(levelIndex, stars, diff) {
     const p = SD.Progress.load();
-    p.stars[levelIndex] = Math.max(p.stars[levelIndex] || 0, stars);
+    const d = SD.diffId(diff || p.difficulty);
+    if (!p.diffStars[d]) p.diffStars[d] = Array.from({ length: p.stars.length }, () => 0);
+    p.diffStars[d][levelIndex] = Math.max(p.diffStars[d][levelIndex] || 0, stars | 0);
+    p.stars[levelIndex] = Math.max(
+      p.diffStars.easy[levelIndex] | 0,
+      p.diffStars.medium[levelIndex] | 0,
+      p.diffStars.hard[levelIndex] | 0
+    );
     p.unlocked = Math.max(p.unlocked, levelIndex + 2);
+    SD.Progress.save(p);
+    return p;
+  },
+  setDifficulty(id) {
+    const p = SD.Progress.load();
+    p.difficulty = SD.diffId(id);
     SD.Progress.save(p);
     return p;
   },
@@ -740,12 +848,22 @@ SD.StarShop = {
   items: [],
   item(id) { return this.items.find(it => it.id === id) || null; },
   owns(p, id) { return !!(p && p.bought && p.bought.indexOf(id) >= 0); },
-  // Campaign stars plus LAST STAND milestones at waves 10/20/30 (capped at 3).
-  // Existing saves already store siegeStars, so they are credited on load
-  // without rewriting campaign p.stars (which would double-count).
-  max() { return ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0) * 3 + 3 + 5; },
+  // Each campaign difficulty awards its own stars (up to 3 per level per
+  // difficulty). LAST STAND milestones (max 3) and the Dark Avrill reward
+  // (5) still add on top. Old saves that only stored a best-of-three count
+  // keep that total as Easy stars, so existing unlocks stay valid.
+  max() { return ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0) * 9 + 3 + 5; },
   earned(p) {
-    const campaign = (p.stars || []).reduce((a, s) => a + (s | 0), 0);
+    const n = ((SD.CONFIG.levels && SD.CONFIG.levels.length) || (p && p.stars && p.stars.length) || 0);
+    let campaign = 0;
+    if (p && p.diffStars) {
+      for (const key of SD.DIFFICULTY_ORDER) {
+        const arr = p.diffStars[key] || [];
+        for (let i = 0; i < n; i++) campaign += (arr[i] | 0);
+      }
+    } else {
+      campaign = (p.stars || []).reduce((a, s) => a + (s | 0), 0);
+    }
     const siege = Math.max(0, Math.min(3, (p && p.siegeStars) | 0));
     const avrill = (p && p.avrillStars) ? 5 : 0;
     return campaign + siege + avrill;
@@ -759,9 +877,27 @@ SD.StarShop = {
     if (missing.length) {
       return 'NEED ' + missing.map(r => (this.item(r) && this.item(r).name) || r).join(' + ');
     }
-    const taken = (it.mutex || []).filter(r => this.owns(p, r));
-    if (taken.length) return 'RESPEC TO SWITCH';
+    const taken = (it.mutex || []).filter(r => this.ownsCap(p, r));
+    if (taken.length) return 'RESET TO SWITCH';
     return '';
+  },
+  capOf(id) {
+    const groups = this.capGroups || {};
+    if (groups[id]) return id;
+    for (const cap of Object.keys(groups)) {
+      if (groups[cap].indexOf(id) >= 0) return cap;
+    }
+    return '';
+  },
+  ownsCap(p, capId) {
+    if (this.owns(p, capId)) return true;
+    const group = (this.capGroups && this.capGroups[capId]) || [];
+    return group.some(id => this.owns(p, id));
+  },
+  perkAliased(p, id) {
+    if (this.owns(p, id)) return true;
+    const cap = this.capOf(id);
+    return !!(cap && this.owns(p, cap));
   },
   canBuy(p, id) {
     const it = this.item(id);
@@ -855,14 +991,66 @@ SD.StarShop = {
   items.push({ id: 'charge', col: 'station', name: 'RAPID CHARGE',     cost: 3, blurb: 'ORBITAL, DRONES and EMP cooldown −18%.' });
   items.push({ id: 'hero',   col: 'station', name: 'HERO PROTOCOL',    cost: 3, blurb: 'Hero +25 HP, +15% damage, special −3s, respawn −2s. Unlocks a specialization.' });
   items.push({
-    id: 'hero-freeze', col: 'station', name: 'FREEZE', cost: 3,
+    id: 'hero-freeze', col: 'control', name: 'FREEZE', cost: 3,
     req: ['hero'], mutex: ['hero-overload'],
     blurb: 'FREEZE  —  The hero special also freezes every ship for 2.5s. Bosses freeze for 0.5s.',
   });
   items.push({
-    id: 'hero-overload', col: 'station', name: 'OVERLOAD', cost: 3,
+    id: 'hero-overload', col: 'offense', name: 'OVERLOAD', cost: 3,
     req: ['hero'], mutex: ['hero-freeze'],
-    blurb: 'OVERLOAD  —  Hero special damage +50%. Pick Freeze or Overload; respec to switch.',
+    blurb: 'OVERLOAD  —  Hero special damage +50%. Pick Freeze or Overload; reset to switch.',
+  });
+  // Retag existing items into the three ARMORY branches. IDs stay the same
+  // so saved unlocks keep working.
+  const branchOf = {
+    'laser-power': 'offense', 'laser-reach': 'offense', 'laser-economy': 'offense',
+    'missile-power': 'offense', 'missile-reach': 'offense', 'missile-economy': 'offense',
+    'railgun-power': 'offense', 'railgun-reach': 'offense', 'railgun-economy': 'offense',
+    'pulse-power': 'offense', 'pulse-reach': 'offense', 'nebula-core': 'offense',
+    'ice-power': 'control', 'ice-reach': 'control', 'ice-economy': 'control',
+    'tesla-power': 'control', 'tesla-reach': 'control', 'tesla-economy': 'control',
+    'hero-freeze': 'control',
+    'funds': 'engineering', 'hull': 'engineering', 'charge': 'engineering',
+    'pulse-economy': 'engineering', 'hero': 'engineering',
+  };
+  items.forEach(it => { if (branchOf[it.id]) it.col = branchOf[it.id]; });
+  items.push({
+    id: 'control-slow', col: 'control', name: 'DRAG FIELD', cost: 3,
+    icon: 'whiteout',
+    blurb: 'CONTROL  DRAG FIELD  —  Non-boss ships move 6% slower.',
+  });
+  items.push({
+    id: 'eng-discount', col: 'engineering', name: 'BULK ALLOYS', cost: 3,
+    icon: 'stockpile',
+    blurb: 'ENGINEERING  BULK ALLOYS  —  All turret build costs −10%.',
+  });
+  items.push({
+    id: 'avrill-boost', col: 'engineering', name: 'AVRILL LINK', cost: 4,
+    icon: 'core',
+    blurb: 'ENGINEERING  AVRILL LINK  —  The Avrill turret buff is stronger (+8% damage and fire rate).',
+  });
+  items.push({
+    id: 'offense-cap', col: 'offense', name: 'FOCUS BARRAGE', cost: 8, capstone: 1,
+    req: ['laser-reach', 'missile-power'],
+    mutex: ['control-cap', 'engineering-cap'],
+    blurb: 'OFFENSE CAPSTONE  —  Laser damage ramps on the same target, up to +40%. Every 4th missile volley fires a second rocket. Only one capstone can be taken.',
+  });
+  items.push({
+    id: 'control-cap', col: 'control', name: 'SHATTER ARC', cost: 8, capstone: 1,
+    req: ['ice-power', 'tesla-reach'],
+    mutex: ['offense-cap', 'engineering-cap'],
+    blurb: 'CONTROL CAPSTONE  —  Slowed ships take +20% damage. Tesla gains +1 chain jump and the primary hit shreds some shield. Only one capstone can be taken.',
+  });
+  items.push({
+    id: 'engineering-cap', col: 'engineering', name: 'AVRILL PROTOCOL', cost: 8, capstone: 1,
+    req: ['hull', 'avrill-boost'],
+    mutex: ['offense-cap', 'control-cap'],
+    blurb: 'ENGINEERING CAPSTONE  —  Avrill buffs are at their strongest, and pulse toxin gains an extra stack, +1s, and a light spread. Only one capstone can be taken.',
   });
   SD.StarShop.items = items;
+  SD.StarShop.capGroups = {
+    'offense-cap': ['laser-mk4', 'missile-mk4', 'railgun-mk4'],
+    'control-cap': ['ice-mk4', 'tesla-mk4'],
+    'engineering-cap': ['pulse-mk4'],
+  };
 })();

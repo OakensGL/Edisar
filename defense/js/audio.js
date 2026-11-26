@@ -196,7 +196,7 @@ SD.Audio = (() => {
     upgrade() { if (!ok()) return; [660, 880, 1175].forEach((f, i) => setTimeout(() => ok() && tone('triangle', f, f * 1.05, 0.1, 0.1), i * 60)); },
     sell() { if (!ok()) return; tone('triangle', 700, 280, 0.16, 0.09); },
     deny() { if (!ok()) return; tone('square', 180, 90, 0.16, 0.1); },
-    click() { if (!ok()) return; tone('triangle', 880, 1100, 0.05, 0.08); },
+    click() { if (!ok()) return; tone('sine', 1180, 1560, 0.04, 0.04); tone('triangle', 820, 980, 0.03, 0.025); },
     wave() { if (!ok()) return; tone('sawtooth', 220, 660, 0.35, 0.08); [523, 659, 784].forEach((f, i) => setTimeout(() => ok() && tone('square', f, f, 0.1, 0.05), 120 + i * 80)); },
     leak() { if (!ok()) return; tone('sawtooth', 360, 80, 0.4, 0.16); noise(0.35, 900, 80, 0.25); },
     boss() { if (!ok()) return; noise(1.1, 400, 50, 0.45, 0.5); tone('sine', 70, 32, 1.0, 0.35); },

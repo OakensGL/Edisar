@@ -69,10 +69,10 @@
     }
   }
 
-  SD.start = (s, opt = {}) => {
+  const _bootStart = (s, opt = {}) => {
     if (s === 'play' || s === 'level') {
       SD.state = 'play';
-      SD.game = new SD.Defense({ levelIndex: opt.index || 0, hero: opt.hero, auto: opt.auto, bought: opt.bought });
+      SD.game = new SD.Defense({ levelIndex: opt.index || 0, hero: opt.hero, auto: opt.auto, bought: opt.bought, difficulty: opt.difficulty });
       if (credit) credit.style.display = 'none';
       if (SD.Audio.stopMusic) SD.Audio.stopMusic();
     } else if (s === 'siege') {
@@ -103,16 +103,24 @@
     }
     SD.Input.takeDowns(); SD.Input.takeClicks();
   };
+  SD.Transition._start = _bootStart;
+  SD.start = (s, opt = {}) => {
+    const shotMode = !!(opt.shot || (typeof location !== 'undefined' && /(?:^|[?&])shot=/.test(location.search)));
+    if (shotMode || !SD.game || !SD.Transition) { _bootStart(s, opt); return; }
+    SD.Transition.go(s, opt);
+  };
   document.addEventListener('visibilitychange', () => { if (document.hidden && SD.game && SD.game.pause) SD.game.pause(true); });
 
   let last = 0;
   function loop(now) {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60; last = now;
+    if (SD.Transition) SD.Transition.tick(dt);
     SD.game.update(dt);
     const scr = SD.game;
     g.setTransform(SD.view.scale, 0, 0, SD.view.scale, 0, 0);
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     scr.draw(g);
+    if (SD.Transition) SD.Transition.draw(g);
     SD.Input.endFrame();
     SD.Audio.tick();
     requestAnimationFrame(loop);

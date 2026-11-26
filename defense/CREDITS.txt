@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.7
+STARLIGHT: LAST STATION v0.4.8
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -297,3 +297,21 @@ medal, a dark Nebula turret skin, and the Avrill support turret.
 Cutscene music is "Epic Boss Battle" by Juhani Junkala / SubspaceAudio
 (CC0). The encounter theme is "Deck Fight Theme" by GTDStudio aka
 Palrom (OGA-BY 3.0).
+
+v0.4.8
+------
+Story levels have EASY, MEDIUM, and HARD modes, picked on the galaxy
+map. Medium for a level unlocks after an Easy clear; Hard unlocks after
+a Medium clear. Stars are kept per difficulty. Each star slot uses the
+color of the highest difficulty it was earned at: yellow Easy, blue
+Medium, red Hard. The ARMORY counts stars from every difficulty (up to
+3 per level per difficulty), plus LAST STAND and a hidden reward, for
+89 maximum. The ARMORY is a three-branch tree (Offense, Control,
+Engineering). Lower tiers in every branch can all be bought. Only one
+capstone can be taken. A free RESET refunds every star. LAST STAND is
+unchanged and does not use these modes.
+The UI is a metallic sci-fi redesign: animated title art, a galaxy
+level map, lit ARMORY connectors, metal HUD panels, and turret icons
+on the build bar. Screen fades and a soft UI click are synthesized
+in-game (WebAudio).
+
