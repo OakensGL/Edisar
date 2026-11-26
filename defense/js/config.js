@@ -1,6 +1,6 @@
 /* Starlight: Last Station — global namespace + tunables. */
 window.SD = window.SD || {};
-SD.VERSION = '0.4.5';
+SD.VERSION = '0.4.6';
 SD.W = 1024; SD.H = 576;
 SD.TILE = 32;
 
@@ -661,7 +661,15 @@ SD.StarShop = {
   items: [],
   item(id) { return this.items.find(it => it.id === id) || null; },
   owns(p, id) { return !!(p && p.bought && p.bought.indexOf(id) >= 0); },
-  earned(p) { return (p.stars || []).reduce((a, s) => a + (s | 0), 0); },
+  // Campaign stars plus LAST STAND milestones at waves 10/20/30 (capped at 3).
+  // Existing saves already store siegeStars, so they are credited on load
+  // without rewriting campaign p.stars (which would double-count).
+  max() { return ((SD.CONFIG.levels && SD.CONFIG.levels.length) || 0) * 3 + 3; },
+  earned(p) {
+    const campaign = (p.stars || []).reduce((a, s) => a + (s | 0), 0);
+    const siege = Math.max(0, Math.min(3, (p && p.siegeStars) | 0));
+    return campaign + siege;
+  },
   spent(p) { return (p.bought || []).reduce((a, id) => { const it = this.item(id); return a + (it ? it.cost : 0); }, 0); },
   available(p) { return this.earned(p) - this.spent(p); },
   locked(p, it) { return !!this.lockReason(p, it); },

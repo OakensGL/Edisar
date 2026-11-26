@@ -1,4 +1,4 @@
-# Starlight: Last Station v0.4.5
+# Starlight: Last Station v0.4.6
 
 A tower defense set in the Project Starlight universe.
 Hold the last station against Commander Edisar Starlight's fleet.
@@ -26,7 +26,9 @@ sky open every ten waves until all four lanes are live, then the sky
 keeps cycling. Waves never stop and grow harder, mixing every ship type,
 with an Edisar flagship every ten waves. Score points for kills, waves
 cleared, hull held, and early-sends; your best score is saved. Milestone
-stars on this mode are cosmetic only and do not add to the ARMORY.
+stars at waves 10, 20, and 30 count toward the ARMORY (30 maximum with
+the nine campaign levels). Existing saves already credit those stars
+on load.
 
 Story on the title screen plays a skippable crawl, "The Return of Edisar
 Starlight," then returns to the level select. The crawl is timed to the
@@ -39,8 +41,9 @@ early-send bonus scales with the time you save. The auto timer still runs
 when the field is clear. The score screen (kills, credits, hull, early-send
 bonuses, time, and 1–3 stars) appears only after you finish a level.
 
-Stars are kept as the best result on each level (27 maximum across nine
-levels). An ARMORY on the title screen and the level-select screen spends those stars on
+Stars are kept as the best result on each campaign level (27 maximum
+across nine levels) plus up to 3 from LAST STAND, for 30 maximum. An
+ARMORY on the title screen and the level-select screen spends those stars on
 permanent turret and station upgrades, sold by Bazooka Joe, the station's
 mad-scientist weapons inventor. Each turret has its own upgrades
 (faster fire, wider blasts, deeper slows, and so on) instead of a
@@ -123,7 +126,8 @@ Every enemy that dies grants credits.
 Title music is "Space Dimensions (8bit/Retro Version)" by Matthew Pablo,
 licensed under CC-BY 3.0. In-game music is from Oblidivm's Space Shooter
 Music pack, also CC-BY 3.0: "Music by Oblidivm - oblidivmmusic.blogspot.com".
-Last Stand music is "The Evil Sacrifice Archenemies" by ISAo (SOUND
-AIRYLUVS, https://airyluvs.com/), licensed under OGA-BY 3.0, from
-https://opengameart.org/content/boss-battle-emotional-uplifting-metal-rock.
-See CREDITS.txt and the in-game Credits panel for full attribution.
+Last Stand music rotates four tracks with the sky every ten waves:
+"The Evil Sacrifice Archenemies" by ISAo (SOUND AIRYLUVS, OGA-BY 3.0),
+"Megasong" by Emma_MA (CC0), "Phase Zero" by Snabisch (CC-BY 3.0), and
+"Boss Fight 2" by Ansimuz (CC0). See CREDITS.txt and the in-game Credits
+panel for sources and full attribution.

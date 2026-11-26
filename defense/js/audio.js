@@ -14,6 +14,9 @@ SD.Audio = (() => {
     build:  { src: 'assets/brave-pilots.ogg',            loop: true,  vol: 0.32 },
     boss:   { src: 'assets/deathmatch.ogg',              loop: true,  vol: 0.30 },
     siege:  { src: 'assets/evil-sacrifice-archenemies.ogg', loop: true, vol: 0.28 },
+    siege2: { src: 'assets/megasong.ogg',                   loop: true, vol: 0.28 },
+    siege3: { src: 'assets/phase-zero.ogg',                 loop: true, vol: 0.28 },
+    siege4: { src: 'assets/boss-fight-2.ogg',               loop: true, vol: 0.28 },
     score:  { src: 'assets/space-heroes.ogg',            loop: true,  vol: 0.42 },
     win:    { src: 'assets/victory-tune.ogg',            loop: false, vol: 0.50 },
     lose:   { src: 'assets/defeated.ogg',                loop: false, vol: 0.50 },
@@ -109,14 +112,21 @@ SD.Audio = (() => {
   function playTitle() { playMusic('title'); }
   function stopTitle() { if (want === 'title' || !want) stopMusic(); }
   function playCrawl() { playMusic('crawl', { restart: true }); }
-  function playSiege() { playMusic('siege', { dur: 1.0 }); }
+  const SIEGE_TRACKS = ['siege', 'siege2', 'siege3', 'siege4'];
+  function siegeTrackId() {
+    const g = SD.game;
+    const phase = (g && (g.siegePhase | 0)) || 0;
+    return SIEGE_TRACKS[((phase % 4) + 4) % 4];
+  }
+  function playSiege() { playMusic(siegeTrackId(), { dur: 1.0 }); }
   function playWave(index) {
-    if (SD.game && SD.game.endless) { playMusic('siege', { dur: 0.8 }); return; }
+    // LAST STAND stays on the rotating siege playlist, including flagship waves.
+    if (SD.game && SD.game.endless) { playMusic(siegeTrackId(), { dur: 0.8 }); return; }
     if (index >= 9) playMusic('boss', { dur: 1.0 });
     else playMusic(index % 2 === 0 ? 'fear' : 'battle', { dur: 1.0 });
   }
   function playBuild() {
-    if (SD.game && SD.game.endless) { playMusic('siege', { dur: 0.8 }); return; }
+    if (SD.game && SD.game.endless) { playMusic(siegeTrackId(), { dur: 0.8 }); return; }
     playMusic('build', { dur: 1.0 });
   }
   function playScore() { playMusic('score'); }
@@ -219,7 +229,7 @@ SD.Audio = (() => {
 
   return {
     unlock, toggleMute, setMuted,
-    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playSiege, playWave, playBuild, playScore, playWin, playLose,
+    playMusic, stopMusic, playTitle, stopTitle, playCrawl, playSiege, siegeTrackId, playWave, playBuild, playScore, playWin, playLose,
     trackDuration: (id) => (TRACKS[id] && TRACKS[id].duration) || 0,
     get muted() { return muted; },
     get started() { return started; },

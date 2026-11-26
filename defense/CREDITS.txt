@@ -1,4 +1,4 @@
-STARLIGHT: LAST STATION v0.4.5
+STARLIGHT: LAST STATION v0.4.6
 =============================
 
 A tower defense set in the Project Starlight universe.
@@ -52,14 +52,37 @@ Game music: Space Shooter Music pack by Oblidivm
   Tracks crossfade and respect the mute toggle. Wave music is mixed lower
   so turret sound effects stay audible.
 
-Last Stand music: "The Evil Sacrifice Archenemies" by ISAo
+Last Stand music rotates four looping tracks with the backdrop every
+ten waves, and crossfades when the track changes. Flagship waves stay
+on the current Last Stand track (they do not switch to the campaign
+boss theme). Files were re-encoded from the official downloads to a
+smaller Ogg Vorbis bitrate for phones; the audio is otherwise unmodified.
+
+  "The Evil Sacrifice Archenemies" by ISAo
   Also listed as "Boss Battle - Emotional Uplifting Metal Rock".
   Official credit: ISAo / SOUND AIRYLUVS — https://airyluvs.com/
   Source:  https://opengameart.org/content/boss-battle-emotional-uplifting-metal-rock
   License: OGA-BY 3.0  (https://opengameart.org/content/oga-by-30)
   File:    assets/evil-sacrifice-archenemies.ogg
-  Re-encoded from the official MP3 (used unmodified aside from a smaller
-  Ogg Vorbis encode for phones). Loops for the whole Last Stand mode.
+  Waves 1–10, then 41–50, and so on.
+
+  "Megasong" by Emma_MA
+  Source:  https://opengameart.org/content/megasong
+  License: CC0  (public domain as of January 2017)
+  File:    assets/megasong.ogg
+  Waves 11–20, then 51–60, and so on.
+
+  "Phase Zero" by Snabisch
+  Source:  https://opengameart.org/content/phase-zero
+  License: CC-BY 3.0
+  File:    assets/phase-zero.ogg
+  Waves 21–30, then 61–70, and so on.
+
+  "Boss Fight 2" by Ansimuz
+  Source:  https://opengameart.org/content/boss-fight-2
+  License: CC0  (attribution optional; credited here)
+  File:    assets/boss-fight-2.ogg
+  Waves 31–40, then 71–80, and so on.
 
 In-game attribution: title screen credit line and the Credits panel.
 All other sound effects are synthesized at runtime with the Web Audio API.
@@ -239,3 +262,17 @@ When you place the unique Nebula turret, Bazooka Joe delivers one
 random line in the compact side toast (once per map, not held to
 the usual upgrade rate limit, but still waiting if Edisar or
 Dr. Nebula is talking).
+
+v0.4.6
+------
+Dialogue toasts (Edisar, Dr. Nebula, Bazooka Joe, and tips) sit just
+above the build bar instead of the upper field. They are smaller
+(narrower on desktop, a thin strip on a phone), more transparent,
+and still let clicks pass through. If a path or pad sits in the
+bottom-left corner, the toast slides to the least-occupied lower
+spot on that map.
+LAST STAND milestone stars at waves 10, 20, and 30 now count toward
+ARMORY stars (30 maximum with the campaign). Existing saves that
+already recorded those stars are credited when the game loads.
+Last Stand now rotates four music tracks with the backdrop every
+ten waves and crossfades when the sky changes.

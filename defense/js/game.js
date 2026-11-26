@@ -512,7 +512,7 @@ SD.Title = class {
     SD.neonText(g, 'HOW TO PLAY', W / 2, 68, 24, '200,230,255', { blur: 12 });
     const raw = [
       'Nine campaign levels, ten waves each. Credits and turrets reset every level. Later maps use two or three entrance gates.',
-      'LAST STAND (unlock after Level 3) is an endless siege. Waves never stop and grow harder. A new gate and a new sky open every ten waves, and Edisar flagships fly straight at the station. Score points for kills, waves cleared, and hull held; your best score is saved.',
+      'LAST STAND (unlock after Level 3) is an endless siege. Waves never stop and grow harder. A new gate and a new sky open every ten waves, and Edisar flagships fly straight at the station. Score points for kills, waves cleared, and hull held; your best score is saved. Stars at waves 10, 20, and 30 count toward the ARMORY (30 maximum with the campaign).',
       'Build only on marked pads. Gold pads are premium chokepoints — pay credits to unlock them.',
       'ARMORY on the title or level select (or A in a match) spends stars on upgrades unique to each turret, plus station upgrades. Respec is free.',
       'LASER · MISSILES · ICE · RAILGUN · TESLA · PULSE (strips shields and poisons hulls; MK III toxin spreads).',
@@ -568,9 +568,11 @@ SD.Title = class {
       ['SkyFire  ·  Brave Pilots  ·  Without Fear  ·  Battle in the Stars', '200,210,230', 12],
       ['Space Heroes  ·  DeathMatch  ·  Victory Tune  ·  Defeated', '200,210,230', 12],
       ['', '', 6],
-      ['Last Stand music', '180,210,255', 12],
-      ['"The Evil Sacrifice Archenemies" by ISAo', '230,235,245', 14],
-      ['SOUND AIRYLUVS  —  OGA-BY 3.0  —  airyluvs.com', '200,210,230', 13],
+      ['Last Stand music  ·  four tracks, one every ten waves', '180,210,255', 12],
+      ['"The Evil Sacrifice Archenemies" by ISAo / SOUND AIRYLUVS  —  OGA-BY 3.0', '230,235,245', 13],
+      ['"Megasong" by Emma_MA  —  CC0', '200,210,230', 13],
+      ['"Phase Zero" by Snabisch  —  CC-BY 3.0', '200,210,230', 13],
+      ['"Boss Fight 2" by Ansimuz  —  CC0', '200,210,230', 13],
       ['', '', 6],
       ['Sound effects are synthesized in-game.', '180,200,220', 12],
     ];
@@ -817,7 +819,7 @@ SD.LevelSelect = class {
     SD.neonText(g, 'SELECT LEVEL', W / 2, 76, 18, '255,220,140', { blur: 10 });
     const earned = SD.StarShop.earned(this.progress);
     const left = SD.StarShop.available(this.progress);
-    SD.neonText(g, '★  ' + left + ' / ' + earned, 340, 32, 14, '255,220,120', { blur: 6 });
+    SD.neonText(g, '★  ' + left + ' / ' + earned + '  ·  ' + SD.StarShop.max(), 340, 32, 14, '255,220,120', { blur: 6 });
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
     SD.drawButton(g, this.armoryBtn, mouse.over && SD.inBtn(this.armoryBtn, mouse), this.T);
@@ -1747,7 +1749,8 @@ SD.Armory = class {
     wg.addColorStop(0, 'rgba(220,210,160,0.7)'); wg.addColorStop(1, 'rgba(120,100,50,0.55)');
     g.strokeStyle = wg; g.lineWidth = 1.3; g.stroke();
     g.restore();
-    SD.neonText(g, '★  ' + left + ' AVAILABLE    ·    ' + earned + ' EARNED', wx, wy, 13, '255,220,120', { blur: 6 });
+    const maxStars = SD.StarShop.max();
+    SD.neonText(g, '★  ' + left + ' AVAILABLE    ·    ' + earned + ' / ' + maxStars + ' EARNED', wx, wy, 13, '255,220,120', { blur: 6 });
     const mouse = SD.Input.mouse;
     SD.drawButton(g, this.back, mouse.over && SD.inBtn(this.back, mouse), this.T);
     const canRespec = (this.progress.bought || []).length > 0;
@@ -4561,15 +4564,53 @@ SD.Defense = class {
   talkToastBox() {
     const touch = SD.Input.touchMode;
     return {
-      x: 10,
-      y: 90,
-      w: touch ? Math.min(W - 20, 740) : 460,
-      por: touch ? 36 : 44,
+      w: touch ? Math.min(W - 16, 640) : 400,
+      por: touch ? 32 : 40,
       titleSz: touch ? 10 : 11,
       bodySz: touch ? 11 : 12,
       lineH: touch ? 13 : 14,
-      radius: 8,
+      radius: 7,
+      maxLines: touch ? 2 : 3,
+      pad: 6,
     };
+  }
+
+  talkToastOccupancy(x, y, w, h) {
+    let score = 0;
+    const t0x = Math.floor(x / TILE), t0y = Math.floor(y / TILE);
+    const t1x = Math.floor((x + w - 1) / TILE), t1y = Math.floor((y + h - 1) / TILE);
+    for (let tx = t0x; tx <= t1x; tx++) {
+      for (let ty = t0y; ty <= t1y; ty++) {
+        if (this.onPath && this.onPath(tx, ty)) score += 8;
+        if (this.padAt && this.padAt(tx, ty)) score += 5;
+      }
+    }
+    (this.turrets || []).forEach(t => {
+      if (t.x >= x && t.x <= x + w && t.y >= y && t.y <= y + h) score += 3;
+    });
+    return score;
+  }
+
+  placeTalkToast(w, h) {
+    const barTop = H - ((C() && C().hud && C().hud.bottom) || 92);
+    const y = Math.max(8, barTop - 6 - h);
+    const left = 8;
+    const right = Math.max(8, W - 8 - w);
+    const mid = Math.round((W - w) / 2);
+    const inset = 36;
+    const cands = [
+      { x: left, y },
+      { x: Math.min(left + inset, right), y },
+      { x: Math.max(left, right - inset), y },
+      { x: right, y },
+      { x: mid, y },
+    ];
+    let best = cands[0], bestScore = Infinity;
+    cands.forEach(c => {
+      const s = this.talkToastOccupancy(c.x, c.y, w, h);
+      if (s < bestScore) { bestScore = s; best = c; }
+    });
+    return { x: best.x, y: best.y };
   }
 
   drawTalkToast(g, opt) {
@@ -4577,24 +4618,30 @@ SD.Defense = class {
     if (a <= 0.03) return;
     const box = this.talkToastBox();
     const por = opt.portrait ? box.por : 0;
-    const pad = 8, gap = opt.portrait ? 8 : 0;
-    const textX = box.x + pad + por + gap;
+    const pad = box.pad, gap = opt.portrait ? 8 : 0;
     const textW = box.w - pad * 2 - por - gap;
     g.save();
     g.font = 'bold ' + box.bodySz + 'px ' + (SD.CONFIG.font || 'sans-serif');
     const body = [];
     (opt.lines || []).forEach(ln => this.wrapLine(g, ln, textW).forEach(w => body.push(w)));
+    const lines = body.slice(0, box.maxLines);
+    if (body.length > box.maxLines && lines.length) {
+      let last = lines[lines.length - 1];
+      while (last.length && g.measureText(last + '…').width > textW) last = last.slice(0, -1);
+      lines[lines.length - 1] = last.replace(/\s+$/, '') + '…';
+    }
     g.restore();
-    const lines = body.slice(0, 5);
-    const h = Math.max(por ? por + 12 : 0, pad + box.titleSz + 4 + (opt.sub ? 12 : 0) + lines.length * box.lineH + pad);
-    const y = box.y;
-    const x = box.x;
+    const heading = opt.sub ? (opt.title + '  ·  ' + String(opt.sub).toUpperCase()) : opt.title;
+    const h = Math.max(por ? por + 10 : 0, pad + box.titleSz + 3 + lines.length * box.lineH + pad);
+    const pos = this.placeTalkToast(box.w, h);
+    const x = pos.x, y = pos.y;
+    const textX = x + pad + por + gap;
     const rgb = opt.rgb || '200,220,255';
     g.save();
-    g.globalAlpha = 0.88 * a;
+    g.globalAlpha = 0.78 * a;
     SD.roundRect(g, x, y, box.w, h, box.radius);
-    g.fillStyle = 'rgba(8,10,20,0.72)'; g.fill();
-    g.strokeStyle = `rgba(${rgb},0.7)`; g.lineWidth = 1.3; g.stroke();
+    g.fillStyle = 'rgba(8,10,20,0.46)'; g.fill();
+    g.strokeStyle = `rgba(${rgb},0.55)`; g.lineWidth = 1.1; g.stroke();
     g.restore();
 
     if (opt.portrait) {
@@ -4602,8 +4649,8 @@ SD.Defense = class {
       const im = SD.Portraits && SD.Portraits[opt.portrait];
       g.save();
       g.globalAlpha = a;
-      SD.roundRect(g, px, py, por, por, 7);
-      g.fillStyle = 'rgba(8,4,20,0.9)'; g.fill();
+      SD.roundRect(g, px, py, por, por, 6);
+      g.fillStyle = 'rgba(8,4,20,0.85)'; g.fill();
       g.clip();
       if (im && im.complete && im.naturalWidth) {
         g.drawImage(im, px, py, por, por);
@@ -4613,22 +4660,18 @@ SD.Defense = class {
       g.restore();
       g.save();
       g.globalAlpha = a;
-      SD.roundRect(g, px, py, por, por, 7);
-      g.strokeStyle = `rgba(${rgb},0.95)`; g.lineWidth = 1.6;
-      g.shadowColor = `rgba(${rgb},0.7)`; g.shadowBlur = 8 * (SD.view && SD.view.scale || 1);
+      SD.roundRect(g, px, py, por, por, 6);
+      g.strokeStyle = `rgba(${rgb},0.9)`; g.lineWidth = 1.4;
+      g.shadowColor = `rgba(${rgb},0.55)`; g.shadowBlur = 6 * (SD.view && SD.view.scale || 1);
       g.stroke();
       g.restore();
     }
 
     let ty = y + pad + box.titleSz;
-    SD.neonText(g, opt.title, textX, ty, box.titleSz, rgb, { blur: 6, alpha: a, align: 'left' });
-    if (opt.sub) {
-      ty += 13;
-      SD.neonText(g, String(opt.sub).toUpperCase(), textX, ty, 10, '200,210,230', { blur: 4, alpha: a * 0.9, align: 'left' });
-    }
-    ty += 6 + box.lineH;
+    SD.neonText(g, heading, textX, ty, box.titleSz, rgb, { blur: 5, alpha: a, align: 'left' });
+    ty += 3 + box.lineH;
     lines.forEach((ln, i) => {
-      SD.neonText(g, ln, textX, ty + i * box.lineH, box.bodySz, '230,235,245', { blur: 5, alpha: a, align: 'left' });
+      SD.neonText(g, ln, textX, ty + i * box.lineH, box.bodySz, '230,235,245', { blur: 4, alpha: a, align: 'left' });
     });
   }
 
